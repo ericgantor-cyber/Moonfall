@@ -211,6 +211,14 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn('TEXT("RING T%d")', hud)
         self.assertIn("FMath::IsFinite(MX)&&FMath::IsFinite(MY)", hud)
 
+    def test_expanded_ring_equip_entry_points_share_transaction_guard(self):
+        explicit = self.source.split("bool AMoonfallHeroPawn::EquipInventoryRing(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(explicit.index("if(!CanEditEquippedRings())return false;"), explicit.index("EquipInventoryItemWithPreviousTier("))
+        self.assertIn("Target<0||Target>=MoonfallEquipmentLayout::ActiveSlotCount", explicit)
+        equip = self.source.split("bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(equip.index("if(!bEquipmentCraftInProgress&&!CanEditEquippedRings())return false;"), equip.index("ExtraEquippedCodes[Target-"))
+        self.assertIn("if(bEquipmentCraftInProgress){", equip)
+
     def test_native_ring_move_and_remove_are_guarded_and_bag_read_only(self):
         guard = self.source.split("bool AMoonfallHeroPawn::CanEditEquippedRings()", 1)[1].split(
             "bool AMoonfallHeroPawn::MoveEquippedRing(", 1)[0]
