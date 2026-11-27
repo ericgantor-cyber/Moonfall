@@ -156,8 +156,8 @@ constexpr ERegionalRoutine RegionalRoutine(ERole Role,int Danger,bool Eligible){
  }
 }
 constexpr float RegionalRoutineStepLimit(ERegionalRoutine Routine){
- return Routine==ERegionalRoutine::GuardWatch?0.f:
-        Routine==ERegionalRoutine::CautiousWork?16.f:32.f;
+ // Guards must be able to reach their assigned watch point before holding it.
+ return Routine==ERegionalRoutine::CautiousWork?16.f:32.f;
 }
 constexpr bool RegionalRoutineAllowsGuide(ERegionalRoutine Routine){
  return Routine==ERegionalRoutine::Normal;
@@ -167,7 +167,10 @@ static_assert(RegionalRoutine(ERole::Merchant,90,true)==ERegionalRoutine::Cautio
 static_assert(RegionalRoutine(ERole::Citizen,90,true)==ERegionalRoutine::ReturnHome,"Civilian returns home");
 static_assert(RegionalRoutine(ERole::Citizen,90,false)==ERegionalRoutine::Normal,"Protected resident");
 static_assert(RegionalRoutine(ERole::Scout,101,true)==ERegionalRoutine::Normal,"Invalid danger fails closed");
-static_assert(RegionalRoutineStepLimit(ERegionalRoutine::GuardWatch)==0.f,"Guard holds watch post");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::GuardWatch)==32.f,"Guard can return to watch post");
+static_assert(RegionalRoutine(ERole::Guard,64,true)==ERegionalRoutine::Normal,"Guard resumes routine as danger falls");
+static_assert(!PauseResidentMotion(false,true,false,true),"Nearby hero does not block return to post");
+static_assert(PauseResidentMotion(true,true,false,true),"Dialogue still pins guard");
 static_assert(RegionalRoutineStepLimit(ERegionalRoutine::CautiousWork)==16.f,"Cautious work slows movement");
 static_assert(RegionalRoutineStepLimit(ERegionalRoutine::ReturnHome)==32.f,"Residents retain safe return speed");
 static_assert(StepRegionalPressure(58,true)==60,"Pressure cap");
