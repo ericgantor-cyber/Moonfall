@@ -1090,7 +1090,8 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 
 bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -1114,7 +1115,8 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -1137,7 +1139,8 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
@@ -1283,7 +1286,7 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 
 int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
      || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return INDEX_NONE;
  const APlayerController* PC = Cast<APlayerController>(Controller);
