@@ -49,6 +49,8 @@ public:
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  int32 GetOceanFishCount(int32 Id) const { return Gathering.Species(Id); }
  bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }
+ bool CanCraftOceanRecipe(int32 Recipe) const { return Workshop.CanCraft(Recipe,Gathering,GrottoGear); }
+ bool HasOceanCraftMaterial(int32 Id) const { return Workshop.HasMaterial(Id,Gathering); }
  int32 GetAvailableOceanMaterials() const { return Workshop.AvailableMaterials(Gathering); }
  int32 GetAvailableOceanFish() const { return Workshop.RemainingFish(Gathering); }
 private:
