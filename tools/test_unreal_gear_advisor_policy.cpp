@@ -458,6 +458,18 @@ int main() {
  }
  FilledBag[10]=HighRing;
  assert(L::SelectFullRingTarget(HighRing,FilledRings,24,FilledBag)==L::RingSlot(7));
+ assert(L::FullRingQuickEquipTarget(HighRing,FilledRings,24,1)==L::RingSlot(7));
+ assert(L::FullRingQuickEquipTarget(HighRing,FilledRings,24,0)==-1);
+ const int WeakRing=L::EncodeFullItem(13,0,0,1);
+ assert(L::FullRingQuickEquipTarget(WeakRing,FilledRings,24,1)==L::RingSlot(7));
+ auto TieRings=FilledRings;
+ TieRings[L::RingSlot(2)]=TieRings[L::RingSlot(7)];
+ assert(L::FullRingQuickEquipTarget(HighRing,TieRings,24,1)==L::RingSlot(2));
+ TieRings[L::RingSlot(9)]=0;
+ assert(L::FullRingQuickEquipTarget(HighRing,TieRings,24,1)==L::RingSlot(9));
+ assert(L::FullRingQuickEquipTarget(CommonRing,AutoRing,24,2)==-1);
+ assert(L::FullRingQuickEquipTarget(HighRing,FilledRings,23,1)==-1);
+ assert(L::FullRingQuickEquipTarget(1,FilledRings,24,1)==-1);
  // Fixed-slot planning must remain useful with a flexible ring equipped,
  // but it must not steal that ring or add another copy from the same bag.
  L::FFullLoadout FrozenRings{};
