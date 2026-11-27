@@ -506,6 +506,19 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
        TEXT(" I am ready to travel with you.");
   }
   if(PartyLine)Reaction=FText::FromString(Reaction.ToString()+PartyLine);
+  // A calm, following companion can comment on existing campaign progress.
+  // These records describe the hero's achievements, not shared eyewitness memory.
+  if(!bCompanionDowned&&Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow
+      &&!Hero->IsRecentlyInCombatForAmbientAI()){
+   const int32 Victories=Hero->GetTotalDefeatedDungeonBosses();
+   const int32 Discovered=Hero->GetTotalDiscoveredDungeons();
+   const TCHAR* ProgressLine=nullptr;
+   if(Victories==30)ProgressLine=TEXT(" You have defeated every mainland dungeon boss.");
+   else if(Victories>=5&&Victories<30)ProgressLine=TEXT(" Your victories are making a difference across the mainland.");
+   else if(Victories>0&&Victories<5)ProgressLine=TEXT(" You have already faced a dungeon boss and prevailed.");
+   else if(Victories==0&&Discovered>=5&&Discovered<=30)ProgressLine=TEXT(" You have found several dungeon entrances. There is much left to explore.");
+   if(ProgressLine)Reaction=FText::FromString(Reaction.ToString()+ProgressLine);
+  }
  }
  const int32 RegionalDanger=GetLocalRegionalDanger();
  if(!bAmbientVisitor&&!bActiveCompanion&&Disposition!=TEXT("Hostile")&&RegionalDanger>=65&&RegionalDanger<=100){
