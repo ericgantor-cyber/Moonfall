@@ -839,7 +839,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Code = GetRawEquipmentSlotCode(Slot);", getter)
         self.assertIn("return GetValidatedEquippedTier(Slot) > 0 ? Code : 0;", getter)
         raw = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetRawEquipmentSlotCode(", 1)[1].split(
-            "int32 AMoonfallHeroPawn::GetEquipmentSlotCode(", 1)[0]
+            "void AMoonfallHeroPawn::GetValidatedEquipmentCodes(", 1)[0]
         for slot, field in enumerate(("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode")):
             self.assertIn(f"case {slot}: return {field};", raw)
         self.assertIn("Slot >= MoonfallEquipmentLayout::FullSlotCount) return 0;", raw)
@@ -850,32 +850,59 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 GetEquipmentSlotCode(int32 Slot) const;", self.hero_h)
         for slot in range(3):
             self.assertIn(f"Hero->GetItemPower(Hero->GetEquipmentSlotCode({slot}))", self.hud)
-        self.assertIn("const int32 Codes[] = {Hero->GetEquipmentSlotCode(0),", self.hud)
-        self.assertIn("bValid && Code == Hero->GetEquipmentSlotCode(Slot)", self.hud)
-        self.assertIn("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", self.hud)
+        self.assertIn("GetValidatedEquipmentCodes(CachedValidatedEquipmentCodes)", self.hud)
+        self.assertIn("const TArray<int32>& Codes=CachedValidatedEquipmentCodes", self.hud)
+        self.assertIn("const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes", self.hud)
+        self.assertIn("CanWearFullItem(", self.hud)
+        self.assertIn("for(int32 Ring:MoonfallEquipmentLayout::RingSlots", self.hud)
+        self.assertIn("const int32 EquippedCode=bFlexibleRingCandidate?0", self.hud)
+        self.assertIn("WornCodes.IsValidIndex(SelectedSlot)", self.hud)
+
+    def test_expanded_character_sheet_and_inventory_decode_all_24_slots(self):
+        hud = self.hud
+        self.assertIn("const TArray<int32>& Codes=CachedValidatedEquipmentCodes", hud)
+        self.assertIn('TEXT("RING 10")', hud)
+        self.assertIn("UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount", hud)
+        self.assertIn("UE_ARRAY_COUNT(DetailSlots)==MoonfallEquipmentLayout::FullSlotCount", hud)
+        self.assertIn("GridColumns=bExpandedGear?", hud.replace(" ","").replace("\n",""))
+        self.assertIn("ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?4:3", hud.replace(" ","").replace("\n",""))
+        self.assertIn("GridRows=(MoonfallEquipmentLayout::ActiveSlotCount+GridColumns-1)/GridColumns", hud.replace(" ","").replace("\n",""))
+        self.assertIn("GridRows*(CardHeight+3.f)", hud)
+        self.assertIn("DecodeFullItem(Code)", hud)
+        self.assertIn("CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount", hud)
+        self.assertIn("DecodeFullItem(SelectedCode)", hud)
+        self.assertIn("best eligible finger", hud)
+        self.assertIn("IsRingSlot(Slot)", hud)
+        self.assertIn("CachedAdvisorLoadoutHash != AdvisorLoadoutHash", hud)
+        self.assertIn("CachedAdvisorLoadoutHash = AdvisorLoadoutHash", hud)
+        self.assertIn("uint64 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
+        self.assertIn("DecodeFullItem(CodeA)", self.hero_cpp)
+        self.assertIn("GetEquipmentLoadoutFingerprint()", hud)
 
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
-        block = self.hud.split("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);", 1)[1].split("const int32 NextCost", 1)[0]
+        block = self.hud.split("const int32 EquippedCode=bFlexibleRingCandidate?0", 1)[1].split("const int32 NextCost", 1)[0]
         self.assertNotIn("Hero->EquippedWeaponCode", block)
         self.assertNotIn("Hero->EquippedArmorCode", block)
         self.assertNotIn("Hero->EquippedAccessoryCode", block)
-        self.assertIn("const int32 PowerDelta = bValidSelection ? Hero->GetItemPowerDelta(SelectedCode) : 0;", block)
-        self.assertIn("bValidSelection && !bAlreadyEquipped && PowerDelta > 0", block)
-        self.assertIn("bValidSelection && EquippedCode > 0 && PowerDelta < 0", block)
-        self.assertIn('FString::Printf(TEXT("  |  %+d gear power"), PowerDelta)', block)
+        self.assertIn("const int32 PowerDelta=bValidSelection?Hero->GetItemPowerDelta(SelectedCode):0;", block)
+        self.assertIn("bValidSelection&&!bAlreadyEquipped&&PowerDelta>0", block)
+        self.assertIn("bValidSelection&&EquippedCode>0&&PowerDelta<0", block)
+        self.assertIn('FString::Printf(TEXT("  |  %+d gear power"),PowerDelta)', block)
         self.assertEqual(block.count("GetItemPowerDelta(SelectedCode)"), 1)
         self.assertNotIn("TierDelta", block)
         self.assertNotIn("RarityDelta", block)
         self.assertIn("TEXT(\"UPGRADE\")", block)
         self.assertIn("TEXT(\"LOWER\")", block)
         self.assertIn("TEXT(\"SIDEGRADE\")", block)
-        self.assertIn("SelectedSlot < MoonfallEquipmentLayout::ActiveSlotCount", block)
-        self.assertIn("MoonfallEquipmentLayout::Valid(SelectedCode, SelectedSlot)", block)
-        self.assertIn("bValidSelection && SelectedCode == EquippedCode", block)
-        self.assertIn('bAlreadyEquipped ? TEXT("EQUIPPED")', block)
-        self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
-        self.assertIn("!bValidSelection ? CompareLine :", block)
-        self.assertIn('FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta)', block)
+        self.assertIn("IsRingSlot(SelectedSlot)", self.hud)
+        self.assertIn("const bool bValidSelection=MoonfallEquipmentLayout::CanOperateFull(SelectedCode", self.hud)
+        self.assertIn("bValidSelection&&SelectedCode==EquippedCode", block)
+        self.assertIn('TEXT("EQUIPPED")', block)
+        self.assertIn("bFlexibleRingCandidate", block)
+        self.assertIn("best eligible finger", block)
+        self.assertIn('!bValidSelection?TEXT("INVALID GEAR")', block)
+        self.assertIn("const FString PowerCompareLine = !bValidSelection ? CompareLine", block)
+        self.assertIn('FString::Printf(TEXT("%s | %+d power"),CompareWord,PowerDelta)', block)
         self.assertIn("DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,", block)
         self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
         self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
@@ -888,7 +915,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (PanelHeight >= 360.f) {", bag)
         self.assertIn("if (PanelHeight >= 320.f) {", bag)
         self.assertLess(bag.index("if (PanelHeight >= 360.f) {"), bag.index("const int32 ReforgeCost"))
-        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode = Hero->GetEquipmentSlotCode(SelectedSlot);"))
+        self.assertLess(bag.index("if (PanelHeight >= 320.f) {"), bag.index("const int32 EquippedCode=bFlexibleRingCandidate?0"))
         # Match the shared inventory drawing and mouse hit-test geometry.
         for height in range(280, 861):
             room = height - (430 if height >= 500 else 390)
@@ -1281,7 +1308,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", persistent)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.hero_h)
         self.assertIn("Save->PendingWorldLoot = PendingWorldLoot;", self.hero_cpp)
-        self.assertIn("Save->Version > 17", self.hero_cpp)
+        self.assertIn("Save->Version > MaxEquipmentSaveVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 11", self.hero_cpp)
         self.assertIn("Seen.Contains(Record.DropId)", self.hero_cpp)
         self.assertIn("PendingWorldLoot = Save->Version >= 11", self.hero_cpp)
@@ -1427,9 +1454,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
         set_body = sets.split("int32 AMoonfallHeroPawn::GetMight()", 1)[0]
-        self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", set_body)
-        self.assertIn("DecodeEquippedItem(GetEquipmentSlotCode(Slot), Slot, Trait, Rarity, Tier)", set_body)
-        self.assertIn("Rarity >= 1", set_body)
+        self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", set_body)
+        self.assertIn("DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)", set_body)
+        self.assertIn("DecodeEquippedItem(GetEquipmentSlotCode(Slot),Slot,Trait,Rarity,Tier)", set_body)
+        self.assertIn("Rarity>=1", set_body)
         self.assertNotIn("EquippedWeaponCode", set_body)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", decoder)
@@ -1531,7 +1559,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnEquipmentReforged(NewCode, Cost);", body)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;", hud)
-        self.assertIn("SelectedRarity >= 2 && SelectedRarity <= 5", hud)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Reforge", hud)
         self.assertIn("G / LB: reforge", hud)
 
     def test_emerald_and_legendary_rarity_are_validated_and_visible(self):
@@ -1548,8 +1576,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         self.assertIn("Rarity <= 5", policy)
         self.assertIn("case EInventoryOperation::Ascend:return Rarity<5;", policy)
-        self.assertIn("SelectedRarity < 5", hud)
-        self.assertIn("Rarity <= 5", hud)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Ascend", hud)
+        self.assertIn("DecodeFullItem(SelectedCode)", hud)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
         self.assertIn("ValidEquippedRarity(OwnedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
@@ -1597,7 +1625,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnEquipmentAscended(NewCode, Cost);", body)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;", hud)
-        self.assertIn("SelectedRarity < 5", hud)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Ascend", hud)
         self.assertIn("R / B: ascend", hud)
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
@@ -1639,7 +1667,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;", hud)
         self.assertIn("Hero->Salvage >= NextCost", hud)
-        self.assertIn("SelectedTier < 25", hud)
+        self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Upgrade", hud)
         self.assertIn("H / RB: forge 5", hud)
 
     def test_salvage_upgrades_equipped_and_unequipped_gear_by_explicit_inventory_action(self):
@@ -1933,14 +1961,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn(extra_restore, load)
         self.assertLess(load.index("bWorldProgressLoadInProgress = true;"), load.index(extra_restore))
 
+    def test_checkpoint_recovery_checks_full_equipment_ownership(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1]
+        for slot in (0, 1, 2):
+            self.assertIn(f"MoonfallGearAdvisor::Valid(DefeatedEquipmentSelection[{slot}], {slot})", load)
+        recovery = load.split("FFullLoadout RecoveryWorn{}", 1)[1].split("RefreshEquipmentTier();", 1)[0]
+        self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", recovery)
+        self.assertIn("&&MoonfallEquipmentLayout::IsRingSlot(Slot))continue;", recovery)
+        self.assertLess(recovery.index("IsFullLoadoutOwned(Candidate,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)"),
+                        recovery.index("ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;"))
+
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("MoonfallEquipmentLayout::FFullLoadout WornCodes{};", save)
         self.assertIn("WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);", save)
         self.assertIn("TryRestoreFlexibleFullLoadout(", save)
-        self.assertIn("WornCodes.data(),MoonfallEquipmentLayout::SlotCount,17,InventoryItemCodes,CheckedWorn", save)
-        self.assertIn("for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)", save)
+        self.assertIn("WornCodes.data(),SaveSlotCount,EquipmentSaveVersion,InventoryItemCodes,CheckedWorn", save)
+        self.assertIn("for(int32 Slot=0;Slot<SaveSlotCount;++Slot)", save)
+        self.assertIn("Save->Version=EquipmentSaveVersion;", save)
+        self.assertIn("static_assert(EquipmentSaveVersion==17", save)
         self.assertIn("Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];", save)
         self.assertIn("IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)", save)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
@@ -1972,6 +2012,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallHeroPawn::GetEquipmentSlotCode", 1)[0]
         self.assertIn("MoonfallEquipmentLayout::FLoadout Equipped{};", snapshot)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", snapshot)
+        self.assertIn("Slot < MoonfallEquipmentLayout::SlotCount", snapshot)
         self.assertIn("Equipped[Slot] = Hero.GetEquipmentSlotCode(Slot);", snapshot)
         self.assertIn("return Equipped;", snapshot)
         self.assertEqual(self.hero_cpp.count("ReadOwnedEquipmentLoadout(*this)"), 3)
@@ -2050,7 +2091,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for unsafe in ("Hero->WeaponTier", "Hero->ArmorTier", "Hero->AccessoryTier",
                        "Hero->WeaponAffix", "Hero->ArmorAffix", "Hero->AccessoryAffix"):
             self.assertNotIn(unsafe, preview)
-        self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", hud)
+        self.assertIn("EncodedRarity == 0 && EncodedTrait != 0", preview)
+        self.assertIn("Code != EncodedTrait * 100000 + Slot * 10000", preview)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -4442,7 +4484,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "CachedAdvisorSelectedCode != AdvisorCode",
                       "CachedAdvisorWeapon != Hero->EquippedWeaponCode",
                       "CachedAdvisorArmor != Hero->EquippedArmorCode",
-                      "CachedAdvisorAccessory != Hero->EquippedAccessoryCode"):
+                      "CachedAdvisorAccessory != Hero->EquippedAccessoryCode",
+                      "CachedAdvisorLoadoutHash != AdvisorLoadoutHash"):
             self.assertIn(field, bag)
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
         self.assertIn("double AdvisorScoreUpdatedAt = -1.0;", hud_header)
@@ -4507,7 +4550,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
         self.assertIn("UPROPERTY() int32 Version = 17;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 17", self.hero_cpp)
+        self.assertIn("Version > MaxEquipmentSaveVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -5406,7 +5449,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         declaration_prefix = marker.splitlines()[-3:]
         self.assertFalse(any("UFUNCTION(" in line for line in declaration_prefix))
         self.assertIn("Internal kill-path API only", self.hero_h)
-        self.assertIn("Save->Version < 1 || Save->Version > 17", self.hero_cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion", self.hero_cpp)
         self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
         self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
         self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
@@ -5718,7 +5761,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                            "Tier * 100 + Rarity * 10 + (Trait > 0 ? 1 : 0)",
                            "if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;"):
             self.assertIn(expression, item)
-        self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", score)
+        self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", score)
+        self.assertIn("GetValidatedEquipmentCodes(Codes)", score)
+        self.assertIn("GetItemPower(Codes[Slot])", score)
         self.assertIn("GetItemPower(GetEquipmentSlotCode(Slot))", score)
         self.assertNotIn("EquippedWeaponCode", score)
         self.assertNotIn("InventoryItemCodes.Contains(", score)
@@ -6956,6 +7001,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
         self.assertLess(body.index("InventoryItemCodes[InventoryIndex] != InitialCode + Upgraded"),
                         body.index("if (!UpgradeInventoryItem(InventoryIndex)) break;"))
+        loop = body.split("for (int32 Step = 0; Step < Limit; ++Step)", 1)[1]
+        for guard in ("!IsValid(this)", "IsActorBeingDestroyed()", "!GetWorld()",
+                      "bWorldProgressLoadInProgress", "bPersistentSaveWritesBlocked",
+                      "bTalentAllocationInProgress", "bEquipmentCraftInProgress",
+                      "!bInventoryOpen", "bTalentWebOpen", "bAtlasOpen",
+                      "FocusedResident.IsValid()", "!FMath::IsFinite(Health)", "Health <= 0.f"):
+            self.assertLess(loop.index(guard), loop.index("!InventoryItemCodes.IsValidIndex(InventoryIndex)"))
 
     def test_combat_entry_rejects_unsafe_transitions_and_trace_geometry(self):
         for name in ("TryCast", "MeleeAttack", "Dodge", "BeginGuard"):
@@ -7240,7 +7292,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;", save)
         self.assertLess(save.index("ExploredZoneFogMasks.Num() != 6"),
                         save.index("Save->ExploredZoneFogMasks = ExploredZoneFogMasks;"))
-        self.assertIn("Save->Version < 1 || Save->Version > 17", load)
+        self.assertIn("Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion", load)
+        self.assertIn("constexpr int32 MaxEquipmentSaveVersion", load)
+        self.assertLess(load.index("Save->Version > MaxEquipmentSaveVersion"), load.index("TryRestoreFlexibleFullLoadout("))
         self.assertIn("if (Save->Version >= 12) {", load)
         self.assertIn("if (Save->ExploredZoneFogMasks.Num() != 6)", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)

@@ -231,7 +231,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallEquipmentSaveRoundTripTest,
 bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
 {
  // Exercise the complete V17 serialized layout, not live equipping. No disk
- // slot is read or written; the six inactive gameplay slots remain disabled.
+ // slot is read or written; the fifteen inactive gameplay slots remain disabled.
  UMoonfallPersistentSave* Original = Cast<UMoonfallPersistentSave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!TestNotNull(TEXT("Create equipment save"), Original)) return false;
@@ -239,7 +239,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  for (const int32 Code : Original->EquippedSlotCodes)
   TestEqual(TEXT("Fresh equipment slot is empty"), Code, 0);
  const TArray<int32> AllCodes = {101005,111006,121007,131008,141009,151010,161011,171012,181013};
- auto RoundTrip = [this, Original](const TArray<int32>& Codes, int32 Version) -> bool {
+ auto RoundTrip = [this, Original](const TArray<int32>& Codes, int32 Version, bool bValidateMigration=false) -> bool {
   Original->Version = Version;
   Original->EquippedSlotCodes = Codes;
   TArray<uint8> Bytes;
@@ -256,13 +256,26 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   TestEqual(TEXT("Weapon mirror preserved"), Restored->EquippedWeaponCode, Original->EquippedWeaponCode);
   TestEqual(TEXT("Chest mirror preserved"), Restored->EquippedArmorCode, Original->EquippedArmorCode);
   TestEqual(TEXT("Trinket mirror preserved"), Restored->EquippedAccessoryCode, Original->EquippedAccessoryCode);
+  if(bValidateMigration){
+   const int32 Legacy[]={Restored->EquippedWeaponCode,Restored->EquippedArmorCode,Restored->EquippedAccessoryCode};
+   MoonfallEquipmentLayout::FFullLoadout Migrated{};
+   if(!TestTrue(TEXT("Deserialized equipment passes migration validation"),
+       MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Legacy,3,
+       Restored->EquippedSlotCodes.GetData(),Restored->EquippedSlotCodes.Num(),
+       Restored->Version,Restored->InventoryItemCodes,Migrated)))return false;
+   for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot){
+    const int32 Expected=Version<17?(Slot<3?Legacy[Slot]:0):
+        (Codes.IsValidIndex(Slot)?Codes[Slot]:0);
+    TestEqual(TEXT("Deserialized migration preserves exact slot or zero"),Migrated[Slot],Expected);
+   }
+  }
   return true;
  };
  Original->InventoryItemCodes = AllCodes;
  Original->EquippedWeaponCode = AllCodes[0];
  Original->EquippedArmorCode = AllCodes[1];
  Original->EquippedAccessoryCode = AllCodes[2];
- if (!RoundTrip(AllCodes, 17)) return false;
+ if (!RoundTrip(AllCodes, 17,true)) return false;
  // One-hot records catch a swapped slot or an omitted serialized element.
  for (int32 Slot = 0; Slot < AllCodes.Num(); ++Slot) {
   TArray<int32> Single;
@@ -271,7 +284,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   Original->EquippedWeaponCode = Single[0];
   Original->EquippedArmorCode = Single[1];
   Original->EquippedAccessoryCode = Single[2];
-  if (!RoundTrip(Single, 17)) return false;
+  if (!RoundTrip(Single, 17,true)) return false;
  }
  // Malformed records must remain detectable by the separate gameplay loader.
  // Serialization itself must not silently pad, truncate or repair these.
@@ -287,7 +300,16 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->EquippedWeaponCode = AllCodes[0];
  Original->EquippedArmorCode = AllCodes[1];
  Original->EquippedAccessoryCode = AllCodes[2];
- if (!RoundTrip(TArray<int32>{}, 16)) return false;
+ if (!RoundTrip(TArray<int32>{}, 16,true)) return false;
+ // Serialize the intermediate V18 layout before exercising future V19.
+ TArray<int32> Middle;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SixteenSlotCount;++Slot)
+  Middle.Add(MoonfallEquipmentLayout::EncodeFullItem(Slot,1,2,5));
+ Original->InventoryItemCodes=Middle;
+ Original->EquippedWeaponCode=Middle[0];
+ Original->EquippedArmorCode=Middle[1];
+ Original->EquippedAccessoryCode=Middle[2];
+ if(!RoundTrip(Middle,18,true))return false;
  // Synthetic future V19 fixture: prove 24 entries and repeated ring codes
  // survive native memory serialization. The live V17 loader stays gated.
  TArray<int32> Future;
@@ -299,7 +321,84 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  Original->EquippedWeaponCode=Future[0];
  Original->EquippedArmorCode=Future[1];
  Original->EquippedAccessoryCode=Future[2];
- if (!RoundTrip(Future,19)) return false;
+ if (!RoundTrip(Future,19,true)) return false;
+ const int32 Mirrors[] = {Future[0],Future[1],Future[2]};
+ MoonfallEquipmentLayout::FFullLoadout Migrated{};
+ TestTrue(TEXT("V19 accepts all 24 owned slots including duplicate rings"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
+ for(int32 Slot=0;Slot<Future.Num();++Slot)
+  TestEqual(TEXT("V19 migration retains exact equipment position"),Migrated[Slot],Future[Slot]);
+ TArray<int32> MissingCopy=Original->InventoryItemCodes;
+ MissingCopy.RemoveAt(23);
+ // A strict V18 checkpoint has sixteen slots and no cross-finger aliases.
+ MoonfallEquipmentLayout::FFullLoadout MiddleRestored{};
+ TestTrue(TEXT("V18 migration retains sixteen strict equipment positions"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Middle.GetData(),Middle.Num(),18,Middle,MiddleRestored));
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
+  TestEqual(TEXT("V18 migration zero-fills new positions"),MiddleRestored[Slot],
+   Middle.IsValidIndex(Slot)?Middle[Slot]:0);
+ const auto BeforeRejected=Migrated;
+ const int32 AlternateSlotZero=MoonfallEquipmentLayout::EncodeFullItem(0,2,2,5);
+ TArray<int32> V19Inventory=Original->InventoryItemCodes;
+ V19Inventory.Add(AlternateSlotZero);
+ TArray<int32> V19Record=Future;
+ V19Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V19 rejects a valid owned slot-zero record that differs from its legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V19Record.GetData(),V19Record.Num(),19,V19Inventory,Migrated));
+ TestTrue(TEXT("Rejected V19 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TArray<int32> V17Inventory=Original->InventoryItemCodes;
+ V17Inventory.Add(AlternateSlotZero);
+ TArray<int32> V17Record;
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)V17Record.Add(Future[Slot]);
+ V17Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V17 rejects valid owned slot-zero record that differs from legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V17Record.GetData(),V17Record.Num(),17,V17Inventory,Migrated));
+ TestTrue(TEXT("Rejected V17 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TArray<int32> V18Inventory=Middle;
+ V18Inventory.Add(AlternateSlotZero);
+ TArray<int32> V18Record=Middle;
+ V18Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V18 rejects valid owned slot-zero record that differs from legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V18Record.GetData(),V18Record.Num(),18,V18Inventory,Migrated));
+ TestTrue(TEXT("Rejected V18 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V17 rejects truncated nine-slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),MoonfallEquipmentLayout::SlotCount-1,17,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V17 truncation leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V18 rejects truncated sixteen-slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Middle.GetData(),Middle.Num()-1,18,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V18 truncation leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("Unsupported V20 equipment schema is rejected"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),20,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V20 schema leaves output unchanged"),Migrated==BeforeRejected);
+ TArray<int32> WrongV18Slot=Middle;
+ // Swap two non-ring positions, preserving all physical ownership counts.
+ Swap(WrongV18Slot[9],WrongV18Slot[10]);
+ TestFalse(TEXT("V18 rejects an item encoded for a different slot"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   WrongV18Slot.GetData(),WrongV18Slot.Num(),18,Middle,Migrated));
+ TestTrue(TEXT("Rejected V18 slot mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TArray<int32> WrongV19Slot=Future;
+ Swap(WrongV19Slot[9],WrongV19Slot[10]);
+ TestFalse(TEXT("V19 rejects an item encoded for a different slot"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   WrongV19Slot.GetData(),WrongV19Slot.Num(),19,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V19 slot mismatch leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V19 rejects a missing physical ring copy"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num(),19,MissingCopy,Migrated));
+ TestTrue(TEXT("Rejected migration leaves output unchanged"),Migrated==BeforeRejected);
+ TestFalse(TEXT("V19 rejects truncated slot records"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   Future.GetData(),Future.Num()-1,19,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V19 truncation leaves output unchanged"),Migrated==BeforeRejected);
  return !HasAnyErrors();
 }
 

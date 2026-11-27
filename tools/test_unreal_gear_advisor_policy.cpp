@@ -293,6 +293,11 @@ int main() {
  BudgetLoadout[8]=ForceLegend;BudgetLoadout[13]=ForceLegendOther;
  const std::array<int,5> BudgetBag{{ForceLegend,ForceLegendOther,WardLegend,FocusLegend,LuckLegend}};
  auto Bonuses=L::BuildRingBonuses(BudgetLoadout,24,BudgetBag);
+ const auto ValidatedBonuses=L::BuildRingBonusesValidated(BudgetLoadout,24);
+ assert(ValidatedBonuses.Valid==Bonuses.Valid
+    &&ValidatedBonuses.CritBps==Bonuses.CritBps
+    &&ValidatedBonuses.MasteryBps==Bonuses.MasteryBps
+    &&ValidatedBonuses.LegendaryMask==Bonuses.LegendaryMask);
  assert(Bonuses.Valid&&Bonuses.EquippedCount==2&&Bonuses.CritBps==200);
  assert(Bonuses.MasteryBps==74&&Bonuses.LegendaryMask==2u);
  assert(!L::BuildRingBonuses(BudgetLoadout,24,std::array<int,1>{ForceLegend}).Valid);

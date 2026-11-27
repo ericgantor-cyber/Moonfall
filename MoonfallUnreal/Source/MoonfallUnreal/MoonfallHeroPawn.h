@@ -10,6 +10,7 @@
 #include "MoonfallPerformanceAudit.h"
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
+#include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -22,7 +23,6 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UNiagaraSystem;
 class UNiagaraComponent;
-namespace MoonfallEquipmentLayout { struct FRingBonuses; }
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -148,6 +148,9 @@ public:
  // Display-only comparison score, never used for combat or save data.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPower(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetEquipmentPower() const;
+ // Shared one-pass snapshot for HUD, previews and ring-stat consumers.
+ void GetValidatedEquipmentCodes(TArray<int32>& OutCodes) const;
+ uint64 GetEquipmentLoadoutFingerprint() const;
  // Perks activate only on owned, correctly slotted legendary gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Perks") bool HasLegendaryPerk(int32 Slot) const;
  // Read-only owned-item comparison and projected set totals.
@@ -501,6 +504,14 @@ private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
+ void MarkEquipmentInventoryDirty();
+ uint32 EquipmentInventoryRevision=1;
+ mutable uint32 CachedValidatedInventoryRevision=0;
+ mutable uint64 CachedValidatedLoadoutFingerprint=0;
+ mutable TArray<int32> CachedValidatedEquipmentCodes;
+ mutable uint32 CachedRingBonusInventoryRevision=0;
+ mutable uint64 CachedRingBonusLoadoutFingerprint=0;
+ mutable MoonfallEquipmentLayout::FRingBonuses CachedNativeRingBonuses{};
  int32 EquipBestExpandedLoadout();
  MoonfallEquipmentLayout::FRingBonuses GetNativeRingBonuses() const;
  // Fixed storage for slot IDs 3–23. Public gameplay remains gated until
