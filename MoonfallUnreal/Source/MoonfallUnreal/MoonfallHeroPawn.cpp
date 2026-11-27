@@ -1187,7 +1187,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
- Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::ManualLootOrFish);
  Input->BindAction(TEXT("Fishing"), IE_Pressed, this, &AMoonfallHeroPawn::FishingAction);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -4523,6 +4523,13 @@ bool AMoonfallHeroPawn::TryFishingAction() {
  return false;
 }
 
+void AMoonfallHeroPawn::ManualLootOrFish()
+{
+ // Keyboard F shares the controller fishing-first context. Automatic loot
+ // and Blueprint pickup requests retain their original pickup-only path.
+ if (CanContinueFishing() && TryFishingAction()) return;
+ PickupNearestGroundLoot();
+}
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
 
