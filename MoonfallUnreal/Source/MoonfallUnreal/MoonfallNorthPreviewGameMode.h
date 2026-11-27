@@ -5,6 +5,7 @@
 #include "MoonfallIslandQuest.h"
 #include "MoonfallOceanEvents.h"
 #include "MoonfallOceanGathering.h"
+#include "MoonfallOceanCrafting.h"
 #include "MoonfallNorthPreviewGameMode.generated.h"
 
 // Isolated Northern Expanse QA game mode. Never spawns the legacy arena,
@@ -47,7 +48,11 @@ public:
  int32 GetOceanMaterialCount() const { return Gathering.Materials(); }
  int32 GetOceanCatchCount() const { return Gathering.Catches(); }
  int32 GetOceanFishCount(int32 Id) const { return Gathering.Species(Id); }
+ bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }
+ int32 GetAvailableOceanMaterials() const { return Workshop.AvailableMaterials(Gathering); }
+ int32 GetAvailableOceanFish() const { return Workshop.RemainingFish(Gathering); }
 private:
+ MoonfallOceanCrafting::FWorkshop Workshop;
  MoonfallOceanGathering::FCollection Gathering;
  MoonfallOceanEvents::FSightings Sightings;
  MoonfallIslandQuest::FJournal IslandJournal;
