@@ -244,6 +244,8 @@ class EquipmentStatSafety(unittest.TestCase):
                 body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
                 self.assertIn("!FMath::IsFinite(MouseX)", body)
                 self.assertIn("!FMath::IsFinite(MouseY)", body)
+                self.assertIn("!HasVisibleInventoryPointerSurface(Controller)", body)
+                self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen", body)
         scroll = self.source.split("AMoonfallHeroPawn::ScrollInventoryToMouseTrack(", 1)[1].split("\n}", 1)[0]
         self.assertLess(scroll.index("!FMath::IsFinite(MouseY)"), scroll.index("FMath::RoundToInt("))
         self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen", scroll)
