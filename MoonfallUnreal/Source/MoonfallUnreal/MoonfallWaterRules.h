@@ -14,10 +14,10 @@ namespace MoonfallWaterRules
         return bRaceChosen && RaceId == 9 ? 2.f : 1.f;
     }
     // Existing Focus accessories and footwear confer bounded traversal bonuses.
-    // Common Focus gear contributes a small bonus; absence is represented by -1.
+    // Common items cannot carry Focus in the canonical equipment format.
     inline float FocusGearBonus(int32 Rarity)
     {
-        return Rarity >= 0 && Rarity <= 5 ? 0.05f * (Rarity + 1) : 0.f;
+        return Rarity >= 1 && Rarity <= 5 ? 0.05f * (Rarity + 1) : 0.f;
     }
     inline float GearBreathMultiplier(bool bRaceChosen, int32 RaceId, int32 FocusRarity)
     {
@@ -27,9 +27,17 @@ namespace MoonfallWaterRules
     {
         return 1.f + FocusGearBonus(FocusFeetRarity);
     }
+    inline float SetBreathMultiplier(float Base, int32 Pieces)
+    {
+        return FMath::Clamp(Base * (Pieces >= 2 ? 1.10f : 1.f), 1.f, 2.86f);
+    }
+    inline float SetSwimMultiplier(float Base, int32 Pieces)
+    {
+        return FMath::Clamp(Base + (Pieces >= 3 ? 0.10f : 0.f), 1.f, 1.4f);
+    }
     inline float EffectiveDrain(float Multiplier)
     {
-        return DrainPerSecond / (FMath::IsFinite(Multiplier) ? FMath::Clamp(Multiplier, 1.f, 2.6f) : 1.f);
+        return DrainPerSecond / (FMath::IsFinite(Multiplier) ? FMath::Clamp(Multiplier, 1.f, 2.86f) : 1.f);
     }
     // Accumulate only the portion of a submerged frame spent without air.
     inline bool AdvanceDrowning(float& Exposure, float PreviousAir, float Seconds,
