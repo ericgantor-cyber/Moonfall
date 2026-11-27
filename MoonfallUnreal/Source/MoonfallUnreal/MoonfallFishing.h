@@ -29,15 +29,15 @@ namespace MoonfallFishing
         }
     };
     // Trophy quality is a catch record, not a separate crafting item.
-    constexpr int TrophyChance(int Catches,bool School,int Event) {
-        return 2+(Rank(Catches)-1)/2+(School?4:0)+(Event==1?3:0);
+    constexpr int TrophyChance(int Catches,bool School,int Event,bool Bait=false) {
+        return 2+(Rank(Catches)-1)/2+(School?4:0)+(Event==1?3:0)+(Bait?5:0);
     }
     // Legendary specimens share ordinary species stock; their unique records
     // are independent from consumable fish and never grant campaign items.
     constexpr int LegendaryCount=3;
-    constexpr int LegendarySpecies(int Catches,int SchoolId,int Event,int Roll) {
+    constexpr int LegendarySpecies(int Catches,int SchoolId,int Event,int Roll,bool Bait=false) {
         return Rank(Catches)<7||SchoolSpecies(SchoolId)<0||Event<0||Event>=LegendaryCount||
-               Roll<0||Roll>=3||SchoolSpecies(SchoolId)!=Event ? -1 : Event;
+               Roll<0||Roll>=(Bait?5:3)||SchoolSpecies(SchoolId)!=Event ? -1 : Event;
     }
     struct FSchoolPosition { double X=0,Y=0; };
     inline FSchoolPosition SchoolPosition(int Id,double Now,double Width,double Length) {

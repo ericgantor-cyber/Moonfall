@@ -58,10 +58,14 @@ public:
   if(!HasAuthority()||!GetWorld()||!Gathering.CanCatch()||SchoolId<-1||SchoolId>=MoonfallFishing::SchoolCount) return false;
   const bool bSchool=SchoolId>=0 && Schools.Take(SchoolId,GetWorld()->GetTimeSeconds());
   const int32 Event=GetOceanActivity();
-  const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event);
-  const int32 Legendary=bSchool?MoonfallFishing::LegendarySpecies(Gathering.Catches(),SchoolId,Event,FMath::RandRange(0,99)):-1;
-  return Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):-1,bTrophy,Legendary);
+  const bool bBait=Workshop.Bait>0 && Workshop.Bait<=MoonfallOceanCrafting::BaitCapacity;
+  const bool bTrophy=FMath::RandRange(0,99)<MoonfallFishing::TrophyChance(Gathering.Catches(),bSchool,Event,bBait);
+  const int32 Legendary=bSchool?MoonfallFishing::LegendarySpecies(Gathering.Catches(),SchoolId,Event,FMath::RandRange(0,99),bBait):-1;
+  const bool bCaught=Gathering.Catch(Event,FMath::RandRange(0,99),bSchool?MoonfallFishing::SchoolSpecies(SchoolId):-1,bTrophy,Legendary);
+  if(bCaught&&bBait) Workshop.UseBait();
+  return bCaught;
  }
+ int32 GetFishingBaitCount() const { return Workshop.Bait; }
  int32 GetLastFishSpecies() const { return Gathering.LastSpecies; }
  bool WasLastFishLegendary() const { return Gathering.LastLegendary; }
  int32 GetLegendaryFishCount() const { return Gathering.Legendaries(); }

@@ -6506,7 +6506,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if (IsValid(Resident) && bPersistentSaveWritesBlocked && GetWorld()
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
-     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage>=0?3:4;
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage>=0?3:OceanRecipePage==-2?5:4;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -6911,15 +6911,15 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    CloseResidentContext();return false;
   }
   if(OceanRecipePage==-2) {
-   if(Choice==3) OceanRecipePage=-1;
-   else if(Choice>=0&&Choice<3) OceanRecipePage=Choice;
+   if(Choice==4) OceanRecipePage=-1;
+   else if(Choice>=0&&Choice<4) OceanRecipePage=Choice;
    else return false;
    ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;
   }
   if(OceanRecipePage>=0) {
    if(Choice==2){CloseResidentContext();return true;}
    if(Choice==1){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
-   if(Choice!=0||OceanRecipePage>2)return false;
+   if(Choice!=0||OceanRecipePage>3)return false;
    const bool bCrafted=!IsRecentlyInCombatForAmbientAI() && Preview->CraftOceanRecipe(OceanRecipePage);
    ResidentFeedbackMessage=bCrafted?TEXT("Recipe crafted."):TEXT("Need reagents, eligible gear or room; no combat.");
    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
