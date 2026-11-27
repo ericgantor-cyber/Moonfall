@@ -184,8 +184,8 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("int32 Index=FixedPlan.Indices[Slot];", body)
         self.assertIn("Index=InventoryItemCodes.IndexOfByKey(FixedPlan.Codes[Slot]);", body)
         self.assertIn("InventoryItemCodes[Index]!=FixedPlan.Codes[Slot]", body)
-        self.assertLess(body.index("IndexOfByKey(FixedPlan.Codes[Slot])"),
-                        body.index("if(FixedPlan.Codes[Slot]<=0"))
+        self.assertLess(body.index("if(PlannedIndex<0||FixedPlan.Codes[Slot]<=0)continue;"),
+                        body.index("IndexOfByKey(FixedPlan.Codes[Slot])"))
 
     def test_expanded_equip_best_revalidates_and_commits_rings_atomically(self):
         source = self.source
