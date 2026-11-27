@@ -4473,23 +4473,31 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  FVector BestSchool=FVector::ZeroVector;
  const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
  double BestDistance=FMath::Square(MaxReach);
+ double BestClickDistance=FMath::Square(120.f);
  int32 BestSchoolId=-1;
  int32 BestProvince=-1;
  for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
   if(!IsValid(*It)||!It->bWaterVolume) continue;
   const FBox Bounds=It->GetComponentsBoundingBox(true);
-  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
+      ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  // A mouse-selected school must belong to the clicked water surface.
+  if(RequestedWater&&(FMath::Abs(RequestedWater->Z-(Bounds.Max.Z+2.f))>1.f
+      ||RequestedWater->X<Bounds.Min.X+30.f||RequestedWater->X>Bounds.Max.X-30.f
+      ||RequestedWater->Y<Bounds.Min.Y+30.f||RequestedWater->Y>Bounds.Max.Y-30.f)) continue;
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
    if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
    const double Distance=FVector::DistSquared2D(Start,Target);
-   if(Distance<FMath::Square(100.f)||Distance>BestDistance||
-       (RequestedWater?FVector::DistSquared2D(*RequestedWater,Target)>FMath::Square(120.f):
-        FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76)) continue;
+   if(Distance<FMath::Square(100.f)||Distance>FMath::Square(MaxReach)) continue;
+   const double ClickDistance=RequestedWater?FVector::DistSquared2D(*RequestedWater,Target):0.0;
+   if(RequestedWater) {
+    if(ClickDistance>BestClickDistance||(ClickDistance==BestClickDistance&&Distance>BestDistance)) continue;
+   } else if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   BestDistance=Distance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It);
+   BestDistance=Distance; BestClickDistance=ClickDistance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It);
   }
  }
  if(BestSchoolId>=0) {
@@ -4502,7 +4510,8 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
   const auto* Volume=*It;
   if(!IsValid(Volume)||!Volume->bWaterVolume) continue;
   const FBox Bounds=Volume->GetComponentsBoundingBox(true);
-  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
+      ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
   if(RequestedWater) {
    const FVector Target=*RequestedWater;
    const double Distance=FVector::DistSquared2D(Start,Target);
