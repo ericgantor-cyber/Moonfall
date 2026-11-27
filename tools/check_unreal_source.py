@@ -1961,6 +1961,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn(extra_restore, load)
         self.assertLess(load.index("bWorldProgressLoadInProgress = true;"), load.index(extra_restore))
 
+    def test_checkpoint_recovery_checks_full_equipment_ownership(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1]
+        recovery = load.split("FFullLoadout RecoveryWorn{}", 1)[1].split("RefreshEquipmentTier();", 1)[0]
+        self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", recovery)
+        self.assertIn("&&MoonfallEquipmentLayout::IsRingSlot(Slot))continue;", recovery)
+        self.assertLess(recovery.index("IsFullLoadoutOwned(Candidate,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)"),
+                        recovery.index("ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;"))
+
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
@@ -1971,9 +1979,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for(int32 Slot=0;Slot<SaveSlotCount;++Slot)", save)
         self.assertIn("Save->Version=EquipmentSaveVersion;", save)
         self.assertIn("static_assert(EquipmentSaveVersion==17", save)
-        self.assertIn("FFullLoadout RecoveryWorn{}", load)
-        self.assertIn("IsFullLoadoutOwned(Candidate,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)", load)
-        self.assertIn("&&MoonfallEquipmentLayout::IsRingSlot(Slot))continue;", load)
         self.assertIn("Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];", save)
         self.assertIn("IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)", save)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
