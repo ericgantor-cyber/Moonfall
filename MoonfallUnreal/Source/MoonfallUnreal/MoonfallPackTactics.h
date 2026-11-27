@@ -6,15 +6,19 @@ namespace MoonfallPackTactics {
 constexpr int MaxScannedActors = 64;
 constexpr int MaxNearbyCandidates = 32;
 constexpr int MaxWindingAllies = 2;
-enum class CombatRole : unsigned int { Vanguard=0u, Scout=1u, Ranged=2u, PackLeader=3u };
+enum class CombatRole : unsigned int { Vanguard=0u, Scout=1u, Ranged=2u, PackLeader=3u, Caster=4u };
 constexpr CombatRole RoleForEncounterSlot(int Slot,bool bElite) {
  if(bElite)return CombatRole::PackLeader;
  return Slot==0?CombatRole::Scout:(Slot==1?CombatRole::Ranged:CombatRole::Vanguard);
 }
 constexpr CombatRole RoleForBossMinion(int Slot) {
- return Slot==1?CombatRole::Ranged:CombatRole::Vanguard;
+ return Slot==1?CombatRole::Caster:CombatRole::Vanguard;
 }
-constexpr bool IsRangedRole(CombatRole Role) { return Role==CombatRole::Ranged; }
+constexpr bool IsRangedRole(CombatRole Role) { return Role==CombatRole::Ranged||Role==CombatRole::Caster; }
+constexpr bool IsCasterRole(CombatRole Role) { return Role==CombatRole::Caster; }
+constexpr float RangedProjectileSpeed(bool bCaster) { return bCaster?650.f:850.f; }
+constexpr float RangedProjectileWindup(bool bCaster) { return bCaster?1.2f:0.95f; }
+constexpr float RangedProjectileDamageScale(bool bCaster) { return bCaster?0.95f:1.f; }
 constexpr double RangedMinimumRange=280.0;
 constexpr double RangedPreferredRange=390.0;
 constexpr double RangedMaximumRange=500.0;
