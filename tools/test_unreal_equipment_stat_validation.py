@@ -116,6 +116,17 @@ class EquipmentStatSafety(unittest.TestCase):
             body = self.source.split(signature, 1)[1].split("\n}\n", 1)[0]
             self.assertIn("MarkEquipmentInventoryDirty()", body, signature)
 
+    def test_companion_trade_preflights_transaction_state_and_old_gear(self):
+        body = self.source.split("bool AMoonfallHeroPawn::TradeCompanionGear(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CommitCompanionParty(", 1)[0]
+        for guard in ("!GetWorld()", "IsActorBeingDestroyed()", "!FMath::IsFinite(Health)",
+                      "Health<=0.f", "!bWorldProgressInitialized", "bWorldProgressLoadInProgress",
+                      "bPersistentSaveWritesBlocked", "bEquipmentCraftInProgress",
+                      "bEquipBestInProgress", "bTalentAllocationInProgress",
+                      "Old!=0&&!MoonfallGearAdvisor::Valid(Old,Slot)"):
+            self.assertLess(body.index(guard), body.index("const TArray<int32> PreviousBag"))
+        self.assertIn("InventoryItemCodes=PreviousBag;", body)
+
     def test_save_restore_batches_equipment_cache_invalidation(self):
         load = self.source.split("bool AMoonfallHeroPawn::LoadWorldProgress(", 1)[1]
         rebuild = load.split("InventoryItemCodes.Reset();", 1)[1].split("const auto RestoreGear", 1)[0]

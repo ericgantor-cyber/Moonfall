@@ -6270,7 +6270,12 @@ int32 AMoonfallHeroPawn::GetCompanionGearTier(FName ResidentId,int32 Slot) const
  return GetCompanionGearCode(ResidentId,Slot)%1000;
 }
 bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slot,bool bReturn){
- if(!HasAuthority()||!IsValid(Resident)||Resident->GetWorld()!=GetWorld()
+ // Do not stage a companion trade during another inventory/save transaction.
+ if(!GetWorld()||IsActorBeingDestroyed()||!HasAuthority()
+    ||!FMath::IsFinite(Health)||Health<=0.f||!bWorldProgressInitialized
+    ||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked
+    ||bEquipmentCraftInProgress||bEquipBestInProgress||bTalentAllocationInProgress)return false;
+ if(!IsValid(Resident)||Resident->GetWorld()!=GetWorld()
     ||!Resident->CanHeroInteract(this)||IsRecentlyInCombatForAmbientAI()
     ||Slot<0||Slot>2||!IsNamedMoonfallResident(Resident->ResidentId))return false;
  const auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
@@ -6279,6 +6284,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
  const auto* Prior=CompanionGear.Find(Id);
  const FMoonfallCompanionGearRecord Previous=Prior?*Prior:FMoonfallCompanionGearRecord{};
  const int32 Old=Previous.Get(Slot);
+ if(Old!=0&&!MoonfallGearAdvisor::Valid(Old,Slot))return false;
  const int32 Worn[]={EquippedWeaponCode,EquippedArmorCode,EquippedAccessoryCode};
  // Automatic exchange must never downgrade or repeatedly swap equal-value gear.
  int32 Index=INDEX_NONE,BestScore=GetItemPower(Old);
