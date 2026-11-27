@@ -33,6 +33,10 @@ public:
  }
  int32 GetIslandQuestState(int32 Id) const { return IslandJournal.State(Id); }
  int32 GetIslandQuestCount() const { return IslandJournal.Count(); }
+ int32 GetIslandReputation() const { return IslandJournal.Reputation(); }
+ int32 GetIslandCredits() const { return IslandJournal.Credits; }
+ int32 GetIslandTonicPrice() const { return IslandJournal.TonicPrice(); }
+ bool BuyIslandTonic() { return IslandJournal.BuyTonic(GrottoGear.TonicCharges); }
 private:
  MoonfallIslandQuest::FJournal IslandJournal;
  uint8 CaveClaims=0;
