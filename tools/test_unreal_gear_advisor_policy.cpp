@@ -190,6 +190,15 @@ int main() {
   assert(L::CanWearFullItem(Ring10,Target,24));
   assert(!L::CanWearFullItem(1,Target,24));
  }
+ for(int Count:{3,9,16,24}){
+  for(int Slot=0;Slot<24;++Slot){
+   const auto Item=L::DecodeFullItem(L::EncodeFullItem(Slot,1,2,5));
+   const int Expected=Slot>=Count?99:Count>9&&L::IsRingSlot(Slot)?8:Slot;
+   assert(L::FullInventorySortSlot(Item,Count)==Expected);
+  }
+  assert(L::FullInventorySortSlot(L::DecodeFullItem(0),Count)==99);
+ }
+ assert(L::FullInventorySortSlot(L::DecodeFullItem(CommonRing),23)==99);
  assert(!L::CanWearFullItem(CommonRing,0,24));
  assert(!L::CanWearFullItem(Ring10,8,9));
  assert(!L::TryAssignFullRing(CommonRing,23,Flexible,24,true,RingBag,RingResult));
