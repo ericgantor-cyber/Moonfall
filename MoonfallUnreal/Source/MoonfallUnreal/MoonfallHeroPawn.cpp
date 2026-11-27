@@ -2717,6 +2717,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 SafeBalance = FMath::Clamp(Salvage, 0, MaxSalvage);
  Salvage = SafeBalance + FMath::Min(SalvageReward, MaxSalvage - SafeBalance);
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ MarkEquipmentInventoryDirty();
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
@@ -2753,10 +2754,12 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (NewCode <= 0) return false;
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
+ MarkEquipmentInventoryDirty();
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  MarkEquipmentInventoryDirty();
   return false;
  }
  Salvage -= Cost;
@@ -2800,10 +2803,12 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
+ MarkEquipmentInventoryDirty();
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  MarkEquipmentInventoryDirty();
   return false;
  }
  Salvage -= Cost;
@@ -2847,8 +2852,10 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (NewCode <= 0) return false;
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
+ MarkEquipmentInventoryDirty();
  if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  MarkEquipmentInventoryDirty();
   return false;
  }
  Salvage -= Cost;
@@ -3557,9 +3564,11 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // Keep every valid scripted reward in the bag without equipping it.
  // The paginated inventory supports growth beyond the former 30-slot limit.
  const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
+ MarkEquipmentInventoryDirty();
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
+  MarkEquipmentInventoryDirty();
   InventorySelection = OldSelection;
   LastLootAffix = OldLootAffix;
   LastLootSlot = OldLootSlot;
@@ -3631,6 +3640,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  const int32 OldLootTier = LastLootTier;
  const int32 OldLootUpgrade = LastLootUpgrade;
  const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
+ MarkEquipmentInventoryDirty();
  // Dungeon treasure is claimed in the SAME synchronous save as inventory.
  // If writing fails, restore both fields before another pickup attempt.
  const int32 PreviousTreasureState = DungeonTreasureKey != INDEX_NONE
@@ -3639,6 +3649,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  if (DungeonTreasureKey != INDEX_NONE) {
   if (PreviousTreasureState != ItemCode) {
    InventoryItemCodes.RemoveAt(AddedIndex);
+  MarkEquipmentInventoryDirty();
    return false;
   }
   DungeonTreasureStates[DungeonTreasureKey] = -1;
@@ -3651,6 +3662,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  LastLootUpgrade = Tier - EquippedTier;
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
+  MarkEquipmentInventoryDirty();
   if (DungeonTreasureKey != INDEX_NONE)
    DungeonTreasureStates[DungeonTreasureKey] = PreviousTreasureState;
   LastLootAffix = OldLootAffix;
@@ -5160,6 +5172,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  for (int32 Index = 0; Index < LoadScanCount; ++Index) {
   const int32 Code = Save->InventoryItemCodes[Index];
   if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
+ MarkEquipmentInventoryDirty();
  }
  const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
   if (MoonfallGearAdvisor::Valid(Code,Slot) && InventoryItemCodes.Contains(Code)) {
@@ -6219,11 +6232,13 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
  const int32 NewCode=bReturn?0:InventoryItemCodes[Index];
  if(Index!=INDEX_NONE)InventoryItemCodes.RemoveAt(Index);
  if(Old!=0)InventoryItemCodes.Add(Old);
+ MarkEquipmentInventoryDirty();
  Next.Set(Slot,NewCode);
  if(Next.Weapon==0&&Next.Armor==0&&Next.Accessory==0)CompanionGear.Remove(Id);
  else CompanionGear.Add(Id,Next);
  if(!SaveWorldProgress()){
   InventoryItemCodes=PreviousBag;
+  MarkEquipmentInventoryDirty();
   if(Previous.Weapon==0&&Previous.Armor==0&&Previous.Accessory==0)CompanionGear.Remove(Id);
   else CompanionGear.Add(Id,Previous);
   return false;
