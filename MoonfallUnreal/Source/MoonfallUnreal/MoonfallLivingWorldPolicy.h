@@ -133,6 +133,19 @@ inline double FollowerStepBudget(double remaining,double previousStep,double ela
  const double braking=std::fmin(maxStep,std::fmax(12.0,remaining*0.5));
  return std::fmin(remaining,std::fmin(braking,previous+24.0));
 }
+// Hysteresis keeps formation stable around the walk/idle threshold.
+inline bool CompanionTravelFormation(double speedSquared,double verticalSpeed,bool wasTraveling,bool inCombat){
+ if(inCombat||!std::isfinite(speedSquared)||speedSquared<0.0||!std::isfinite(verticalSpeed)||std::fabs(verticalSpeed)>=100.0)return false;
+ const double threshold=wasTraveling?80.0:120.0;
+ return speedSquared>threshold*threshold;
+}
+inline float CompanionTravelStepCap(double heroSpeed,double separationSquared){
+ if(!std::isfinite(heroSpeed)||heroSpeed<0.0||!std::isfinite(separationSquared)||separationSquared<0.0)return 60.f;
+ // Extra walking catch-up remains under the existing 100-unit safety ceiling.
+ if(separationSquared>=900.0*900.0)return 100.f;
+ if(separationSquared>=500.0*500.0)return 90.f;
+ return heroSpeed>=550.0?80.f:heroSpeed>=300.0?70.f:60.f;
+}
 inline bool CanCompanionSupportOffensively(float health){
  return std::isfinite(health)&&health>25.f&&health<=100.f;
 }
