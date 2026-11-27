@@ -742,8 +742,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const auto* Movement=GetCharacterMovement();
   if (!bWaterSwimming) {
    WaterRecoveryVolume.Reset();
-   if (IsValid(Movement) && Movement->IsMovingOnGround() && FMath::IsFinite(Health)
-       && Health>0.f && !Position.ContainsNaN() && FMath::IsFinite(Now)
+   if (IsValid(Movement) && Movement->IsMovingOnGround()
+       && IsValid(GetPhysicsVolume()) && !GetPhysicsVolume()->bWaterVolume
+       && FMath::IsFinite(Health) && Health>0.f && !Position.ContainsNaN() && FMath::IsFinite(Now)
        && IsValid(GetMovementBase()) && GetMovementBase()->Mobility==EComponentMobility::Static) {
     WaterRecoveryShore=Position;
     WaterRecoveryShoreAt=Now;
