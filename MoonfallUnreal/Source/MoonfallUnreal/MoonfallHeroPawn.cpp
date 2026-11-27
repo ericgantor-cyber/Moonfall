@@ -861,12 +861,14 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // never change. Original position is the stable tie-breaker for duplicates.
  Order.Sort([this](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
-  const int32 SlotA = CodeA > 0 ? (CodeA / 10000) % 10 : 99;
-  const int32 SlotB = CodeB > 0 ? (CodeB / 10000) % 10 : 99;
-  const int32 RarityA = CodeA > 0 ? (CodeA / 1000) % 10 : -1;
-  const int32 RarityB = CodeB > 0 ? (CodeB / 1000) % 10 : -1;
-  const int32 TierA = CodeA > 0 ? CodeA % 1000 : -1;
-  const int32 TierB = CodeB > 0 ? CodeB % 1000 : -1;
+  const auto DecodedA=MoonfallEquipmentLayout::DecodeFullItem(CodeA);
+  const auto DecodedB=MoonfallEquipmentLayout::DecodeFullItem(CodeB);
+  const int32 SlotA=DecodedA.IsValid()?DecodedA.Slot:99;
+  const int32 SlotB=DecodedB.IsValid()?DecodedB.Slot:99;
+  const int32 RarityA=DecodedA.IsValid()?DecodedA.Rarity:-1;
+  const int32 RarityB=DecodedB.IsValid()?DecodedB.Rarity:-1;
+  const int32 TierA=DecodedA.IsValid()?DecodedA.Tier:-1;
+  const int32 TierB=DecodedB.IsValid()?DecodedB.Tier:-1;
   if (InventorySortMode == 1) {
    if (RarityA != RarityB) return RarityA > RarityB;
    if (TierA != TierB) return TierA > TierB;
