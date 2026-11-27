@@ -50,3 +50,11 @@ Saltveil Hunter, Pearlback, Lantern Eel, Kelp Stalker, Glassfin Rare, and Brineh
 Run `Tools/create_deep_waters_material.py` in the UE5.4 editor before installing the preview. It creates a new, two-sided translucent unlit material under `/Game/DeepWaters/Materials` without overwriting an existing asset. The installer requires this material and uses a noncolliding plane aligned with the water volume. Existing installed previews must be rebuilt in a clean preview map to include the plane; the duplicate guard remains in place.
 
 Camera-local depth enables a subdued tint and six small rising ambient cues, with no ambient movement in Reduce Motion mode. The hero exposes `WaterStrokeSpeed`, `WaterVerticalSpeed` and `OnSwimmingStateChanged` for authored animation graphs; no original hero mesh, texture, or montage was changed. The shader is a simple translucent preview surface, not a physically simulated ocean. Native checks: inspect the surface from above and below, verify spell traces and ascent are unobstructed, confirm the camera rather than the hero eye controls the tint, and verify Reduce Motion removes moving cues. Actual swim animation assets still require authoring and binding.
+
+## Shipwreck exploration and ferry swimming
+
+The isolated pool now has two open-roof wrecks: Blackwake Wreck and Moonspine Wreck. Swimming through their interiors records one discovery each for this world session; the HUD shows both wrecks separately from the six grotto claims. The wrecks use collision-backed greybox hull fragments and leave a clear route upward. They do not grant campaign loot.
+
+The existing Northern Expanse ferry cancels its voyage when a living passenger enters native swimming mode. Cancellation restores the voyage camera and resets the vessel without relocating that swimmer or recording a successful landing. Dry-land abort recovery remains unchanged. This does not yet create an ocean corridor or connect the two preview maps; ferry water volumes and actual shoreline approaches must be authored and tested in the editor.
+
+Native acceptance: enter each wreck from its open end, ascend freely, confirm each discovery counts once, and leave a ferry into an authored water volume. Confirm the passenger is not teleported, no arrival reward is recorded, and normal dry-harbor abort recovery still works.
