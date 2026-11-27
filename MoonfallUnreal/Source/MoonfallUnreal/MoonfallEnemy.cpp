@@ -688,7 +688,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Sanctuary practice sentries never pursue players through the safe village.
  // Only deliberate close-range approaches activate their forgiving attacks.
  static const FName PracticeSimulationTag(TEXT("MoonfallSanctuaryPractice"));
+ static const FName RangedRoleTag(TEXT("MoonfallEnemyRole_Ranged"));
+ static const FName BossMinionTag(TEXT("MoonfallBossMinion"));
+ static const FName BossEncounterTag(TEXT("MoonfallBossEncounter"));
  const bool bSanctuaryPractice = ActorHasTag(PracticeSimulationTag);
+ const bool bRangedCombatRole = !bBoss && !bSanctuaryPractice && ActorHasTag(RangedRoleTag);
+ const bool bBossMinion = !bBoss && ActorHasTag(BossMinionTag);
+ const float EffectiveAttackRange = bRangedCombatRole
+   ? MoonfallPackTactics::RangedAttackRange : AttackRange;
+ const int32 RangedPositionMode = bRangedCombatRole
+   ? MoonfallPackTactics::RangedRepositionMode(Distance) : 0;
  if (bSanctuaryPractice && Distance > 450.f) {
   // A trainee may freely retreat: no lingering aim, tells or instant strike.
   WindupEndsAt = -1.f;
@@ -866,8 +875,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Preserve the existing directional melee contract for untagged enemies.
   const bool bOrdinaryDirectionalMelee =
     bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier;
+  const bool bRangedShot = bRangedCombatRole && bWithinAttackArc
+    && Distance <= EffectiveAttackRange * CurrentAttackRangeMultiplier;
   const bool bWithinBasicAttack = !bDivineSignatureActive &&
-    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint : bOrdinaryDirectionalMelee);
+    (ActiveGuardianFootprint >= 0 ? bWithinGuardianFootprint
+      : (bRangedCombatRole ? bRangedShot : bOrdinaryDirectionalMelee));
   // Resolution event is emitted once for either hit or miss, before reset.
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
@@ -1029,7 +1041,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(Shape)), nullptr, FColor::White, 0.12f, false);
    return;
   }
-  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
+  DrawDebugSphere(GetWorld(), GetActorLocation(), EffectiveAttackRange * CurrentAttackRangeMultiplier,
     bBoss ? 24 : 16, TellColor, false, 0.12f, 0, bBoss ? 1.f + WarningScale : 1.f);
   // Horizontal radius marker on the ground helps distinguish the dodge zone.
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
@@ -1159,14 +1171,23 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     || DivineSightHit.GetActor() == Hero;
  }
  const bool bDivineRangedCastReady = bDivineRangedCastCandidate && bDivineCastLineClear;
- if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))
+ const bool bRangedNeedsReposition = bRangedCombatRole && bCanSeeHero
+   && RangedPositionMode != 0;
+ if ((Distance > EffectiveAttackRange || (!bBoss && !bCanSeeHero) || bRangedNeedsReposition)
      && Distance < 2200.f && !bDivineRangedCastReady) {
   FHitResult Hit;
   FVector Target = (!bBoss && !bCanSeeHero) ? LastKnownHeroPosition : Hero->GetActorLocation();
   // Give different ordinary enemies stable approach lanes instead of all
   // pursuing the same point. Eight fixed approach lanes avoid per-tick random
   // jitter, extra neighbor searches, and new navigation queries.
-  if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f && Distance < 900.f) {
+  if (bRangedNeedsReposition) {
+   // Ranged enemies hold a readable 390-unit lane. They withdraw when rushed
+   // and advance when the hero escapes, using the same cached NavMesh route.
+   const FVector TowardHero=Difference.GetSafeNormal2D();
+   const FVector Side(-TowardHero.Y,TowardHero.X,0.f);
+   Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange
+     +Side*MoonfallPackTactics::ApproachLaneSign(GetUniqueID())*55.f;
+  } else if ((bBoss || bCanSeeHero) && Distance > EffectiveAttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
    float FlankSign = 1.f;
    float FlankDistance = 0.f;
@@ -1363,15 +1384,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CachedWaypoint = FVector::ZeroVector;
    }
   }
- } else if (Distance <= AttackRange || bDivineRangedCastReady) {
+ } else if (Distance <= EffectiveAttackRange || bDivineRangedCastReady) {
   // Elites and advanced bosses reposition between strikes, not during
   // locked attack windups or posture breaks. A small sideways sweep keeps
   // combat mobile while preserving walls, hit arcs and dodge windows.
   if (!bDivineRangedCastReady
-      && (bElite || (bBoss && BossPhase >= 2))
+      && (bRangedCombatRole || bElite || (bBoss && BossPhase >= 2))
       && WindupEndsAt < 0.f && Now < NextAttackAt
       && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil
-      && Distance > AttackRange * 0.45f && Distance > 1.f) {
+      && (bRangedCombatRole || Distance > AttackRange * 0.45f) && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
    // Bonus-pack leaders can pressure a flank faster without changing
@@ -1379,7 +1400,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const bool bDungeonPackLeader = bElite
      && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
      && ActorHasTag(FName(TEXT("DungeonPackLeader")));
-   const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);
+   const float StrafeSpeed = bRangedCombatRole ? 45.f : (bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f));
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
    if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero()) {
@@ -1409,7 +1430,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // candidate budget or delaying another enemy's attack.
      if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
          || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
-         || Other->bBoss || (Other->bElite && !bDungeonRole)
+         || (Other->bBoss && !(bBossMinion
+             && MoonfallPackTactics::ShouldMinionYieldToBoss(
+               bBossMinion,Other->ActorHasTag(BossEncounterTag))))
+         || (Other->bElite && !bDungeonRole)
          || Other->ActorHasTag(PracticeSimulationTag)) continue;
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
@@ -1579,6 +1603,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackRangeMultiplier = FMath::Max(CurrentAttackRangeMultiplier, 2.0f);
     bComboSecondHitPending = false;
     BossSpecialMove = 0;
+   }
+   if (bRangedCombatRole) {
+    // Ranged shots are single, deliberate commitments with a longer tell.
+    // They use the same dodge, parry, cover and damage pipeline as melee.
+    CurrentWindup=FMath::Max(CurrentWindup,0.95f);
+    CurrentAttackMultiplier=FMath::Min(CurrentAttackMultiplier,1.1f);
+    CurrentAttackRangeMultiplier=1.f;
+    bComboSecondHitPending=false;
+    BossSpecialMove=0;
    }
    if (bSanctuaryPractice) {
     // Allow new players to read and react to the existing visual tell.
