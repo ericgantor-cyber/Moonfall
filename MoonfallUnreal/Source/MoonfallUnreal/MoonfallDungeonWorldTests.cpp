@@ -446,6 +446,9 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   if(!Mastery::TryCollect(Earned,Region,63,Mastery::Orb::Hidden,true,Earned))return false;
   if(!Mastery::TryCollect(Earned,Region,0,Mastery::Orb::Agility,true,Earned))return false;
  }
+ // Cover all ten ranks and the maximum XP boundary in the native record.
+ for(int32 Skill=0;Skill<Mastery::SkillCount;++Skill)
+  Earned.XP[Skill]=Mastery::RankThresholds[Mastery::MaxRank-Skill];
  if(!TestTrue(TEXT("Write mastery record"),MoonfallMasterySave::Write(Earned,*MasteryRecord)))return false;
  TArray<uint8> MasteryBytes;
  if(!TestTrue(TEXT("Serialize mastery record"),UGameplayStatics::SaveGameToMemory(MasteryRecord,MasteryBytes)))return false;
@@ -453,6 +456,8 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  if(!TestNotNull(TEXT("Deserialize mastery record"),MasteryReload))return false;
  if(!TestTrue(TEXT("Read mastery record"),MoonfallMasterySave::Read(*MasteryReload,Decoded)))return false;
  TestTrue(TEXT("Mastery XP and all orb bits survive serialization"),Decoded.XP==Earned.XP&&Decoded.Collected==Earned.Collected);
+ TestEqual(TEXT("Rank ten survives serialization"),Mastery::RankFor(Decoded,Mastery::Skill::Swordsmanship),Mastery::MaxRank);
+ TestFalse(TEXT("Restored collected orb cannot grant XP again"),Mastery::TryCollect(Decoded,0,63,Mastery::Orb::Hidden,true,Decoded));
  MasteryReload->SkillMasteryOrbWords[1]=-1;
  TestFalse(TEXT("Reject negative orb word"),MoonfallMasterySave::Read(*MasteryReload,Decoded));
  TestTrue(TEXT("Rejected mastery preserves output"),Decoded.XP==Earned.XP&&Decoded.Collected==Earned.Collected);
