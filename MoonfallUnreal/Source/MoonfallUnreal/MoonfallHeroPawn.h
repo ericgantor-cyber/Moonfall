@@ -22,6 +22,7 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UNiagaraSystem;
 class UNiagaraComponent;
+namespace MoonfallEquipmentLayout { struct FRingBonuses; }
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -159,6 +160,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetCriticalChance() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetRingLuckBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
  // Version 8: 30 stable dungeon entrances, six zones x five per zone.
  // Discovery is permanent, independent of shrine respawn progression.
@@ -499,6 +501,7 @@ private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
+ MoonfallEquipmentLayout::FRingBonuses GetNativeRingBonuses() const;
  // Fixed storage for slot IDs 3–23. Public gameplay remains gated until
  // the expanded inventory, loot and equipment UI are integrated.
  int32 ExtraEquippedCodes[21] = {};

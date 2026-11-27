@@ -261,10 +261,26 @@ int32 AMoonfallHeroPawn::GetResolve() const
    + GetValidatedEquippedTier(1) + GetRaceResolveBonus(), 10, 100);
 }
 
+MoonfallEquipmentLayout::FRingBonuses AMoonfallHeroPawn::GetNativeRingBonuses() const
+{
+ // Keep all nine-slot balance unchanged until the full ring layout activates.
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return {};
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
+  Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ return MoonfallEquipmentLayout::BuildRingBonuses(Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
+}
+
+float AMoonfallHeroPawn::GetRingLuckBonus() const
+{
+ return GetNativeRingBonuses().LuckBps * 0.0001f;
+}
+
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
  const float TraitCrit = ValidEquippedTraitRarity(GetEquipmentSlotCode(0), 0, 1) * 0.008f;
- return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f)
+   + GetNativeRingBonuses().CritBps * 0.0001f,
    0.05f, 0.25f);
 }
 
@@ -272,7 +288,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 {
  const float TraitHaste = ValidEquippedTraitRarity(GetEquipmentSlotCode(2), 2, 3) * 0.006f;
  return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
-   + (HasLegendaryPerk(2) ? 0.025f : 0.f),
+   + (HasLegendaryPerk(2) ? 0.025f : 0.f)
+   + GetNativeRingBonuses().HasteBps * 0.0001f,
    0.f, 0.20f);
 }
 
@@ -280,19 +297,22 @@ float AMoonfallHeroPawn::GetMasteryBonus() const
 {
  int32 ExtraTierTotal=0;
  for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
-  ExtraTierTotal+=GetValidatedEquippedTier(Slot);
+  if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount||!MoonfallEquipmentLayout::IsRingSlot(Slot))
+   ExtraTierTotal+=GetValidatedEquippedTier(Slot);
  const float GearMastery = FMath::Clamp(
    (GetValidatedEquippedTier(0)
     + GetValidatedEquippedTier(1)
     + GetValidatedEquippedTier(2) + ExtraTierTotal) * 0.0015f, 0.f, 0.12f);
- return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
+ return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f)
+   + GetNativeRingBonuses().MasteryBps * 0.0001f,
    0.f, 0.16f);
 }
 
 float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
  const float TraitVersatility = ValidEquippedTraitRarity(GetEquipmentSlotCode(1), 1, 2) * 0.005f;
- return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f)
+   + GetNativeRingBonuses().VersatilityBps * 0.0001f,
    0.f, 0.12f);
 }
 
@@ -3358,7 +3378,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  // for elites. Regular enemies use weighted chances with a modest level bias.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
  const int32 LootRoll = FMath::RandRange(0, 99);
- const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
+ const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12)
+     + GetNativeRingBonuses().LuckBps / 100;
  // Existing rarity codes 0-3 are stable for compatibility.
  // 4 Emerald and 5 Legendary add special high-end reward targets.
  // Bosses always roll at least Epic; max-level bosses can yield Legendary.
