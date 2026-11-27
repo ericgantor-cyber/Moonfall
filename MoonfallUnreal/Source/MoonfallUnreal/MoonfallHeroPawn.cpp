@@ -1041,15 +1041,21 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   bInventoryScrollbarDragging = false;
   return false;
  }
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen) {
+  bInventoryScrollbarDragging = false;
   return false;
+ }
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) {
+  bInventoryScrollbarDragging = false;
   return false;
+ }
  const int32 Rows = GetInventoryVisibleRows();
  const int32 Count = InventoryItemCodes.Num();
  // A bag may shrink while dragging after a salvage or item transfer.
@@ -1084,14 +1090,16 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
 
 bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY))
   return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
    FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
@@ -1107,14 +1115,16 @@ bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
 
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
  // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
@@ -1129,14 +1139,16 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY)) return false;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
      FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  if (PanelWidth < 550.f) return false; // compact layout leaves this button hidden
@@ -1274,14 +1286,16 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 
 int32 AMoonfallHeroPawn::HitTestInventoryRow() const
 {
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
+     || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
   return INDEX_NONE;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
  int32 Width = 0, Height = 0;
  float MouseX = 0.f, MouseY = 0.f;
  PC->GetViewportSize(Width, Height);
- if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)
+     || !FMath::IsFinite(MouseX) || !FMath::IsFinite(MouseY))
   return INDEX_NONE;
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
@@ -1294,15 +1308,38 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const int32 End = FMath::Min(Count, Start + Rows);
  const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
  const float FirstY = Top + 145.f;
- if (MouseX < Left + 12.f || MouseX > Left + PanelWidth - 16.f ||
-     MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
+ if (MouseX < Left + 12.f || MouseX >= Left + PanelWidth - 16.f ||
+     MouseY < FirstY || MouseY >= FirstY + (End - Start) * Spacing)
   return INDEX_NONE;
  const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
  const int32 DisplayPosition = Start + RelativeRow;
+ if (DisplayPosition < Start || DisplayPosition >= End) return INDEX_NONE;
  const TArray<int32> Order = GetInventoryDisplayOrder();
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
+}
+
+// Dropping onto the bag's empty visible rows is as valid as an occupied row.
+// No item selection, sorting or index lookup is needed for this gesture.
+bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface() const
+{
+ if(!CanEditEquippedRings()||!HasVisibleInventoryPointerSurface(Controller))return false;
+ const APlayerController* PC=Cast<APlayerController>(Controller);
+ if(!PC||!PC->bShowMouseCursor)return false;
+ int32 Width=0,Height=0;float MouseX=0.f,MouseY=0.f;
+ PC->GetViewportSize(Width,Height);
+ if(Width<=0||Height<=0||!PC->GetMousePosition(MouseX,MouseY)
+     ||!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY))return false;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(Width)-24.f,float(Width)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(Height)-24.f));
+ if(PanelHeight<420.f)return false;
+ const float Left=float(Width)-PanelWidth-12.f,Top=(float(Height)-PanelHeight)*0.5f;
+ const int32 Rows=GetInventoryVisibleRows();
+ const float Spacing=FMath::Max(21.f,(PanelHeight-(PanelHeight>=500.f?430.f:390.f))/Rows);
+ const float FirstY=Top+145.f;
+ return MouseX>=Left+12.f&&MouseX<Left+PanelWidth-16.f
+     &&MouseY>=FirstY&&MouseY<FirstY+Rows*Spacing;
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
@@ -1351,6 +1388,9 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::ControllerLeftShoulder()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(-1); return; }
@@ -1361,6 +1401,9 @@ void AMoonfallHeroPawn::ControllerLeftShoulder()
 }
 void AMoonfallHeroPawn::ControllerRightShoulder()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen && bQuestLogOpen && !bOptionsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) { StepQuestLogPage(1); return; }
@@ -1371,8 +1414,12 @@ void AMoonfallHeroPawn::ControllerRightShoulder()
 }
 void AMoonfallHeroPawn::ControllerLootOrSalvage()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  // One X press owns one action; keyboard F and Delete remain independent.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bTalentWebOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
@@ -1380,6 +1427,9 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  // Preserve Equip Best's existing zero-health inventory policy; its own
  // validated transaction remains authoritative. Never cast at zero health.
@@ -1392,6 +1442,9 @@ void AMoonfallHeroPawn::ControllerLeftTrigger()
 }
 void AMoonfallHeroPawn::ControllerRightTrigger()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus())return;
  // Route physical RT once; mouse combat continues to call RightHandAction.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
@@ -1401,6 +1454,9 @@ void AMoonfallHeroPawn::ControllerRightTrigger()
 }
 void AMoonfallHeroPawn::ControllerBack()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ClearRingNavigationFocus();return;}
  // Choose one route before a modal transition can expose gameplay input.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health < 0.f) return;
@@ -1414,11 +1470,15 @@ void AMoonfallHeroPawn::ControllerBack()
 }
 void AMoonfallHeroPawn::ControllerConfirm()
 {
+ // A physical controller action supersedes any held inventory mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ConfirmRingNavigationAction();return;}
  // One A press takes exactly one route, even when a synchronous UI callback
  // closes or opens another panel. Keyboard C, Enter and Space stay separate.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bTalentWebOpen) { TalentSpendSelected(); return; }
+ if (bOptionsOpen) return;
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bResidentContextOpen) { TryJump(); return; }
  if (bOptionsOpen || bAtlasOpen || FocusedResident.IsValid()) return;
@@ -2196,6 +2256,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::ControllerRightStickPress()
 {
+ if(HasRingNavigationFocus())return; // Do not abandon a focused ring transaction for Atlas.
  if (IsActorBeingDestroyed() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bOptionsOpen) { ExportBugReport(); return; }
  if (bTalentWebOpen || bOptionsOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
@@ -3297,6 +3358,9 @@ void AMoonfallHeroPawn::RefreshGraphicsMemoryAudit() {
  if (Stats.TexturePoolSize>0) AuditTexturePool=Stats.TexturePoolSize;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ArmOrCancelRingNavigationSwap();return;}
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(-1); return; }
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
@@ -3341,6 +3405,9 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){ClearRingNavigationFocus();return;}
  if (bAtlasOpen&&bQuestLogOpen) { StepQuestLog(1); return; }
  if (bTalentWebOpen) { TalentMove(0,1); return; }
@@ -3380,6 +3447,9 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
@@ -3400,6 +3470,9 @@ void AMoonfallHeroPawn::OptionsLeft() {
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ // Switching to directional navigation cancels a pending mouse gesture.
+ ClearRingPointerDrag();
+ bInventoryScrollbarDragging=false;
  if(HasRingNavigationFocus()){
   const int32 Next=RingNavigationIndex+1;
   const int32 Slot=MoonfallEquipmentLayout::RingSlot(Next);
@@ -6046,7 +6119,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
   if(GetEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(FingerIndex))!=Code)return;
   if(Target!=INDEX_NONE){
    if(Target!=FingerIndex)MoveEquippedRing(FingerIndex,Target);
-  }else if(HitTestInventoryRow()!=INDEX_NONE){
+  }else if(HitTestInventoryBagDropSurface()){
    UnequipRing(FingerIndex); // The existing bag retains the physical copy.
   }
  }

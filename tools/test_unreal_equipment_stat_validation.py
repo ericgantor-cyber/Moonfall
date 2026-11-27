@@ -170,6 +170,16 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("EquipInventoryRing(BagIndex,Target);", release)
         self.assertIn("MoveEquippedRing(FingerIndex,Target);", release)
         self.assertIn("UnequipRing(FingerIndex);", release)
+        self.assertIn("else if(HitTestInventoryBagDropSurface())", release)
+        drop = self.source.split("bool AMoonfallHeroPawn::HitTestInventoryBagDropSurface()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("MouseY<FirstY+Rows*Spacing", drop)
+        self.assertIn("MouseX<Left+PanelWidth-16.f", drop)
+        self.assertIn("!CanEditEquippedRings()", drop)
+        self.assertIn("!FMath::IsFinite(MouseX)||!FMath::IsFinite(MouseY)", drop)
+        self.assertNotIn("GetInventoryDisplayOrder()", drop)
+        self.assertNotIn("InventoryItemCodes.Num()", drop)
+        row = self.source.split("int32 AMoonfallHeroPawn::HitTestInventoryRow()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(row.index("!FMath::IsFinite(MouseY)"), row.index("FMath::FloorToInt("))
         self.assertIn("InventoryItemCodes[BagIndex]==Code", release)
         self.assertIn("Revision!=EquipmentInventoryRevision", release)
         self.assertIn("Fingerprint!=GetEquipmentLoadoutFingerprint()", release)
@@ -226,6 +236,54 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("DrawGearGlyph(GhostX+12.f", hud)
         self.assertIn('TEXT("RING T%d")', hud)
         self.assertIn("FMath::IsFinite(MX)&&FMath::IsFinite(MY)", hud)
+
+    def test_inventory_pointer_coordinates_are_finite(self):
+        for name in ("ScrollInventoryToMouseTrack", "HitTestInventoryCloseButton",
+                     "HitTestInventorySortButton", "HitTestInventoryEquipButton", "HitTestInventoryRow"):
+            with self.subTest(name=name):
+                body = self.source.split("AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+                self.assertIn("!FMath::IsFinite(MouseX)", body)
+                self.assertIn("!FMath::IsFinite(MouseY)", body)
+                self.assertIn("!HasVisibleInventoryPointerSurface(Controller)", body)
+                self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen", body)
+        scroll = self.source.split("AMoonfallHeroPawn::ScrollInventoryToMouseTrack(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(scroll.index("!FMath::IsFinite(MouseY)"), scroll.index("FMath::RoundToInt("))
+        self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen", scroll)
+        self.assertLess(scroll.index("bResidentContextOpen"), scroll.index("bInventoryScrollbarDragging = true;"))
+        self.assertIn("bInventoryScrollbarDragging = false;\n  return false;", scroll)
+        row = self.source.split("AMoonfallHeroPawn::HitTestInventoryRow(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!HasVisibleInventoryPointerSurface(Controller)", row)
+        self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen", row)
+        self.assertIn("MouseX >= Left + PanelWidth - 16.f", row)
+        self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("GetInventoryDisplayOrder()"))
+
+    def test_controller_buttons_cancel_inventory_pointer_gestures(self):
+        for name in ("ControllerConfirm", "ControllerBack", "ControllerLootOrSalvage",
+                     "ControllerLeftShoulder", "ControllerRightShoulder",
+                     "ControllerLeftTrigger", "ControllerRightTrigger"):
+            with self.subTest(name=name):
+                body = self.source.split("void AMoonfallHeroPawn::" + name + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index("ClearRingPointerDrag();"), body.index("if"))
+                self.assertLess(body.index("bInventoryScrollbarDragging=false;"), body.index("if"))
+
+    def test_controller_navigation_owns_inventory_gestures(self):
+        for name in ("OptionsUp", "OptionsDown", "OptionsLeft", "OptionsRight"):
+            with self.subTest(name=name):
+                body = self.source.split("void AMoonfallHeroPawn::" + name + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index("ClearRingPointerDrag();"), body.index("if(HasRingNavigationFocus())"))
+                self.assertLess(body.index("bInventoryScrollbarDragging=false;"), body.index("if(HasRingNavigationFocus())"))
+        stick = self.source.split("void AMoonfallHeroPawn::ControllerRightStickPress()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(stick.index("if(HasRingNavigationFocus())return;"), stick.index("ToggleAtlas();"))
+        confirm = self.source.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(confirm.index("if (bOptionsOpen) return;"), confirm.index("ToggleSelectedQuestTracking();"))
+        loot = self.source.split("void AMoonfallHeroPawn::ControllerLootOrSalvage()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(loot.index("if (bOptionsOpen || bTalentWebOpen || bResidentContextOpen || FocusedResident.IsValid()) return;"), loot.index("ToggleQuestLog();"))
+
+    def test_bag_drop_surface_has_no_gold_highlight(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("CanDropDraggedRingInBag()", hud)
+        self.assertNotIn("DrawRect(SlotGold,BagX", hud)
+        self.assertIn("else if(HitTestInventoryBagDropSurface())", self.source)
 
     def test_expanded_ring_equip_entry_points_share_transaction_guard(self):
         explicit = self.source.split("bool AMoonfallHeroPawn::EquipInventoryRing(", 1)[1].split("\n}", 1)[0]
