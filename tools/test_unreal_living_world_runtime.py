@@ -24,6 +24,18 @@ int main(){
  }
  assert(MoonfallPackTactics::ApproachLaneIndex(8u)==0u);
  assert(MoonfallPackTactics::ApproachLaneDistance(7u)==145.f);
+ using MoonfallPackTactics::RoleAdjustedSlotDelay;
+ using MoonfallPackTactics::YieldRepositionStep;
+ assert(RoleAdjustedSlotDelay(0.5f,true)==0.4f);
+ assert(RoleAdjustedSlotDelay(0.5f,false)==0.5f);
+ assert(RoleAdjustedSlotDelay(0.f,true)==0.f);
+ assert(YieldRepositionStep(140,145,0.1f,true)==18.f);
+ assert(YieldRepositionStep(140,145,0.5f,true)==18.f);
+ assert(YieldRepositionStep(140,145,0.1f,false)==0.f);
+ assert(YieldRepositionStep(50,145,0.1f,true)==0.f);
+ assert(YieldRepositionStep(146,145,0.1f,true)==0.f);
+ assert(YieldRepositionStep(140,145,-1.f,true)==0.f);
+ assert(YieldRepositionStep(std::numeric_limits<double>::infinity(),145,0.1f,true)==0.f);
  assert(MoonfallPackTactics::ShouldYieldAttackSlot(1));
  assert(MoonfallPackTactics::ShouldYieldAttackSlot(2));
  assert(!MoonfallPackTactics::ShouldYieldAttackSlot(0));
@@ -798,6 +810,14 @@ int main(){
         self.assertIn("Other->GetOwner() != GetOwner()",block)
         self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",block)
         self.assertEqual(block.count("TActorIterator<AMoonfallEnemy>"),1)
+        self.assertIn("Other->ActorHasTag(PracticeSimulationTag)",block)
+        self.assertIn("FMath::Abs(Other->GetActorLocation().Z-PackOrigin.Z)>100.0",block)
+        self.assertIn("RoleAdjustedSlotDelay(",block)
+        self.assertIn("YieldRepositionStep(Distance,AttackRange,SafeAIDelta",block)
+        self.assertIn("!bElite&&bCanSeeHero&&Now>=HitReactionEndsAt&&Now>=PostureBrokenUntil",block)
+        self.assertEqual(block.count("AddActorWorldOffset(Offset,true,&YieldHit)"),1)
+        self.assertLess(block.index("NextAttackAt = Now + SlotDelay"),block.index("YieldRepositionStep("))
+        self.assertNotIn("FindPathToLocationSynchronously",block)
 
     def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
