@@ -147,6 +147,20 @@ class EquipmentStatSafety(unittest.TestCase):
             self.assertLess(body.index(guard), body.index("const TArray<int32> PreviousBag"))
         self.assertIn("InventoryItemCodes=PreviousBag;", body)
 
+    def test_ring_strip_hit_testing_matches_hud_and_consumes_clicks(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hit = self.source.split("int32 AMoonfallHeroPawn::HitTestInventoryRingStrip()", 1)[1].split("\n}", 1)[0]
+        for token in ("RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f",
+                      "RingWidth=(PanelWidth-36.f)/MoonfallEquipmentLayout::RingSlotCount",
+                      "RingWidth-2.f"):
+            self.assertIn(token, hit)
+            self.assertIn(token, hud)
+        self.assertIn("if(PanelHeight<420.f)return INDEX_NONE;", hit)
+        self.assertIn("ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount", hit)
+        self.assertIn("if(RingIndex!=INDEX_NONE){UnequipRing(RingIndex);return;}", self.source)
+        self.assertIn("EquipInventoryRing(InventorySelection,RingIndex);", self.source)
+        self.assertIn("RINGS: click to equip selected | right-click to remove", hud)
+
     def test_native_ring_move_and_remove_are_guarded_and_bag_read_only(self):
         guard = self.source.split("bool AMoonfallHeroPawn::CanEditEquippedRings()", 1)[1].split(
             "bool AMoonfallHeroPawn::MoveEquippedRing(", 1)[0]
