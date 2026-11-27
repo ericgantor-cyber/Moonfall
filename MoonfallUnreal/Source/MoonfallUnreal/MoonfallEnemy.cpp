@@ -1188,9 +1188,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    } else {
     // Deterministic actor-local lanes: left/right, near/wide. Collision
     // sweeps still protect against walls and occupied corridors.
-    const uint32 Lane = GetUniqueID() % 4u;
-    FlankSign = Lane % 2u == 0u ? -1.f : 1.f;
-    FlankDistance = Lane >= 2u ? 105.f : 70.f;
+    const uint32 LaneActorId = GetUniqueID();
+    FlankSign = MoonfallPackTactics::ApproachLaneSign(LaneActorId);
+    FlankDistance = MoonfallPackTactics::ApproachLaneDistance(LaneActorId);
    }
    Target += Side.GetSafeNormal() * FlankDistance * FlankSign;
   }
