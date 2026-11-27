@@ -779,6 +779,20 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
   if (IsActorBeingDestroyed()) return;
  }
+ // Discover wrecks only while actually swimming through their open interiors.
+ if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
+     && IsLocallyControlled() && GetWorld()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")) {
+  if (auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   const FVector WreckCenters[] = {FVector(-2200,-1250,-260),FVector(2200,1250,-260)};
+   for (int32 I=0; I<2; ++I) {
+    const FVector Offset=WaterRelativePosition-WreckCenters[I];
+    if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
+        && FMath::Abs(Offset.Y)<=100.f && FMath::Abs(Offset.Z)<=90.f)
+     Preview->DiscoverWreck(I);
+   }
+  }
+ }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
  if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
