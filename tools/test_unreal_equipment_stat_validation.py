@@ -84,6 +84,14 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertNotIn("OwnedCounts.FindOrAdd(Code)", snapshot)
         self.assertLess(snapshot.index("RequiredCounts.FindOrAdd(Code)"), snapshot.index("for(int32 Code:InventoryItemCodes)"))
 
+    def test_expanded_tier_queries_reuse_validated_snapshot(self):
+        tier = self.source.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(", 1)[0]
+        self.assertIn("GetValidatedEquipmentCodes(Codes);", tier)
+        self.assertIn("Codes.IsValidIndex(Slot)?ValidEquippedTier(Codes[Slot],Slot):0", tier)
+        self.assertNotIn("FullOwnedCopies(", tier)
+        self.assertIn("InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0", tier)
+
     def test_equipment_snapshot_cache_invalidates_on_inventory_mutation(self):
         header = HEADER.read_text(encoding="utf-8")
         self.assertIn("uint32 EquipmentInventoryRevision=1;", header)

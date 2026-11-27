@@ -211,13 +211,11 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  const int32 Code = GetRawEquipmentSlotCode(Slot);
- if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount && MoonfallEquipmentLayout::IsRingSlot(Slot)) {
-  const int32 Tier=ValidEquippedTier(Code,Slot);
-  if(Tier<=0)return 0;
-  int32 Required=0;
-  for(int32 Ring=0;Ring<MoonfallEquipmentLayout::RingSlotCount;++Ring)
-   if(GetRawEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(Ring))==Code)++Required;
-  return MoonfallEquipmentLayout::FullOwnedCopies(Code,InventoryItemCodes,Required)>=Required?Tier:0;
+ if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount) {
+  // Reuse the copy-aware snapshot rather than scanning the bag per stat.
+  TArray<int32> Codes;
+  GetValidatedEquipmentCodes(Codes);
+  return Codes.IsValidIndex(Slot)?ValidEquippedTier(Codes[Slot],Slot):0;
  }
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
 }
