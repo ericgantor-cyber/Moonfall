@@ -27,6 +27,7 @@ private:
  int32 CachedAdvisorArmor = 0;
  int32 CachedAdvisorAccessory = 0;
  uint64 CachedAdvisorLoadoutHash = 0;
+ uint32 CachedAdvisorInventoryRevision = 0;
  TArray<int32> CachedValidatedEquipmentCodes;
  int32 CachedAdvisorScore = 0;
 };

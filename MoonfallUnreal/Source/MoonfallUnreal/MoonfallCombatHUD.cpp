@@ -2562,6 +2562,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Changing selection, equipped gear, count or selected item invalidates it.
   // Hash all active slots so ring swaps refresh immediately without a bag scan.
   const uint64 AdvisorLoadoutHash=Hero->GetEquipmentLoadoutFingerprint();
+  const uint32 AdvisorInventoryRevision=Hero->GetEquipmentInventoryRevision();
   const double AdvisorNow = FPlatformTime::Seconds();
   const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
@@ -2572,6 +2573,7 @@ void AMoonfallCombatHUD::DrawHUD()
     || CachedAdvisorArmor != Hero->EquippedArmorCode
     || CachedAdvisorAccessory != Hero->EquippedAccessoryCode
     || CachedAdvisorLoadoutHash != AdvisorLoadoutHash
+    || CachedAdvisorInventoryRevision != AdvisorInventoryRevision
     || AdvisorNow < AdvisorScoreUpdatedAt
     || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25;
   if (bRefreshAdvisor) {
@@ -2584,6 +2586,7 @@ void AMoonfallCombatHUD::DrawHUD()
    CachedAdvisorArmor = Hero->EquippedArmorCode;
    CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
    CachedAdvisorLoadoutHash = AdvisorLoadoutHash;
+   CachedAdvisorInventoryRevision = AdvisorInventoryRevision;
    AdvisorScoreUpdatedAt = AdvisorNow;
    bAdvisorScoreCached = bAdvisorClockValid;
   }
