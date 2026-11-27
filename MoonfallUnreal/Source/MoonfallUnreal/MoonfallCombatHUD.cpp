@@ -2685,14 +2685,14 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  // Temporary contextual resource, independent of the three permanent orbs.
- if (Hero->bWaterSwimming && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
+ if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
   const float W = 252.f;
   const float X = (Canvas->SizeX-W)*0.5f;
   const float Y = Canvas->SizeY*0.69f;
   const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
-  DrawText(FString::Printf(TEXT("OXYGEN %.0f%%"),Air),AirColor,X+8.f,Y+3.f,nullptr,0.9f);
+  DrawText(Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),FMath::CeilToInt(Air*1.8f)/60,FMath::CeilToInt(Air*1.8f)%60),AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+34.f,nullptr,0.76f);
