@@ -1790,7 +1790,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         equip = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1)[1]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", equip)
         self.assertIn("const int32 Code = InventoryItemCodes[InventoryIndex];", equip)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", equip)
         self.assertIn("*EquippedTier = Tier;", equip)
         self.assertIn("*EquippedAffix = Affix;", equip)
@@ -1798,7 +1798,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
         self.assertIn("Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);", equip)
         self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
-        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperate("), equip.index("*EquippedTier = Tier;"))
+        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperateFull("), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "\n}", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
@@ -6933,7 +6933,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DefeatedEquipmentSelection[SlotIndex] = Code;", extra)
         self.assertIn("ExtraCode = Code;", extra)
         self.assertNotIn("MaxHealth", extra)
-        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperate("), equip.index("ExtraCode = Code;"))
+        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperateFull("), equip.index("ExtraCode = Code;"))
         refresh = self.hero_cpp.split("void AMoonfallHeroPawn::RefreshEquipmentTier()", 1)[1].split("\n}", 1)[0]
         self.assertIn("Slot<MoonfallEquipmentLayout::SlotCount", refresh)
         self.assertIn("FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot))", refresh)

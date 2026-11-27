@@ -142,14 +142,14 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", policy)
         self.assertIn("MoonfallGearAdvisor::Valid(Code-Slot*10000,0)", policy)
         self.assertIn("MoonfallEquipmentLayout::CanOperateFull(ItemCode,MoonfallEquipmentLayout::ActiveSlotCount,", pickup)
-        self.assertIn("MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
+        self.assertIn("MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,", equip)
         self.assertIn("MoonfallEquipmentLayout::EInventoryOperation::Equip", equip)
         self.assertIn("Slot>=ActiveSlots||!Valid(Code,Slot)", policy)
-        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperate("), equip.index("*EquippedCode = Code;"))
+        self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperateFull("), equip.index("*EquippedCode = Code;"))
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
         self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
         self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", load)
-        self.assertIn("ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot", load)
+        self.assertIn("MoonfallGearAdvisor::Valid(Code,Slot) && InventoryItemCodes.Contains(Code)", load)
 
         def valid_item_code(code):
             if code <= 0:

@@ -162,7 +162,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 {
  // Use the same strict decoder as equipped combat stats. No save mutations.
  if (ItemCode <= 0) return 0;
- const int32 Slot = (ItemCode / 10000) % 10;
+ const int32 Slot = MoonfallEquipmentLayout::DecodeFullItem(ItemCode).Slot;
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  int32 Trait = 0, Rarity = 0, Tier = 0;
  if (!DecodeEquippedItem(ItemCode, Slot, Trait, Rarity, Tier)) return 0;
@@ -182,7 +182,7 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  if (!InventoryItemCodes.Contains(ItemCode)) return 0;
  const int32 CandidatePower = GetItemPower(ItemCode);
  if (CandidatePower <= 0) return 0;
- const int32 Slot = (ItemCode / 10000) % 10;
+ const int32 Slot = MoonfallEquipmentLayout::DecodeFullItem(ItemCode).Slot;
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  return CandidatePower - GetItemPower(GetEquipmentSlotCode(Slot));
 }
@@ -191,7 +191,7 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
 {
  if (Affix < 1 || Affix > 3 || !InventoryItemCodes.Contains(CandidateCode)
      || GetItemPower(CandidateCode) <= 0) return 0;
- const int32 Slot = (CandidateCode / 10000) % 10;
+ const int32 Slot = MoonfallEquipmentLayout::DecodeFullItem(CandidateCode).Slot;
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  int32 CandidateTrait = 0, CandidateRarity = 0, CandidateTier = 0;
  if (!DecodeEquippedItem(CandidateCode, Slot, CandidateTrait, CandidateRarity, CandidateTier))
@@ -3760,11 +3760,12 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // Validate every decoded field before mutating equipped items or health.
- const int32 Affix = Code / 100000;
- const int32 SlotIndex = (Code / 10000) % 10;
- const int32 Tier = Code % 1000;
- if (!MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+ if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
      MoonfallEquipmentLayout::EInventoryOperation::Equip)) return false;
+ const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
+ const int32 Affix = Decoded.Trait;
+ const int32 SlotIndex = Decoded.Slot;
+ const int32 Tier = Decoded.Tier;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  // Expanded slots have no legacy Blueprint caches or armor HP side effects.
@@ -4428,7 +4429,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  for(const auto& Entry:CompanionGear){
   if(!IsNamedMoonfallResident(Entry.Key))return false;
   for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
-   if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot))return false;
+   if(Code!=0&&!MoonfallGearAdvisor::Valid(Code,Slot))return false;
   }
  }
  if(CompanionProfiles.Num()>MoonfallQuestJournal::ResidentCount)return false;
@@ -4544,7 +4545,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   for(const auto& Entry:Save->CompanionGear){
    if(!IsNamedMoonfallResident(Entry.Key)){bPersistentSaveWritesBlocked=true;return false;}
    for(int32 Slot=0;Slot<3;++Slot){const int32 Code=Entry.Value.Get(Slot);
-    if(Code!=0&&(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot)){bPersistentSaveWritesBlocked=true;return false;}
+    if(Code!=0&&!MoonfallGearAdvisor::Valid(Code,Slot)){bPersistentSaveWritesBlocked=true;return false;}
    }
   }
  }
@@ -4876,7 +4877,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
  }
  const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
-  if (ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot && InventoryItemCodes.Contains(Code)) {
+  if (MoonfallGearAdvisor::Valid(Code,Slot) && InventoryItemCodes.Contains(Code)) {
    Equipped = Code;
    Tier = Code % 1000;
    Affix = Code / 100000;
@@ -4912,9 +4913,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      "Defeated selection must match the equipment layout");
  for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
   const int32 Code=DefeatedEquipmentSelection[Slot];
-  if (MoonfallEquipmentLayout::CanOperate(Code,MoonfallEquipmentLayout::ActiveSlotCount,
+  if (MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
       MoonfallEquipmentLayout::EInventoryOperation::Equip)
-      && MoonfallEquipmentLayout::Valid(Code,Slot) && InventoryItemCodes.Contains(Code))
+      && MoonfallEquipmentLayout::ValidFullItem(Code,Slot) && InventoryItemCodes.Contains(Code))
    ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
  }
  RefreshEquipmentTier();
@@ -5901,7 +5902,7 @@ int32 AMoonfallHeroPawn::GetCompanionGearCode(FName ResidentId,int32 Slot) const
  if(!IsNamedMoonfallResident(ResidentId)||Slot<0||Slot>2)return 0;
  const auto* Gear=CompanionGear.Find(ResidentId);
  const int32 Code=Gear?Gear->Get(Slot):0;
- return ValidMoonfallItemCode(Code)&&(Code/10000)%10==Slot?Code:0;
+ return MoonfallGearAdvisor::Valid(Code,Slot)?Code:0;
 }
 int32 AMoonfallHeroPawn::GetCompanionGearTier(FName ResidentId,int32 Slot) const{
  return GetCompanionGearCode(ResidentId,Slot)%1000;
@@ -5922,7 +5923,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
  if(!bReturn){
   for(int32 I=0;I<InventoryItemCodes.Num();++I){
    const int32 Code=InventoryItemCodes[I];
-   if(!ValidMoonfallItemCode(Code)||(Code/10000)%10!=Slot||Code==Worn[Slot])continue;
+   if(!MoonfallGearAdvisor::Valid(Code,Slot)||Code==Worn[Slot])continue;
    const int32 Score=GetItemPower(Code);
    if(Score>BestScore){Index=I;BestScore=Score;}
   }
