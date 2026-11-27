@@ -2823,6 +2823,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
@@ -2886,19 +2887,34 @@ void AMoonfallHeroPawn::SelectCharacterReputation(int32 FactionIndex)
  CharacterRepSelection = FactionIndex;
 }
 
+bool AMoonfallHeroPawn::HasWaterProfessionsPage() const
+{
+ return bPersistentSaveWritesBlocked && GetWorld()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview");
+}
+
+void AMoonfallHeroPawn::StepCharacterPage(int32 Direction)
+{
+ const int32 Count=HasWaterProfessionsPage()?4:3;
+ const int32 Current=bCharacterProfessionsPageOpen&&Count==4?3:bCharacterRepPageOpen?2:bCharacterRacePageOpen?1:0;
+ SelectCharacterPage((Current+(Direction<0?Count-1:1))%Count);
+}
+
 void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
 {
  // Read-only navigation. Reject invalid pages and hidden/defeated modals.
- if (Page < 0 || Page > 2 || !bCharacterStatsOpen || !bInventoryOpen
+ if (Page < 0 || Page > (HasWaterProfessionsPage()?3:2) || !bCharacterStatsOpen || !bInventoryOpen
      || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  bCharacterRacePageOpen = Page == 1;
  bCharacterRepPageOpen = Page == 2;
+ bCharacterProfessionsPageOpen = Page == 3;
 }
 
 void AMoonfallHeroPawn::ToggleCharacterRacePage()
 {
  // C cycles combined Attributes & Gear -> Ancestry -> Reputation -> Attributes.
- SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1));
+ StepCharacterPage(1);
 }
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
@@ -2913,6 +2929,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   bCharacterStatsOpen = true;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   return;
  }
  // C stays the character shortcut: first press opens Attributes, subsequent
@@ -2921,6 +2938,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bCharacterStatsOpen = true;
  bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
  bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
@@ -3121,6 +3139,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   bSpellBookOpen = false;
  }
 }
@@ -3387,6 +3406,7 @@ void AMoonfallHeroPawn::OpenOptions() {
    bCharacterStatsOpen = false;
    bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
    bInventoryScrollbarDragging = false;
    return;
   }
@@ -3667,7 +3687,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(-1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -3695,7 +3715,7 @@ void AMoonfallHeroPawn::OptionsRight() {
  }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -6680,11 +6700,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float PanelL=float(ViewW)-PanelW-12.f;
      const float PanelT=(float(ViewH)-PanelH)*0.5f;
      // Match all three HUD tabs. Clicks cannot equip, salvage or change standing.
-     const float TabW=(PanelW-60.f)/3.f;
+     const int32 TabCount=HasWaterProfessionsPage()?4:3;
+     const float TabW=TabCount==3?(PanelW-60.f)/3.f:(PanelW-68.f)/4.f;
      const float TabL=PanelL+18.f;
      const float TabY=PanelT+77.f;
      if (MouseY>=TabY && MouseY<=TabY+32.f) {
-      for (int32 Tab=0;Tab<3;++Tab) {
+      for (int32 Tab=0;Tab<TabCount;++Tab) {
        const float X=TabL+Tab*(TabW+8.f);
        if (MouseX>=X && MouseX<=X+TabW) {
         SelectCharacterPage(Tab);

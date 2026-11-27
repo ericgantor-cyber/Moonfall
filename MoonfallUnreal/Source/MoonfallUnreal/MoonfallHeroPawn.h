@@ -51,6 +51,9 @@ public:
  float FishingNoticeUntil=0.f;
  bool bFishingCaught=false;
  int32 FishingSchoolId=-1;
+ bool bCharacterProfessionsPageOpen=false;
+ bool HasWaterProfessionsPage() const;
+ void StepCharacterPage(int32 Direction);
  TArray<FVector> NearbyFishingSchools;
  float NextFishingSchoolScan=0.f;
  void RefreshFishingSchools(float Now);

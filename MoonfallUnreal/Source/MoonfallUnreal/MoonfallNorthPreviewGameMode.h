@@ -61,6 +61,10 @@ public:
  int32 GetLastFishSpecies() const { return Gathering.LastSpecies; }
  bool WasLastFishTrophy() const { return Gathering.LastTrophy; }
  int32 GetTrophyCatchCount() const { return Gathering.TrophyCatches; }
+ int32 GetTrophySpeciesCount(int32 Id) const { return Gathering.Trophies(Id); }
+ int32 GetDiscoveredFishSpecies() const { return Gathering.DiscoveredSpecies(); }
+ int32 GetLifetimeSpeciesCount(int32 Id) const { return Gathering.Species(Id); }
+ int32 GetOceanMaterialStock(int32 Id) const { return Workshop.RemainingMaterial(Id,Gathering); }
  int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
  int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
  bool CraftOceanRecipe(int32 Recipe) { return Workshop.Craft(Recipe,Gathering,GrottoGear); }

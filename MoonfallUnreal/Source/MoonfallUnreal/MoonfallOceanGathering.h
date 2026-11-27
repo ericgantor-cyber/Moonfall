@@ -17,6 +17,7 @@ namespace MoonfallOceanGathering
         int Harvested[4]={};
         int Fish[3]={};
         int TrophyCatches=0;
+        int TrophySpecies[3]={};
         int LastSpecies=-1;
         bool LastTrophy=false;
         bool Ready(int Id,double Now) const {
@@ -36,7 +37,7 @@ namespace MoonfallOceanGathering
             ++Fish[SpeciesId];
             LastSpecies=SpeciesId;
             LastTrophy=Trophy;
-            if(Trophy) ++TrophyCatches;
+            if(Trophy) { ++TrophyCatches; ++TrophySpecies[SpeciesId]; }
             return true;
         }
         int Material(int Type) const {
@@ -48,5 +49,7 @@ namespace MoonfallOceanGathering
         }
         int Catches() const { return Fish[0]+Fish[1]+Fish[2]; }
         int Species(int Id) const { return Id>=0&&Id<3?Fish[Id]:0; }
+        int Trophies(int Id) const { return Id>=0&&Id<3?TrophySpecies[Id]:0; }
+        int DiscoveredSpecies() const { return int(Fish[0]>0)+int(Fish[1]>0)+int(Fish[2]>0); }
     };
 }

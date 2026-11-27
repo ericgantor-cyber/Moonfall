@@ -23,6 +23,9 @@ namespace MoonfallOceanCrafting
             for(int I=0;I<4;++I) N+=C.Material(I)-Spent[I];
             return N;
         }
+        int RemainingMaterial(int Id,const MoonfallOceanGathering::FCollection& C) const {
+            return Id>=0&&Id<4?C.Material(Id)-Spent[Id]:0;
+        }
         bool HasMaterial(int Id,const MoonfallOceanGathering::FCollection& C) const {
             return Id>=0&&Id<4&&Spent[Id]>=0&&Spent[Id]<C.Material(Id);
         }
