@@ -2791,13 +2791,13 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bActive=Stage!=MoonfallFishing::EStage::Idle;
    const FLinearColor Ink=bBite?FLinearColor(1.f,0.8f,0.25f):FLinearColor(0.44f,0.88f,0.91f);
    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,252.f,58.f);
-   DrawText(FString::Printf(TEXT("FISH %d/30 | RANK %d/10"),Preview->GetOceanCatchCount(),
+   DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?TEXT("Waiting for a bite..."):
       bBite?TEXT("BITE! N / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
-      (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch limit reached")):
+      (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch unavailable")):
       TEXT("Face water | N / X: Cast");
    const FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    DrawText(FishingPrompt,Ink,X+8.f,Y+23.f,nullptr,0.82f);
@@ -2845,7 +2845,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
       Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
       Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
-    DrawText(FString::Printf(TEXT("MATERIALS %d | FISH %d/30"),Preview->GetAvailableOceanMaterials(),Preview->GetOceanCatchCount()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
+    DrawText(FString::Printf(TEXT("GATHER %d/10 | STOCK %d"),Preview->GetOceanGatheringRank(),Preview->GetAvailableOceanMaterials()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
    }
   }
  }

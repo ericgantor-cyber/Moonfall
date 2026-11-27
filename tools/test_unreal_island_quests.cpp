@@ -127,8 +127,12 @@ int main() {
         for(int roll : {0,50,80}) assert(Collection.Catch(event,roll));
         assert(Collection.Catches()==3);
         assert(Collection.Species(0)==1 && Collection.Species(1)==1 && Collection.Species(2)==1);
-        for(int i=3;i<30;++i) assert(Collection.Catch(event,0));
-        assert(!Collection.Catch(event,0));
+        for(int i=3;i<100;++i) assert(Collection.Catch(event,0));
+        assert(Collection.Catches()==100 && Collection.CanCatch());
+        FCollection Limit;
+        Limit.Fish[0]=MaxSessionCatches-1;
+        assert(Limit.Catch(event,0));
+        assert(Limit.Catches()==MaxSessionCatches && !Limit.Catch(event,0));
     }
     FCollection Invalid;
     assert(!Invalid.Collect(4,3,0) && Invalid.Catches()==0);
@@ -172,6 +176,12 @@ int main() {
     assert(Workshop.AvailableMaterials(Supplies)==0);
     assert(Workshop.RemainingFish(Supplies)==1);
     assert(Supplies.Materials()==4 && Supplies.Catches()==3);
+    assert(GatheringRank(-1)==1 && GatheringRank(0)==1 && GatheringRank(4)==2);
+    assert(GatheringRank(35)==9 && GatheringRank(36)==10 && GatheringRank(1000)==10);
+    assert(Workshop.RemainingSpecies(0,Supplies)==0);
+    assert(Workshop.RemainingSpecies(1,Supplies)==0);
+    assert(Workshop.RemainingSpecies(2,Supplies)==1);
+    assert(Workshop.RemainingSpecies(-1,Supplies)==0);
     MoonfallOceanCrafting::FWorkshop MaxWorkshop;
     Loan.Codes[0]=MoonfallEquipmentLayout::EncodeFullItem(2,3,5,4);
     assert(!MaxWorkshop.Craft(1,Supplies,Loan));
