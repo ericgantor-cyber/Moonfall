@@ -112,3 +112,18 @@ def island_geometry():
     for i in range(6):
         yield "Moonwatch landing step " + str(i+1), (x,y-595.0-i*190.0,30.0-i*25.0), (6.0,2.0,0.5)
     yield "Moonwatch standing stone", (x-450.0,y+180.0,230.0), (1.2,1.2,3.0)
+
+
+ISLAND_RESIDENTS = (
+    ("Warden Veyra", "MoonwatchWarden", (-450.0, 3050.0, 130.0)),
+    ("Cartographer Soren", "MoonwatchCartographer", (0.0, 3500.0, 130.0)),
+    ("Keeper Maelis", "MoonwatchKeeper", (450.0, 3050.0, 130.0)),
+)
+
+
+def settlement_geometry():
+    # Three open shelters, no closed doors or walls across the central path.
+    for name, _, (x,y,_) in ISLAND_RESIDENTS:
+        yield name + " canopy", (x,y+80.0,365.0), (3.6,2.8,0.25)
+        for side in (-1,1):
+            yield name + " support", (x+side*160.0,y+190.0,215.0), (0.35,0.35,2.7)
