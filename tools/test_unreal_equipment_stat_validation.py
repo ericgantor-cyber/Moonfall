@@ -2,6 +2,7 @@
 from pathlib import Path
 import unittest
 SOURCE = (Path(__file__).resolve().parents[1] / "MoonfallUnreal" / "Source" / "MoonfallUnreal" / "MoonfallHeroPawn.cpp")
+HEADER = SOURCE.with_name("MoonfallHeroPawn.h")
 class EquipmentStatSafety(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
