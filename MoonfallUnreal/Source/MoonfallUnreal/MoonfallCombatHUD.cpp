@@ -2406,6 +2406,16 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(0.72f,0.35f,0.96f),FLinearColor(0.23f,0.84f,0.42f),
       FLinearColor(1.f,0.52f,0.12f)};
     const FLinearColor SlotGold(0.94f,0.76f,0.32f,1.f);
+    // Match the actual bag-drop surface, including unoccupied rows.
+    // No warning symbols: use the same gold edge as an eligible finger.
+    if(DragSource!=INDEX_NONE&&Hero->CanDropDraggedRingInBag()){
+     const float BagX=Left+12.f,BagY=Top+145.f;
+     const float BagW=PanelWidth-28.f,BagH=PerPage*RowSpacing;
+     DrawRect(SlotGold,BagX,BagY,BagW,2.f);
+     DrawRect(SlotGold,BagX,BagY+BagH-2.f,BagW,2.f);
+     DrawRect(SlotGold,BagX,BagY,2.f,BagH);
+     DrawRect(SlotGold,BagX+BagW-2.f,BagY,2.f,BagH);
+    }
     for(int32 Index=0;Index<MoonfallEquipmentLayout::RingSlotCount;++Index){
      const int32 Finger=MoonfallEquipmentLayout::RingSlot(Index);
      if(Finger>=MoonfallEquipmentLayout::ActiveSlotCount)break;
