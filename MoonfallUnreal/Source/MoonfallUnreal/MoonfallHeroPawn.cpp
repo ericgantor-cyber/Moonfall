@@ -83,7 +83,9 @@ bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot,
 {
  // Accept only canonical codes for active player equipment slots.
  if (ExpectedSlot < 0 || ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount
-     || !MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)) return false;
+     || !(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
+         ? MoonfallEquipmentLayout::CanWearFullItem(Code,ExpectedSlot,MoonfallEquipmentLayout::ActiveSlotCount)
+         : MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot))) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
  const int32 Trait = Decoded.Trait;
  const int32 Rarity = Decoded.Rarity;
@@ -148,13 +150,30 @@ int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
 {
  if (Slot < 0 || Slot >= MoonfallEquipmentLayout::ActiveSlotCount) return 0;
  const int32 Code = GetRawEquipmentSlotCode(Slot);
+ if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount && MoonfallEquipmentLayout::IsRingSlot(Slot)) {
+  const int32 Tier=ValidEquippedTier(Code,Slot);
+  if(Tier<=0)return 0;
+  int32 Required=0;
+  for(int32 Ring=0;Ring<MoonfallEquipmentLayout::RingSlotCount;++Ring)
+   if(GetRawEquipmentSlotCode(MoonfallEquipmentLayout::RingSlot(Ring))==Code)++Required;
+  return MoonfallEquipmentLayout::FullOwnedCopies(Code,InventoryItemCodes,Required)>=Required?Tier:0;
+ }
  return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
+}
+
+int32 AMoonfallHeroPawn::GetCraftEquipmentSlot(int32 Code) const
+{
+ const int32 Slot=MoonfallEquipmentLayout::DecodeFullItem(Code).Slot;
+ if(MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount||!MoonfallEquipmentLayout::IsRingSlot(Slot))return Slot;
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
+ return MoonfallEquipmentLayout::SelectCraftRingSlot(Code,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
 }
 
 void AMoonfallHeroPawn::RefreshEquipmentTier()
 {
  EquipmentTier = 0;
- for (int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+ for (int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)
   EquipmentTier = FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot));
 }
 
@@ -2569,7 +2588,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
- const int32 Slot = Decoded.Slot;
+ const int32 Slot = GetCraftEquipmentSlot(Code);
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
@@ -2590,7 +2609,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
- if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
+ if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -2617,7 +2636,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  if (Code <= 0) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
  const int32 Affix = Decoded.Trait;
- const int32 Slot = Decoded.Slot;
+ const int32 Slot = GetCraftEquipmentSlot(Code);
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
@@ -2637,7 +2656,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
- if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
+ if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -2666,7 +2685,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  const auto Decoded = MoonfallEquipmentLayout::DecodeFullItem(Code);
- const int32 Slot = Decoded.Slot;
+ const int32 Slot = GetCraftEquipmentSlot(Code);
  const int32 Rarity = Decoded.Rarity;
  const int32 Tier = Decoded.Tier;
  if (!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
@@ -2682,7 +2701,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (NewCode <= 0) return false;
  TGuardValue<bool> CraftGuard(bEquipmentCraftInProgress, true);
  InventoryItemCodes[InventoryIndex] = NewCode;
- if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)) {
+ if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)) {
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
@@ -3746,7 +3765,15 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  return EquipInventoryItemWithPreviousTier(InventoryIndex, -1);
 }
 
-bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride)
+bool AMoonfallHeroPawn::EquipInventoryRing(int32 InventoryIndex,int32 RingSlotIndex)
+{
+ if(bEquipmentCraftInProgress||MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return false;
+ const int32 Target=MoonfallEquipmentLayout::RingSlot(RingSlotIndex);
+ if(Target<0)return false;
+ return EquipInventoryItemWithPreviousTier(InventoryIndex,-1,Target);
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride, int32 TargetSlot)
 {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
      || bTalentAllocationInProgress || bPersistentSaveWritesBlocked) return false;
@@ -3766,8 +3793,32 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 Affix = Decoded.Trait;
  const int32 SlotIndex = Decoded.Slot;
  const int32 Tier = Decoded.Tier;
+ if(TargetSlot!=INDEX_NONE&&MoonfallEquipmentLayout::IsRingSlot(TargetSlot)
+    &&!MoonfallEquipmentLayout::IsRingSlot(SlotIndex))return false;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
+ if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount && MoonfallEquipmentLayout::IsRingSlot(SlotIndex)) {
+  // Defeated ring recovery remains gated until checkpoint reconciliation
+  // understands flexible references and physical copy counts.
+  if(Health<=0.f)return false;
+  MoonfallEquipmentLayout::FFullLoadout Worn{};
+  for(int32 I=0;I<MoonfallEquipmentLayout::ActiveSlotCount;++I)Worn[I]=GetRawEquipmentSlotCode(I);
+  const int32 Target=TargetSlot==INDEX_NONE
+      ? MoonfallEquipmentLayout::SelectFullRingTarget(Code,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)
+      : TargetSlot;
+  if(!MoonfallEquipmentLayout::IsRingSlot(Target)||!MoonfallEquipmentLayout::CanWearFullItem(Code,Target,MoonfallEquipmentLayout::ActiveSlotCount))return false;
+  auto Candidate=Worn;
+  if(bEquipmentCraftInProgress){
+   // Crafting already replaced one bag entry; validate the proposed worn
+   // replacement rather than the temporarily stale pre-craft reference.
+   if(TargetSlot==INDEX_NONE||!Worn[Target]||Worn[Target]==Code)return false;
+   Candidate[Target]=Code;
+   if(!MoonfallEquipmentLayout::IsFullLoadoutOwned(Candidate,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes))return false;
+  }else if(!MoonfallEquipmentLayout::TryAssignFullRing(Code,Target,Worn,MoonfallEquipmentLayout::ActiveSlotCount,false,InventoryItemCodes,Candidate))return false;
+  ExtraEquippedCodes[Target-MoonfallEquipmentLayout::LegacySlotCount]=Candidate[Target];
+  RefreshEquipmentTier();
+  return true;
+ }
  // Expanded slots have no legacy Blueprint caches or armor HP side effects.
  // The active-slot validation above rejects out-of-range codes.
  if (SlotIndex >= MoonfallEquipmentLayout::LegacySlotCount) {

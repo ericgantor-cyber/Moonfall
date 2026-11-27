@@ -1433,7 +1433,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquippedWeaponCode", set_body)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", decoder)
-        self.assertIn("!MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)", decoder)
+        self.assertIn("MoonfallEquipmentLayout::ValidFullItem(Code, ExpectedSlot)", decoder)
         policy = (ROOT / "MoonfallGearAdvisorPolicy.h").read_text(encoding="utf-8")
         for guard in ("Code <= 0", "EncodedSlot == Slot", "Affix >= 0 && Affix <= 3",
                       "Rarity >= 0", "Rarity <= 5", "Tier >= 1", "Tier <= 25",
@@ -1525,9 +1525,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Affix == 0 ? FMath::RandRange(1, 3)", body)
         self.assertIn("FMath::RandRange(1, 2)) % 3", body)
         self.assertIn("const bool bReforgingEquipped = Code == EquippedCode;", body)
-        self.assertIn("if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier))", body)
+        self.assertIn("if (bReforgingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot))", body)
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", body)
-        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)"), body.index("Salvage -= Cost;"))
+        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)"), body.index("Salvage -= Cost;"))
         self.assertIn("OnEquipmentReforged(NewCode, Cost);", body)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;", hud)
@@ -1591,9 +1591,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Cost = 20 + Tier * 3 + Rarity * 15;", body)
         self.assertIn("if (Salvage < Cost) return false;", body)
         self.assertIn("const bool bAscendingEquipped = Code == EquippedCode;", body)
-        self.assertIn("if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier))", body)
+        self.assertIn("if (bAscendingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot))", body)
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", body)
-        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)"), body.index("Salvage -= Cost;"))
+        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)"), body.index("Salvage -= Cost;"))
         self.assertIn("OnEquipmentAscended(NewCode, Cost);", body)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
         self.assertIn("const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;", hud)
@@ -1678,9 +1678,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes[InventoryIndex] = NewCode;", body)
         self.assertIn("OnEquipmentCrafted(NewCode, Cost);", body)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
-        self.assertIn("if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier))", body)
+        self.assertIn("if (bUpgradingEquipped && !EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot))", body)
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", body)
-        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)"), body.index("Salvage -= Cost;"))
+        self.assertLess(body.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)"), body.index("Salvage -= Cost;"))
         self.assertIn("U / RT: +1 tier", hud)
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
@@ -2006,7 +2006,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(craft.index("const int32 PreviousEquippedTier ="),
                         craft.index("InventoryItemCodes[InventoryIndex] = NewCode;"))
         self.assertLess(craft.index("const int32 PreviousEquippedTier ="),
-                        craft.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier)"))
+                        craft.index("EquipInventoryItemWithPreviousTier(InventoryIndex, PreviousEquippedTier, Slot)"))
         self.assertNotIn("LastLootUpgrade = (Tier + 1) - GetValidatedEquippedTier(Slot);", craft)
         for section in (roll, pickup, craft):
             self.assertNotIn("LastLootUpgrade = Tier - WeaponTier", section)
@@ -6935,7 +6935,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MaxHealth", extra)
         self.assertLess(equip.index("MoonfallEquipmentLayout::CanOperateFull("), equip.index("ExtraCode = Code;"))
         refresh = self.hero_cpp.split("void AMoonfallHeroPawn::RefreshEquipmentTier()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Slot<MoonfallEquipmentLayout::SlotCount", refresh)
+        self.assertIn("Slot<MoonfallEquipmentLayout::ActiveSlotCount", refresh)
         self.assertIn("FMath::Max(EquipmentTier, GetValidatedEquippedTier(Slot))", refresh)
 
     def test_hand_loadout_rejects_unsafe_world_and_menu_transitions(self):

@@ -527,6 +527,31 @@ constexpr int FullImprovement(int Candidate,const FFullLoadout& Worn,int ActiveS
  Next[D.Slot]=Candidate;
  return FullTotalScore(Next,ActiveSlots)-FullTotalScore(Worn,ActiveSlots);
 }
+// Choose a free finger first, otherwise replace the lowest-ranked ring.
+// Require a physical unused copy; the selected bag item is never cloned.
+template<class Bag>
+int SelectFullRingTarget(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory){
+ if(!IsRingSlot(DecodeFullItem(Code).Slot)||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip)
+     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)
+     ||FullOwnedCopies(Code,Inventory)<=FullWornCopies(Code,Worn,ActiveSlots))return -1;
+ int Target=-1;
+ for(int Slot:RingSlots){
+  if(Slot>=ActiveSlots)break;
+  if(!Worn[Slot])return Slot;
+  if(Worn[Slot]!=Code&&(Target<0||FullRank(Worn[Slot])<FullRank(Worn[Target])))Target=Slot;
+ }
+ return Target;
+}
+// Identical codes lack per-copy identity. Craft an unworn copy first;
+// otherwise update exactly one matching worn finger, in stable order.
+template<class Bag>
+int SelectCraftRingSlot(int Code,const FFullLoadout& Worn,int ActiveSlots,const Bag& Inventory){
+ if(!IsRingSlot(DecodeFullItem(Code).Slot)||!CanOperateFull(Code,ActiveSlots,EInventoryOperation::Equip)
+     ||!IsFullLoadoutOwned(Worn,ActiveSlots,Inventory)
+     ||FullOwnedCopies(Code,Inventory)!=FullWornCopies(Code,Worn,ActiveSlots))return -1;
+ for(int Slot:RingSlots)if(Slot<ActiveSlots&&Worn[Slot]==Code)return Slot;
+ return -1;
+}
 struct FFullPlan {
  FFullLoadout Codes{};
  std::array<int,FullSlotCount> Indices{};

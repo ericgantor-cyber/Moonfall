@@ -473,6 +473,8 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentCrafted(int32 NewItemCode, int32 SalvageSpent);
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
+ // RingSlotIndex is zero-based in the stable ten-finger order.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryRing(int32 InventoryIndex, int32 RingSlotIndex);
  // Explicit inventory action, never automatic on loot pickup.
  // Read-only advisor from #899. Never equips, sorts, saves or mutates the bag.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
@@ -496,7 +498,8 @@ public:
 private:
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
- // Fixed storage for slot IDs 3–8. Public gameplay remains gated until
+ int32 GetCraftEquipmentSlot(int32 Code) const;
+ // Fixed storage for slot IDs 3–23. Public gameplay remains gated until
  // the expanded inventory, loot and equipment UI are integrated.
  int32 ExtraEquippedCodes[21] = {};
  void RefreshEquipmentTier();
@@ -687,5 +690,5 @@ private:
  bool bTalentAllocationInProgress = false;
  // Session-only owned gear choices made at zero HP; never serialized as loot.
  int32 DefeatedEquipmentSelection[24] = {};
- bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride);
+ bool EquipInventoryItemWithPreviousTier(int32 InventoryIndex, int32 PreviousTierOverride, int32 TargetSlot = INDEX_NONE);
 };

@@ -325,6 +325,27 @@ int main() {
   assert(L::EncodeFullLoot(Categories,LayoutCount,0,0,1)==0);
  }
  assert(L::FullLootCategoryCount(23)==0&&L::FullLootCategorySlot(0,23)==-1);
+ // Auto-target and crafting selection use physical copies, not the
+ // encoded finger ID. A spare is crafted before a worn copy.
+ L::FFullLoadout AutoRing{};
+ assert(L::SelectFullRingTarget(CommonRing,AutoRing,24,RingBag)==8);
+ AutoRing[23]=CommonRing;
+ assert(L::SelectFullRingTarget(CommonRing,AutoRing,24,RingBag)==8);
+ assert(L::SelectCraftRingSlot(CommonRing,AutoRing,24,RingBag)==-1);
+ AutoRing[16]=CommonRing;
+ assert(L::SelectFullRingTarget(CommonRing,AutoRing,24,RingBag)==-1);
+ assert(L::SelectCraftRingSlot(CommonRing,AutoRing,24,RingBag)==16);
+ assert(L::SelectCraftRingSlot(CommonRing,AutoRing,24,std::array<int,1>{CommonRing})==-1);
+ assert(L::SelectFullRingTarget(HighRing,AutoRing,24,RingBag)==8);
+ L::FFullLoadout FilledRings{};
+ std::array<int,11> FilledBag{};
+ for(int R=0;R<10;++R){
+  const int Slot=L::RingSlot(R);
+  FilledRings[Slot]=L::EncodeFullItem(8,0,0,R==7?1:10);
+  FilledBag[R]=FilledRings[Slot];
+ }
+ FilledBag[10]=HighRing;
+ assert(L::SelectFullRingTarget(HighRing,FilledRings,24,FilledBag)==L::RingSlot(7));
  // Worst case: all 24 matching traits, with all four candidate buckets.
  // High counts exceed the old decimal DP; first and last slots exercise
  // the full 48-bit decision path. Equal items retain the earliest index.
