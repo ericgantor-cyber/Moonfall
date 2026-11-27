@@ -133,6 +133,27 @@ assert "PendingArrivalGate.Get() != PairedGate" in post_start_event
 assert "PairedGate->PairedGate != this" in post_start_event
 assert "StopAutomaticVoyage();" in post_start_event
 assert "UpdateVoyagePresentation(Hero, 0.f)" in post_start_event
+# Both initial synchronous events must reject a disabled route or
+# passenger that is no longer eligible, before reporting boarding success.
+before_initial_progress, after_initial_progress = post_start_event.split(
+    "UpdateVoyagePresentation(Hero, 0.f);", 1
+)
+for event_guard in (before_initial_progress, after_initial_progress):
+    for expected in (
+        "!HasConfiguredPassage()",
+        "PendingTargetShip.Get() != PairedGate->SailingVessel",
+        "!IsValid(Hero)",
+        "!Hero->IsPlayerControlled()",
+        "!FMath::IsFinite(Hero->Health)",
+        "Hero->Health <= 0.f",
+        "Hero->GetWorld() != GetWorld()",
+        "!IsVoyagerAboard(Hero, SailingVessel)",
+        "Hero->bSpellBookOpen",
+        "Hero->bTalentWebOpen",
+        "Hero->bQuestLogOpen",
+        "StopAutomaticVoyage();",
+    ):
+        assert expected in event_guard, f"Missing boarding event guard: {expected}"
 assert "return bAutoVoyageInProgress && PendingVoyager.Get() == Hero" in post_start_event
 assert "MoonfallNorth::MayBoard" in start
 assert "bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)" in start
