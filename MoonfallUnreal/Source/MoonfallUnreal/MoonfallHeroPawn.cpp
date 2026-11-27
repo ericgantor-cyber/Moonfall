@@ -6603,7 +6603,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if (IsValid(Resident) && bPersistentSaveWritesBlocked && GetWorld()
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
-     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage>=0?3:OceanRecipePage==-2?5:4;
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage==4?4:OceanRecipePage>=0?3:OceanRecipePage==-2?MoonfallOceanCrafting::RecipeCount+1:5;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -7016,21 +7016,41 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    CloseResidentContext();return false;
   }
   if(OceanRecipePage==-2) {
-   if(Choice==4) OceanRecipePage=-1;
-   else if(Choice>=0&&Choice<4) OceanRecipePage=Choice;
+   if(Choice==MoonfallOceanCrafting::RecipeCount) OceanRecipePage=-1;
+   else if(Choice>=0&&Choice<MoonfallOceanCrafting::RecipeCount) OceanRecipePage=Choice;
    else return false;
    ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;
   }
   if(OceanRecipePage>=0) {
    if(Choice==2){CloseResidentContext();return true;}
    if(Choice==1){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
-   if(Choice!=0||OceanRecipePage>3)return false;
+   if(OceanRecipePage==4&&Choice==3) {
+    const bool bEligible=!IsRecentlyInCombatForAmbientAI() && FMath::IsFinite(Health)
+      && FMath::IsFinite(MaxHealth) && Health>0.f && MaxHealth>0.f && Health<MaxHealth;
+    const bool bAte=bEligible&&Preview->ConsumeProvision();
+    ResidentFeedbackMessage=bAte?TEXT("Provision eaten; health restored."):TEXT("Need a provision, missing health and no combat.");
+    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+    if(bAte) {
+     Health=FMath::Min(MaxHealth,Health+MaxHealth*0.30f);
+     OnHealthChanged(Health,MaxHealth);
+    }
+    return bAte;
+   }
+   if(Choice!=0||OceanRecipePage>=MoonfallOceanCrafting::RecipeCount)return false;
    const bool bCrafted=!IsRecentlyInCombatForAmbientAI() && Preview->CraftOceanRecipe(OceanRecipePage);
    ResidentFeedbackMessage=bCrafted?TEXT("Recipe crafted."):TEXT("Need reagents, eligible gear or room; no combat.");
    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
    return bCrafted;
   }
   if(Choice==3){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==4) {
+   const int32 Id=Preview->NextRegionalContract();
+   const bool bDelivered=!IsRecentlyInCombatForAmbientAI()&&Preview->DeliverRegionalContract(Id);
+   ResidentFeedbackMessage=bDelivered?FString::Printf(TEXT("Delivered to %s: +1 breath tonic."),UTF8_TO_TCHAR(MoonfallNorth::Zones[Id].Name)):
+     FString(TEXT("Need regional discovery, fish, kelp, mineral and tonic space."));
+   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+   return bDelivered;
+  }
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
