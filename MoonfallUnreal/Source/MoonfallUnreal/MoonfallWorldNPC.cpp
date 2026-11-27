@@ -163,6 +163,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      !bInConversation&&!bSheltering&&!bHoldPost);
  const bool bRegionalHome=Regional==RegionRoutine::ReturnHome;
  const bool bRegionalWatch=Regional==RegionRoutine::GuardWatch;
+ const bool bRegionalCautious=Regional==RegionRoutine::CautiousWork;
  const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
      < FMath::Square(420.f);
  bool bRoutineHome=false;
@@ -227,6 +228,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
       bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost) && !bGuide) return;
  float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
+ if(bRegionalWatch){Side=0.f;Front=0.f;}
  // Credible reports bias a guard toward one of the original four watch
  // offsets. This does not pathfind to the reported incident or accuse anyone.
  if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bHoldPost
@@ -264,7 +266,8 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
    if(!GetWorld()->LineTraceSingleByChannel(ExistingGround,Start+FVector(0,0,120),Start-FVector(0,0,120),ECC_Visibility,Params)
        ||FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0)return;
   }
-  AddActorWorldOffset(Step.GetClampedToMaxSize2D(32.f),true);
+  const float RoutineStep=MoonfallLivingSimulation::RegionalRoutineStepLimit(Regional);
+  AddActorWorldOffset(Step.GetClampedToMaxSize2D(bRegionalCautious?RoutineStep:32.f),true);
  }
 }
 int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
