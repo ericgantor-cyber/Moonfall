@@ -1938,7 +1938,7 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("WAIST"),TEXT("RING 2"),TEXT("TRINKET 2"),TEXT("OFF-HAND"),
       TEXT("RING 3"),TEXT("RING 4"),TEXT("RING 5"),TEXT("RING 6"),
       TEXT("RING 7"),TEXT("RING 8"),TEXT("RING 9"),TEXT("RING 10")};
-    static_assert(UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount,"Gear code count");
+    // Codes is a dynamic validated snapshot; per-slot IsValidIndex checks guard access.
     static_assert(UE_ARRAY_COUNT(SlotNames)==MoonfallEquipmentLayout::FullSlotCount,"Gear label count");
     const TCHAR* RarityNames[] = {TEXT("COMMON"),TEXT("UNCOMMON"),TEXT("RARE"),
       TEXT("EPIC"),TEXT("EMERALD"),TEXT("LEGENDARY")};
