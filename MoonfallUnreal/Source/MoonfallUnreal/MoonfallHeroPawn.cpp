@@ -3767,10 +3767,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 
 bool AMoonfallHeroPawn::EquipInventoryRing(int32 InventoryIndex,int32 RingSlotIndex)
 {
- if(bEquipmentCraftInProgress||MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount
-    ||!InventoryItemCodes.IsValidIndex(InventoryIndex))return false;
+ if(bEquipmentCraftInProgress||MoonfallEquipmentLayout::ActiveSlotCount<=MoonfallEquipmentLayout::SlotCount)return false;
  const int32 Target=MoonfallEquipmentLayout::RingSlot(RingSlotIndex);
- if(Target<0||!MoonfallEquipmentLayout::IsRingSlot(MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[InventoryIndex]).Slot))return false;
+ if(Target<0)return false;
  return EquipInventoryItemWithPreviousTier(InventoryIndex,-1,Target);
 }
 
@@ -3794,6 +3793,8 @@ bool AMoonfallHeroPawn::EquipInventoryItemWithPreviousTier(int32 InventoryIndex,
  const int32 Affix = Decoded.Trait;
  const int32 SlotIndex = Decoded.Slot;
  const int32 Tier = Decoded.Tier;
+ if(TargetSlot!=INDEX_NONE&&MoonfallEquipmentLayout::IsRingSlot(TargetSlot)
+    &&!MoonfallEquipmentLayout::IsRingSlot(SlotIndex))return false;
  // All worn-slot mutations share the combat restriction, including crafted gear.
  if (SlotIndex != 0 && IsRecentlyInCombatForAmbientAI()) return false;
  if (MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount && MoonfallEquipmentLayout::IsRingSlot(SlotIndex)) {
