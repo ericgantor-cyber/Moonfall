@@ -4,10 +4,11 @@
 namespace MoonfallWaterRules
 {
     constexpr float MaxAir = 100.f;
-    constexpr float DrainPerSecond = 4.f;
+    constexpr float BreathDurationSeconds = 180.f;
+    constexpr float DrainPerSecond = MaxAir / BreathDurationSeconds;
     constexpr float RefillPerSecond = 25.f;
-    constexpr float SurfaceSpeedScale = 0.62f;
-    constexpr float DrowningHealthFraction = 0.08f;
+    constexpr float SurfaceSpeedScale = 4.722222f / 7.f;
+    constexpr float DrowningHealthFraction = 0.20f;
     // Accumulate only the portion of a submerged frame spent without air.
     inline bool AdvanceDrowning(float& Exposure, float PreviousAir, float Seconds,
                                 bool bSubmerged, bool bPaused)
