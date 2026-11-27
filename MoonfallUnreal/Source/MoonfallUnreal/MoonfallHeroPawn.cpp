@@ -3928,9 +3928,14 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
   int32 FullBestIndex=INDEX_NONE,FullBestImprovement=0;
   for(int32 Index=0;Index<InventoryItemCodes.Num();++Index){
    const int32 Code=InventoryItemCodes[Index];
-   const int32* Copies=OwnedCounts.Find(Code);
+   int32* Copies=OwnedCounts.Find(Code);
+   if(!Copies||*Copies<=0)continue;
+   // Identical codes have identical scores. Evaluate only the first bag
+   // occurrence, preserving the original stable tie-break by index.
+   const int32 PhysicalCopies=*Copies;
+   *Copies=0;
    const int32 Improvement=MoonfallEquipmentLayout::FullCandidateImprovement(Code,
-       EquippedCodes,MoonfallEquipmentLayout::ActiveSlotCount,Copies?*Copies:0);
+       EquippedCodes,MoonfallEquipmentLayout::ActiveSlotCount,PhysicalCopies);
    if(Improvement>FullBestImprovement){FullBestImprovement=Improvement;FullBestIndex=Index;}
   }
   return FullBestIndex;

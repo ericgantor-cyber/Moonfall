@@ -54,6 +54,11 @@ class EquipmentStatSafety(unittest.TestCase):
             "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
         self.assertIn("TMap<int32,int32> OwnedCounts", recommended)
         self.assertIn("FullCandidateImprovement(Code", recommended)
+        self.assertLess(recommended.index("if(!Copies||*Copies<=0)continue;"), recommended.index("const int32 PhysicalCopies=*Copies;"))
+        self.assertLess(recommended.index("const int32 PhysicalCopies=*Copies;"), recommended.index("*Copies=0;"))
+        self.assertLess(recommended.index("*Copies=0;"), recommended.index("FullCandidateImprovement(Code"))
+        self.assertIn("ActiveSlotCount,PhysicalCopies)", recommended)
+        self.assertIn("if(Improvement>FullBestImprovement)", recommended)
         delta = source.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[0]
         self.assertIn("FullWornCopies(ItemCode,Worn", delta)
