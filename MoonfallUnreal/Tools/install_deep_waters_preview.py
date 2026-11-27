@@ -116,7 +116,7 @@ def main():
             chest.set_editor_property("grotto_index", index)
             enemy = place(enemy_class, name + " Aquatic Guardian", (x, y - 240.0, -225.0))
             enemy.set_editor_property("tags", [unreal.Name(TAG), unreal.Name("MoonfallAquaticPreview")])
-            enemy.set_editor_property("health", 60.0)
+            enemy.set_editor_property("aquatic_profile_id", index)
         place(unreal.DirectionalLight, "Deep Waters preview light", (0, 0, 1500))
     except Exception:
         for actor in reversed(created):
