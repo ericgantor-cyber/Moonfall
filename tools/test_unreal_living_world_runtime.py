@@ -886,6 +886,14 @@ int main(){
         self.assertLess(talk.index("Now-LastDangerAt<85.f"),talk.index("GetNearbyCombatReport"))
         self.assertNotIn("ChangeResidentBond(",talk)
         self.assertNotIn("ReportWitnessToGuard(",talk)
+        self.assertIn('Disposition==TEXT("Friendly")',talk)
+        self.assertIn("&&Bond>-60&&Bond<60",talk)
+        self.assertLess(talk.index('Disposition==TEXT("Friendly")'),talk.index("SupportsResidentContract"))
+        self.assertIn("RegionalDanger>=65&&RegionalDanger<=100",talk)
+        self.assertIn("Reaction.ToString()+RegionalWarning",talk)
+        for role in ("Merchant","Guard","Scout"):
+            self.assertIn('SocialRole==FName(TEXT("'+role+'"))',talk)
+        self.assertNotIn("ChangeFactionReputation(",talk)
 
     def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
