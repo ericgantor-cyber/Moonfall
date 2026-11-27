@@ -4749,13 +4749,18 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);
  // Reject inactive or unowned references across the entire 24-slot storage.
  // Keep the V17 writer until the remaining native systems are activated.
- static_assert(MoonfallEquipmentLayout::ActiveSlotCount == MoonfallEquipmentLayout::SlotCount,
-     "Activate expanded equipment only with a matching persistent save writer and loader.");
+ constexpr int32 SaveSlotCount=MoonfallEquipmentLayout::ActiveSlotCount;
+ constexpr int32 EquipmentSaveVersion=SaveSlotCount==MoonfallEquipmentLayout::FullSlotCount?19:
+     SaveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount?18:17;
+ static_assert(SaveSlotCount==MoonfallEquipmentLayout::SlotCount ||
+     SaveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount ||
+     SaveSlotCount==MoonfallEquipmentLayout::FullSlotCount,"Unsupported persistent equipment layout");
+ static_assert(EquipmentSaveVersion==17,"Expanded save loader must be enabled before changing equipment layout");
  if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
      WornCodes.data(),MoonfallEquipmentLayout::LegacySlotCount,
-     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,17,InventoryItemCodes,CheckedWorn)) return false;
+     WornCodes.data(),SaveSlotCount,EquipmentSaveVersion,InventoryItemCodes,CheckedWorn)) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4804,9 +4809,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
- // Canonical nine-slot record; legacy mirrors remain intact for migration.
- Save->EquippedSlotCodes.Init(0,MoonfallEquipmentLayout::SlotCount);
- for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+ // Canonical versioned equipment record; legacy mirrors remain intact for migration.
+ Save->Version=EquipmentSaveVersion;
+ Save->EquippedSlotCodes.Init(0,SaveSlotCount);
+ for(int32 Slot=0;Slot<SaveSlotCount;++Slot)
   Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
