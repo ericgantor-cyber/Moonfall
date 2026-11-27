@@ -339,12 +339,16 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
   TestEqual(TEXT("V18 migration zero-fills new positions"),MiddleRestored[Slot],
    Middle.IsValidIndex(Slot)?Middle[Slot]:0);
- const int32 WrongMirrors[]={Future[1],Future[0],Future[2]};
- TestFalse(TEXT("V19 rejects mismatched legacy mirrors"),
-  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(WrongMirrors,3,
-   Future.GetData(),Future.Num(),19,Original->InventoryItemCodes,Migrated));
- const auto BeforeRejected= Migrated;
+ const auto BeforeRejected=Migrated;
  const int32 AlternateSlotZero=MoonfallEquipmentLayout::EncodeFullItem(0,2,2,5);
+ TArray<int32> V19Inventory=Original->InventoryItemCodes;
+ V19Inventory.Add(AlternateSlotZero);
+ TArray<int32> V19Record=Future;
+ V19Record[0]=AlternateSlotZero;
+ TestFalse(TEXT("V19 rejects a valid owned slot-zero record that differs from its legacy mirror"),
+  MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
+   V19Record.GetData(),V19Record.Num(),19,V19Inventory,Migrated));
+ TestTrue(TEXT("Rejected V19 mirror mismatch leaves output unchanged"),Migrated==BeforeRejected);
  TArray<int32> V17Inventory=Original->InventoryItemCodes;
  V17Inventory.Add(AlternateSlotZero);
  TArray<int32> V17Record;
@@ -375,13 +379,14 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
    Future.GetData(),Future.Num(),20,Original->InventoryItemCodes,Migrated));
  TestTrue(TEXT("Rejected V20 schema leaves output unchanged"),Migrated==BeforeRejected);
  TArray<int32> WrongV18Slot=Middle;
- WrongV18Slot[9]=Middle[10];
+ // Swap two non-ring positions, preserving all physical ownership counts.
+ Swap(WrongV18Slot[9],WrongV18Slot[10]);
  TestFalse(TEXT("V18 rejects an item encoded for a different slot"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
    WrongV18Slot.GetData(),WrongV18Slot.Num(),18,Middle,Migrated));
  TestTrue(TEXT("Rejected V18 slot mismatch leaves output unchanged"),Migrated==BeforeRejected);
  TArray<int32> WrongV19Slot=Future;
- WrongV19Slot[9]=Future[10];
+ Swap(WrongV19Slot[9],WrongV19Slot[10]);
  TestFalse(TEXT("V19 rejects an item encoded for a different slot"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
    WrongV19Slot.GetData(),WrongV19Slot.Num(),19,Original->InventoryItemCodes,Migrated));
@@ -393,6 +398,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("V19 rejects truncated slot records"),
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
    Future.GetData(),Future.Num()-1,19,Original->InventoryItemCodes,Migrated));
+ TestTrue(TEXT("Rejected V19 truncation leaves output unchanged"),Migrated==BeforeRejected);
  return !HasAnyErrors();
 }
 
