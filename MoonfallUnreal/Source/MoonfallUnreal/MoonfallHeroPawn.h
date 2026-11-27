@@ -78,6 +78,7 @@ public:
  bool CanContinueFishing() const;
  bool TryFishingAction();
  void FishingAction() { TryFishingAction(); }
+ void ManualLootOrFish();
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSwimming = false;
