@@ -38,8 +38,8 @@ public:
  // V14: companion profiles keyed by stable resident ID; old saves default to none.
  // V15 adds companion equipment owned separately from the hero's bag.
  // V16 restores the recruited follower by stable resident ID, never by actor pointer.
- // V17 stores all nine equipment IDs with legacy mirrors for slots 0–2.
- UPROPERTY() int32 Version = 17;
+ // V19 stores all 24 equipment IDs. V17 (9) and V18 (16) remain read-only migrations.
+ UPROPERTY() int32 Version = 19;
  UPROPERTY() FMoonfallCompanionPartyRecord CompanionParty;
  UPROPERTY() TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  UPROPERTY() TMap<FName,int32> CompanionProfiles;
@@ -74,7 +74,8 @@ public:
  UPROPERTY() int32 EquippedWeaponCode = 0;
  UPROPERTY() int32 EquippedArmorCode = 0;
  UPROPERTY() int32 EquippedAccessoryCode = 0;
- UPROPERTY() TArray<int32> EquippedSlotCodes = {0,0,0,0,0,0,0,0,0};
+ UPROPERTY() TArray<int32> EquippedSlotCodes = {
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  UPROPERTY() int32 LeftSpell = 0;
  UPROPERTY() int32 RightSpell = 1;
 };
