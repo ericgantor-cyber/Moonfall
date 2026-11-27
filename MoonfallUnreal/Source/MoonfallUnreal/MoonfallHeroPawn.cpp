@@ -1041,8 +1041,11 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   bInventoryScrollbarDragging = false;
   return false;
  }
- if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+ if (!FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen) {
+  bInventoryScrollbarDragging = false;
   return false;
+ }
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
