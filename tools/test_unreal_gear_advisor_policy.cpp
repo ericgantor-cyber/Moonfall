@@ -345,6 +345,22 @@ int main() {
   assert(L::EncodeFullLoot(Categories,LayoutCount,0,0,1)==0);
  }
  assert(L::FullLootCategoryCount(23)==0&&L::FullLootCategorySlot(0,23)==-1);
+ // All save-owned item records must respect both the schema bank and
+ // runtime layout. Retain legacy nine-slot bag compatibility.
+ for(int Version=1;Version<=19;++Version){
+  const int SchemaSlots=Version<=17?9:Version==18?16:24;
+  for(int Active:{3,9,16,24})
+   for(int Slot=0;Slot<24;++Slot){
+    const int Code=L::EncodeFullItem(Slot,1,2,5);
+    assert(L::ValidSavedInventoryItem(Code,Version,Active)==
+        (Slot<SchemaSlots&&Slot<Active));
+   }
+  assert(!L::ValidSavedInventoryItem(0,Version,24));
+  assert(!L::ValidSavedInventoryItem(-1,Version,24));
+ }
+ assert(!L::ValidSavedInventoryItem(L::EncodeFullItem(0,1,2,5),0,24));
+ assert(!L::ValidSavedInventoryItem(L::EncodeFullItem(0,1,2,5),20,24));
+ assert(!L::ValidSavedInventoryItem(L::EncodeFullItem(0,1,2,5),19,23));
  // Flexible-ring loot tier previews compare every eligible finger, while
  // fixed slots and the nine-slot layout retain their original baseline.
  L::FFullLoadout LootPreview{};
