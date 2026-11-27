@@ -600,6 +600,8 @@ void AMoonfallHeroPawn::BeginPlay() {
   NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
       ? AuthoredWalkSpeed : 600.f;
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  const float AuthoredJump=GetCharacterMovement()->JumpZVelocity;
+  MasteryBaseJumpZ=FMath::IsFinite(AuthoredJump)&&AuthoredJump>0.f?AuthoredJump:600.f;
  }
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
@@ -1524,7 +1526,19 @@ void AMoonfallHeroPawn::TryJump()
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if(IsSkillMasteryPreviewEnabled()&&GetCharacterMovement()
+    &&!bWorldProgressLoadInProgress&&!bPersistentSaveWritesBlocked
+    &&!bEquipmentCraftInProgress&&!bTalentAllocationInProgress){
+  const int32 Bonus=MoonfallSkillMastery::JumpBonusBps(SessionMastery);
+  GetCharacterMovement()->JumpZVelocity=MasteryBaseJumpZ*(1.f+float(Bonus)/10000.f);
+ }
  Jump();
+}
+
+void AMoonfallHeroPawn::Landed(const FHitResult& Hit)
+{
+ bMasteryAirDashUsed=false;
+ Super::Landed(Hit);
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
@@ -2383,6 +2397,13 @@ void AMoonfallHeroPawn::Dodge()
      : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
  const FVector Direction = bDispatchingBufferedDodge ? BufferedDodgeDirection : LiveDirection;
  if (Direction.ContainsNaN() || Direction.IsNearlyZero()) return;
+ const bool bPreviewFalling=IsSkillMasteryPreviewEnabled()&&GetCharacterMovement()
+     &&GetCharacterMovement()->IsFalling();
+ // Preview aerial dodges have a single-use budget per landing. Preserve the
+ // ordinary dodge behavior completely outside the opt-in session.
+ if(bPreviewFalling&&!MoonfallSkillMastery::CanAirDash(SessionMastery,true,bMasteryAirDashUsed,
+    !bPersistentSaveWritesBlocked&&!bGuarding&&!bDispatchingBufferedDodge
+    &&!bSpellBookOpen&&!bCharacterStatsOpen))return;
  if (Now < NextDodgeAt || Now < DamageImmunityUntil) {
   if (!bDispatchingBufferedDodge && DodgeBuffer.Queue(Now,FMath::Max(NextDodgeAt,DamageImmunityUntil))) {
    BufferedDodgeDirection = Direction;
@@ -2407,6 +2428,7 @@ void AMoonfallHeroPawn::Dodge()
  NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
+ if(bPreviewFalling)bMasteryAirDashUsed=true;
  LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
  RecordFirstlightAction(MoonfallFirstlightTutorial::EAction::PerformDodge);
 }
