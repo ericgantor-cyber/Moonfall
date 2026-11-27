@@ -525,6 +525,7 @@ private:
  int32 RingDragCode=0;
  uint32 RingDragInventoryRevision=0;
  uint64 RingDragLoadoutFingerprint=0;
+ mutable std::array<int8,MoonfallEquipmentLayout::RingSlotCount> RingDragTargetCache{};
  int32 GetLootComparisonTier(int32 Slot) const;
  void MarkEquipmentInventoryDirty();
  uint32 EquipmentInventoryRevision=1;
