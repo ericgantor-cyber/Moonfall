@@ -861,7 +861,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         hud = self.hud
         self.assertIn("UE_ARRAY_COUNT(Codes)==MoonfallEquipmentLayout::FullSlotCount", hud)
         self.assertIn('TEXT("RING 10")', hud)
-        self.assertIn("GridColumns=MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?4:3", hud.replace(" ",""))
+        self.assertIn("GridColumns=bExpandedGear?", hud.replace(" ",""))
+        self.assertIn("ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?4:3", hud.replace(" ",""))
         self.assertIn("GridRows=(MoonfallEquipmentLayout::ActiveSlotCount+GridColumns-1)/GridColumns", hud.replace(" ",""))
         self.assertIn("GridRows*(CardHeight+3.f)", hud)
         self.assertIn("DecodeFullItem(Code)", hud)
@@ -897,7 +898,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("best eligible finger", block)
         self.assertIn('!bValidSelection ? TEXT("INVALID GEAR")', block)
         self.assertIn("!bValidSelection ? CompareLine :", block)
-        self.assertIn('FString::Printf(TEXT("%s | %+d power"), CompareWord, PowerDelta)', block)
+        self.assertIn('FString::Printf(TEXT("%s | %+d power"),CompareWord,PowerDelta)', block)
         self.assertIn("DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,", block)
         self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
         self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
