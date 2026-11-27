@@ -4742,18 +4742,17 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  }
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
- // Keep the equipped references consistent with the bag; otherwise the loader
- // would silently clear an equipped slot on the next launch.
+ // Keep all 24 equipped references consistent with physical bag copies.
+ // The V19 record is written only after full multiplicity validation.
  MoonfallEquipmentLayout::FFullLoadout WornCodes{};
  for (int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
   WornCodes[Slot]=GetRawEquipmentSlotCode(Slot);
  // Reject inactive or unowned references across the entire 24-slot storage.
- // Keep the V17 writer until the remaining native systems are activated.
  if (!MoonfallEquipmentLayout::IsFullLoadoutOwned(WornCodes,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return false;
  MoonfallEquipmentLayout::FFullLoadout CheckedWorn{};
  if (!MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
      WornCodes.data(),MoonfallEquipmentLayout::LegacySlotCount,
-     WornCodes.data(),MoonfallEquipmentLayout::SlotCount,17,InventoryItemCodes,CheckedWorn)) return false;
+     WornCodes.data(),MoonfallEquipmentLayout::FullSlotCount,19,InventoryItemCodes,CheckedWorn)) return false;
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
@@ -4771,6 +4770,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
+ Save->Version=19;
  // Never overwrite the shrine checkpoint with the hero's current position.
  Save->CheckpointLocation = RespawnCheckpointLocation;
  Save->ActiveShrineId = ActiveShrineId;
@@ -4802,9 +4802,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
- // Canonical nine-slot record; legacy mirrors remain intact for migration.
- Save->EquippedSlotCodes.Init(0,MoonfallEquipmentLayout::SlotCount);
- for(int32 Slot=0;Slot<MoonfallEquipmentLayout::SlotCount;++Slot)
+ // Canonical V19 24-slot record; legacy mirrors remain intact for V17/V18 migration.
+ Save->EquippedSlotCodes.Init(0,MoonfallEquipmentLayout::FullSlotCount);
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot)
   Save->EquippedSlotCodes[Slot]=CheckedWorn[Slot];
  Save->LeftSpell = LeftSpell;
  Save->RightSpell = RightSpell;
@@ -4822,7 +4822,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 17) {
+ if (!Save || Save->Version < 1 || Save->Version > 19) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -5209,11 +5209,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Restore only owned, active expanded gear selected while defeated.
  static_assert(UE_ARRAY_COUNT(DefeatedEquipmentSelection)==MoonfallEquipmentLayout::FullSlotCount,
      "Defeated selection must match the equipment layout");
- for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::SlotCount;++Slot) {
+ for (int32 Slot=MoonfallEquipmentLayout::LegacySlotCount;Slot<MoonfallEquipmentLayout::FullSlotCount;++Slot) {
+  // Flexible rings are deliberately immutable while defeated; preserve the
+  // validated V19 ring set and restore only ordinary position-bound gear.
+  if(MoonfallEquipmentLayout::IsRingSlot(Slot))continue;
   const int32 Code=DefeatedEquipmentSelection[Slot];
-  if (MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
-      MoonfallEquipmentLayout::EInventoryOperation::Equip)
-      && MoonfallEquipmentLayout::ValidFullItem(Code,Slot) && InventoryItemCodes.Contains(Code))
+  if (MoonfallEquipmentLayout::CanWearFullItem(Code,Slot,MoonfallEquipmentLayout::ActiveSlotCount)
+      && InventoryItemCodes.Contains(Code))
    ExtraEquippedCodes[Slot-MoonfallEquipmentLayout::LegacySlotCount]=Code;
  }
  RefreshEquipmentTier();
