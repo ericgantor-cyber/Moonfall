@@ -2,6 +2,8 @@
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallAquaticProfiles.h"
+#include "MoonfallAquaticArt.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
@@ -108,6 +110,35 @@ void AMoonfallEnemy::BeginPlay() {
   AttackDamage = P.Damage;
   bBoss = false; // Aquatic phases use the isolated profile, not the land boss pipeline.
   bElite = false;
+  // One instanced detail batch per creature, using the existing cue mesh.
+  // Only preview actors receive this art. No additional collision or ticking.
+  if (IsValid(Body) && IsValid(AttackTellMarker) && AttackTellMarker->GetStaticMesh()) {
+   auto* Fins = NewObject<UInstancedStaticMeshComponent>(this,TEXT("AquaticFinArt"));
+   if (IsValid(Fins)) {
+    Fins->SetupAttachment(Body);
+    Fins->SetStaticMesh(AttackTellMarker->GetStaticMesh());
+    Fins->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Fins->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Fins->SetGenerateOverlapEvents(false);
+    Fins->SetCanEverAffectNavigation(false);
+    Fins->SetCastShadow(false);
+    Fins->SetCullDistances(3000,4500);
+    AddInstanceComponent(Fins);
+    Fins->RegisterComponent();
+    for (const FTransform& Part : MoonfallAquaticArt::Fins(AquaticProfileId))
+     Fins->AddInstance(Part);
+   }
+   // Use only a material parameter supported by the current body material.
+   // Missing parameters fall back to the original mesh material.
+   if (auto* Material = Body->CreateDynamicMaterialInstance(0)) {
+    const FName ColorParameter(TEXT("Color"));
+    FLinearColor ExistingColor;
+    if (Material->GetVectorParameterValue(FMaterialParameterInfo(ColorParameter),ExistingColor)) {
+     Material->SetVectorParameterValue(ColorParameter,MoonfallAquaticArt::Tint(AquaticProfileId));
+     if (IsValid(Fins)) Fins->SetMaterial(0,Material);
+    }
+   }
+  }
  }
  // Native regional bosses and elites receive one static engraved armor batch.
  // Ordinary native enemies receive two race ornaments in the same batch.
