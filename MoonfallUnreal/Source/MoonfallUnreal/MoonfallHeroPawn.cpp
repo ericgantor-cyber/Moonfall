@@ -4298,7 +4298,7 @@ bool AMoonfallHeroPawn::CanContinueFishing() const {
      && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
      && IsValid(Movement) && Movement->IsMovingOnGround() && !bWaterSwimming
      && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
-     && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()
      && !IsRecentlyInCombatForAmbientAI()
      && (Fishing.Stage==MoonfallFishing::EStage::Idle ||
          FVector::DistSquared(GetActorLocation(),FishingOrigin)<=FMath::Square(35.f));
@@ -4322,18 +4322,20 @@ bool AMoonfallHeroPawn::TryFishingAction() {
   if(!IsValid(Volume)||!Volume->bWaterVolume) continue;
   const FBox Bounds=Volume->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  for(float Angle : {0.f,-20.f,20.f,-40.f,40.f}) {
   for(float Reach : {250.f,450.f,650.f,850.f}) {
-   FVector Target=Start+Forward*Reach;
+   FVector Target=Start+Forward.RotateAngleAxis(Angle,FVector::UpVector)*Reach;
    Target.Z=Bounds.Max.Z+2.f;
    if(Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f
        ||Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   if(!Fishing.Start(Now,FMath::FRandRange(2.f,7.f))) return false;
+   if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
    FishingNoticeUntil=0.f;
    return true;
+  }
   }
  }
  return false;
