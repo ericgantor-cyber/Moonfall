@@ -159,9 +159,14 @@ constexpr float RegionalRoutineStepLimit(ERegionalRoutine Routine){
  // Guards must be able to reach their assigned watch point before holding it.
  return Routine==ERegionalRoutine::CautiousWork?16.f:32.f;
 }
+// Optional ambient rumor exchanges pause during regional emergencies.
+// Unknown danger preserves legacy behavior, including protected settlements.
+constexpr bool RegionalAllowsSocial(int Danger){return Danger<65||Danger>100;}
 constexpr bool RegionalRoutineAllowsGuide(ERegionalRoutine Routine){
  return Routine==ERegionalRoutine::Normal;
 }
+static_assert(RegionalAllowsSocial(64)&&!RegionalAllowsSocial(65)&&!RegionalAllowsSocial(100),"Social recovery boundary");
+static_assert(RegionalAllowsSocial(-1)&&RegionalAllowsSocial(101),"Unknown danger preserves ordinary routines");
 static_assert(RegionalRoutine(ERole::Guard,65,true)==ERegionalRoutine::GuardWatch,"Guard watch");
 static_assert(RegionalRoutine(ERole::Merchant,90,true)==ERegionalRoutine::CautiousWork,"Merchant stays available");
 static_assert(RegionalRoutine(ERole::Citizen,90,true)==ERegionalRoutine::ReturnHome,"Civilian returns home");
