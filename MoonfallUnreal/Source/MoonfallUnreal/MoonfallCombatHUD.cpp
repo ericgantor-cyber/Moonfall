@@ -1942,7 +1942,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Hero->GetEquipmentSlotCode(20),Hero->GetEquipmentSlotCode(21),
       Hero->GetEquipmentSlotCode(22),Hero->GetEquipmentSlotCode(23)};
     const TCHAR* SlotNames[] = {
-      TEXT("WEAPON"),TEXT("ARMOR"),TEXT("TRINKET 1"),TEXT("HEAD"),
+      TEXT("WEAPON"),TEXT("ARMOR"),TEXT("ACCESSORY"),TEXT("HEAD"),
       TEXT("SHOULDERS"),TEXT("HANDS"),TEXT("LEGS"),TEXT("FEET"),
       TEXT("RING 1"),TEXT("NECK"),TEXT("BACK"),TEXT("WRISTS"),
       TEXT("WAIST"),TEXT("RING 2"),TEXT("TRINKET 2"),TEXT("OFF-HAND"),
@@ -2277,7 +2277,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Slot=Decoded.Slot;
    const int32 Rarity=Decoded.Rarity;
    const int32 Tier=Decoded.Tier;
-   const TCHAR* Slots[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Trinket 1"),
+   const TCHAR* Slots[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),
      TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),
      TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),
      TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),
@@ -2410,7 +2410,7 @@ void AMoonfallCombatHUD::DrawHUD()
    // Keep this area hidden on very short viewports to avoid covering bag rows.
    if (PanelHeight >= 500.f) {
     const TCHAR* DetailSlots[] = {
-      TEXT("Weapon"),TEXT("Armor"),TEXT("Trinket 1"),TEXT("Head"),TEXT("Shoulders"),
+      TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),
       TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),
       TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),
       TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),
