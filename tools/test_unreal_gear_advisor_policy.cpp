@@ -209,6 +209,19 @@ int main() {
  assert(L::TryMoveFullRing(17,23,Flexible,24,false,RingBag,RingResult));
  assert(RingResult[23]==HighRing&&RingResult[17]==CommonRing);
  Flexible=RingResult;
+ // V17 and V18 remain strict-position migrations; only V19 allows ring swaps.
+ std::array<int,9> V17Codes{},V17Bag{};
+ for(int Slot=0;Slot<9;++Slot)V17Codes[Slot]=V17Bag[Slot]=L::EncodeFullItem(Slot,1,2,5);
+ L::FFullLoadout V17Restored{};
+ assert(L::TryRestoreFlexibleFullLoadout(V17Codes.data(),3,V17Codes.data(),9,17,V17Bag,V17Restored));
+ for(int Slot=9;Slot<24;++Slot)assert(V17Restored[Slot]==0);
+ std::array<int,16> V18Codes{},V18Bag{};
+ for(int Slot=0;Slot<16;++Slot)V18Codes[Slot]=V18Bag[Slot]=L::EncodeFullItem(Slot,1,2,5);
+ L::FFullLoadout V18Restored{};
+ assert(L::TryRestoreFlexibleFullLoadout(V18Codes.data(),3,V18Codes.data(),16,18,V18Bag,V18Restored));
+ for(int Slot=16;Slot<24;++Slot)assert(V18Restored[Slot]==0);
+ auto BadV18=V18Codes;BadV18[13]=V18Codes[8];
+ assert(!L::TryRestoreFlexibleFullLoadout(BadV18.data(),3,BadV18.data(),16,18,V18Bag,V18Restored));
  assert(L::TryRestoreFlexibleFullLoadout(Flexible.data(),3,Flexible.data(),24,19,RingBag,RingResult));
  assert(RingResult==Flexible);
  assert(!L::TryRestoreFlexibleFullLoadout(Flexible.data(),3,Flexible.data(),24,19,
