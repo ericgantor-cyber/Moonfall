@@ -257,6 +257,19 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("MouseX >= Left + PanelWidth - 16.f", row)
         self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("GetInventoryDisplayOrder()"))
 
+    def test_controller_navigation_owns_inventory_gestures(self):
+        for name in ("OptionsUp", "OptionsDown", "OptionsLeft", "OptionsRight"):
+            with self.subTest(name=name):
+                body = self.source.split("void AMoonfallHeroPawn::" + name + "()", 1)[1].split("\n}", 1)[0]
+                self.assertLess(body.index("ClearRingPointerDrag();"), body.index("if(HasRingNavigationFocus())"))
+                self.assertLess(body.index("bInventoryScrollbarDragging=false;"), body.index("if(HasRingNavigationFocus())"))
+        stick = self.source.split("void AMoonfallHeroPawn::ControllerRightStickPress()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(stick.index("if(HasRingNavigationFocus())return;"), stick.index("ToggleAtlas();"))
+        confirm = self.source.split("void AMoonfallHeroPawn::ControllerConfirm()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(confirm.index("if (bOptionsOpen) return;"), confirm.index("ToggleSelectedQuestTracking();"))
+        loot = self.source.split("void AMoonfallHeroPawn::ControllerLootOrSalvage()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(loot.index("if (bOptionsOpen || bTalentWebOpen || bResidentContextOpen || FocusedResident.IsValid()) return;"), loot.index("ToggleQuestLog();"))
+
     def test_bag_drop_surface_has_no_gold_highlight(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertNotIn("CanDropDraggedRingInBag()", hud)
