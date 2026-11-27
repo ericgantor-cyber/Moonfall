@@ -2387,7 +2387,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const float HelpOffset = PanelHeight >= 500.f ? 270.f : 230.f;
    if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
     const int32 FocusedRing=Hero->GetFocusedRingIndex();
-    DrawText(FocusedRing!=INDEX_NONE?TEXT("RINGS: LEFT/RIGHT | A/ENTER equip | X/DEL remove"):
+    const int32 SwapSource=Hero->GetRingNavigationSwapSource();
+    DrawText(SwapSource!=INDEX_NONE?TEXT("SWAP: LEFT/RIGHT | A/ENTER confirm | UP cancel"):
+       FocusedRing!=INDEX_NONE?TEXT("RINGS: A/ENTER equip | UP pick up | X/DEL remove"):
        TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
        FLinearColor::White,Left+18.f,Top+PanelHeight-HelpOffset,nullptr,PanelWidth<550.f?0.48f:0.68f);
     const float RingX=Left+18.f,RingY=Top+PanelHeight-HelpOffset+20.f;
@@ -2424,7 +2426,7 @@ void AMoonfallCombatHUD::DrawHUD()
        X+FrameThickness,RingY+FrameThickness,RingWidth-2.f-2.f*FrameThickness,18.f-2.f*FrameThickness);
      if(DragCode<=0)DrawHoverFrame(X,RingY,RingWidth-2.f,18.f);
      if(Index==FocusedRing)DrawSelectionRail(X,RingY,18.f);
-     if(Index==DragSource)DrawRect(SlotGold,X,RingY,RingWidth-2.f,2.f);
+     if(Index==DragSource||Index==SwapSource)DrawRect(SlotGold,X,RingY,RingWidth-2.f,2.f);
      if(bWorn&&RingWidth>=40.f)DrawGearGlyph(X+RingWidth-10.f,RingY+9.f,6.f,Finger,bDim?FrameInk:QualityInk);
      else if(bWorn)DrawRect(bDim?FrameInk:QualityInk,X+RingWidth-6.f,RingY+5.f,2.f,8.f);
      DrawText(FString::FromInt(Index+1),bDim?FLinearColor(0.55f,0.55f,0.55f):FLinearColor::White,
