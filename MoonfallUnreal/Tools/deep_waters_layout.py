@@ -86,3 +86,29 @@ def wreck_geometry():
             yield name + " broken hull", (x-65.0, y+side*155.0, -320.0), (4.5, 0.45, 1.4), side*6.0
             yield name + " shattered bow", (x+245.0, y+side*95.0, -320.0), (1.7, 0.4, 1.25), -side*35.0
         yield name + " fallen mast", (x-150.0, y, -365.0), (2.6, 0.3, 0.3), 22.0
+
+
+# Expanded basin remains opt-in; the original 60 x 40 m map stays compatible.
+EXPANDED_HALF_WIDTH = 6000.0
+EXPANDED_HALF_LENGTH = 4500.0
+CAVE_CENTERS = ((-3800.0, 2200.0, -255.0), (3800.0, -2200.0, -255.0))
+ISLAND_CENTER = (0.0, 3300.0, 80.0)
+
+
+def cave_geometry():
+    for i, (x, y, _) in enumerate(CAVE_CENTERS):
+        name = ("Nightglass Cavern", "Silver Current Cavern")[i]
+        # Two wide exits along X; the roof is elevated for capsule clearance.
+        yield name + " floor", (x,y,-405.0), (10.0,6.4,0.5)
+        for side in (-1,1):
+            yield name + " side wall", (x,y+side*300.0,-225.0), (10.0,0.5,3.6)
+        yield name + " central arch roof", (x,y,-65.0), (4.2,6.0,0.4)
+
+
+def island_geometry():
+    x,y,_ = ISLAND_CENTER
+    # Overlapping 25 cm steps rise from the water toward a dry plateau.
+    yield "Moonwatch Isle plateau", (x,y,55.0), (14.0,10.0,0.5)
+    for i in range(6):
+        yield "Moonwatch landing step " + str(i+1), (x,y-595.0-i*190.0,30.0-i*25.0), (6.0,2.0,0.5)
+    yield "Moonwatch standing stone", (x-450.0,y+180.0,230.0), (1.2,1.2,3.0)
