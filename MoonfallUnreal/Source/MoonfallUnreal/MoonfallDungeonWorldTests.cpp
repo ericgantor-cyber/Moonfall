@@ -399,6 +399,40 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(Mirrors,3,
    Future.GetData(),Future.Num()-1,19,Original->InventoryItemCodes,Migrated));
  TestTrue(TEXT("Rejected V19 truncation leaves output unchanged"),Migrated==BeforeRejected);
+ // Also exercise rejection AFTER the real Unreal serializer has reconstructed
+ // the malformed record. A memory-only fixture cannot overwrite player saves.
+ const auto RejectSerialized=[this,Original,&BeforeRejected](const TCHAR* Label,
+     int32 Version,const TArray<int32>& Record,const TArray<int32>& Bag)->bool {
+  Original->Version=Version;
+  Original->EquippedSlotCodes=Record;
+  Original->InventoryItemCodes=Bag;
+  TArray<uint8> Bytes;
+  if(!TestTrue(TEXT("Serialize malformed equipment fixture"),
+       UGameplayStatics::SaveGameToMemory(Original,Bytes)))return false;
+  UMoonfallPersistentSave* Restored=Cast<UMoonfallPersistentSave>(
+      UGameplayStatics::LoadGameFromMemory(Bytes));
+  if(!TestNotNull(TEXT("Deserialize malformed equipment fixture"),Restored))return false;
+  TestEqual(TEXT("Malformed fixture version preserved"),Restored->Version,Version);
+  TestTrue(TEXT("Malformed slot record preserved"),Restored->EquippedSlotCodes==Record);
+  TestTrue(TEXT("Malformed inventory record preserved"),Restored->InventoryItemCodes==Bag);
+  const int32 Legacy[]={Restored->EquippedWeaponCode,Restored->EquippedArmorCode,Restored->EquippedAccessoryCode};
+  auto Output=BeforeRejected;
+  TestFalse(Label,MoonfallEquipmentLayout::TryRestoreFlexibleFullLoadout(
+      Legacy,3,Restored->EquippedSlotCodes.GetData(),Restored->EquippedSlotCodes.Num(),
+      Restored->Version,Restored->InventoryItemCodes,Output));
+  TestTrue(TEXT("Serialized rejection leaves previous output unchanged"),Output==BeforeRejected);
+  return true;
+ };
+ TArray<int32> ShortV19=Future;
+ ShortV19.Pop();
+ TArray<int32> LongV19=Future;
+ LongV19.Add(0);
+ if(!RejectSerialized(TEXT("Serialized V19 missing ring copy rejected"),19,Future,MissingCopy))return false;
+ if(!RejectSerialized(TEXT("Serialized V19 wrong slot rejected"),19,WrongV19Slot,Future))return false;
+ if(!RejectSerialized(TEXT("Serialized V19 mirror mismatch rejected"),19,V19Record,V19Inventory))return false;
+ if(!RejectSerialized(TEXT("Serialized V19 truncated record rejected"),19,ShortV19,Future))return false;
+ if(!RejectSerialized(TEXT("Serialized V19 oversized record rejected"),19,LongV19,Future))return false;
+ if(!RejectSerialized(TEXT("Serialized V20 future schema rejected"),20,Future,Future))return false;
  return !HasAnyErrors();
 }
 
