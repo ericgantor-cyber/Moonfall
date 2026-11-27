@@ -718,7 +718,8 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
           && !NPC->SettlementId.IsNone()
           && MoonfallLivingSimulation::ReactionFor(MoonfallLivingSimulation::ERole::Citizen,
                Now-NPC->LastDangerAt)==MoonfallLivingSimulation::EAlertReaction::Normal
-          && NPC->LivingIntent!=TEXT("Seeking Shelter") && NPC->LivingIntent!=TEXT("Resting"))
+          && NPC->LivingIntent!=TEXT("Seeking Shelter") && NPC->LivingIntent!=TEXT("Resting")
+          && NPC->LivingIntent!=TEXT("Staying Near Home"))
        SocialCandidates.Add(NPC);
      });
  if (bCombatNearby) TryLocalCompanionStrike(Hero,Now);
