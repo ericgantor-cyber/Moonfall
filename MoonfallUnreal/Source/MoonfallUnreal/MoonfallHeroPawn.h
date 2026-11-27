@@ -521,7 +521,6 @@ public:
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
  float MasteryBaseJumpZ=600.f;
- bool bMasteryAirDashUsed=false;
  friend class AMoonfallMasteryOrb;
  bool TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind);
  MoonfallSkillMastery::State* GetSessionMastery() const;
@@ -708,7 +707,6 @@ private:
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
  virtual void StopJumping() override;
- virtual void Landed(const FHitResult& Hit) override;
  void TryJump();
  void ControllerConfirm();
  void ControllerConfirmRelease();
