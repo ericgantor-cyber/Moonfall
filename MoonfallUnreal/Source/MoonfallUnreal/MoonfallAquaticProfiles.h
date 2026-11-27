@@ -35,5 +35,39 @@ namespace MoonfallAquatic
         if (Id != 5 || !FMath::IsFinite(HealthFraction)) return 1;
         return HealthFraction <= 0.3f ? 3 : HealthFraction <= 0.65f ? 2 : 1;
     }
+    struct FMove {
+        const TCHAR* Name;
+        float Reach, Damage, Windup, HalfAngleCos;
+        bool bRadial, bUnblockable;
+    };
+    inline int32 SelectMove(int32 Id, int32 PhaseId, int32 Sequence)
+    {
+        if (Sequence < 0) return 0;
+        if (Id == 4) return Sequence % 2 == 1 ? 1 : 0;
+        if (Id == 5 && PhaseId >= 2) {
+            const int32 Cycle = Sequence % (PhaseId >= 3 ? 3 : 2);
+            return Cycle;
+        }
+        return 0;
+    }
+    inline FMove Move(int32 Id, int32 MoveId)
+    {
+        const auto P = Profile(Id);
+        if (Id == 4 && MoveId == 1)
+            return {TEXT("GLASSFIN SWEEP"), 245.f, 17.f, 1.2f, 0.f, true, false};
+        if (Id == 5 && MoveId == 1)
+            return {TEXT("UNDERTOW PULSE"), 295.f, 22.f, 1.6f, 0.f, true, true};
+        if (Id == 5 && MoveId == 2)
+            return {TEXT("BRINE LUNGE"), 280.f, 23.f, 1.25f, 0.85f, false, false};
+        return {P.Attack, P.Reach + 20.f, P.Damage, P.Windup, 0.35f, false, false};
+    }
+    inline bool Hits(const FMove& M, const FVector& Offset, const FVector& LockedDirection)
+    {
+        if (Offset.ContainsNaN() || LockedDirection.ContainsNaN()) return false;
+        if (Offset.SizeSquared() > FMath::Square(M.Reach)) return false;
+        if (M.bRadial || Offset.IsNearlyZero()) return true;
+        return !LockedDirection.IsNearlyZero()
+            && FVector::DotProduct(Offset.GetSafeNormal(), LockedDirection.GetSafeNormal()) >= M.HalfAngleCos;
+    }
     inline float RecoveryScale(int32 PhaseId) { return PhaseId == 3 ? 0.72f : PhaseId == 2 ? 0.85f : 1.f; }
 }
