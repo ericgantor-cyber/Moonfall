@@ -267,7 +267,7 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
        ||FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0)return;
   }
   const float RoutineStep=MoonfallLivingSimulation::RegionalRoutineStepLimit(Regional);
-  AddActorWorldOffset(Step.GetClampedToMaxSize2D(bRegionalCautious?RoutineStep:32.f),true);
+  AddActorWorldOffset(Step.GetClampedToMaxSize2D(RoutineStep),true);
  }
 }
 int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
