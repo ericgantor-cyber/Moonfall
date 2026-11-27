@@ -4252,6 +4252,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_mastery_preview_checkpoint_isolation(self):
+        hero = self.hero_cpp
+        selector = hero.split("const FString& GetMoonfallWorldSlot()", 1)[1].split("\n}", 1)[0]
+        self.assertIn('TEXT("MoonfallPersistentWorldV1")', selector)
+        self.assertIn('TEXT("MoonfallMasteryPreviewWorldV1")', selector)
+        self.assertIn("IsMasteryCheckpointPreview()?MasteryPreview:Campaign", selector)
+        for method in ("TryPlaceNewCharacterAtSanctuary", "BeginPlay", "SaveWorldProgress", "LoadWorldProgress"):
+            body = hero.split("AMoonfallHeroPawn::" + method + "()", 1)[1].split("\n}", 1)[0]
+            self.assertIn("const FString& MoonfallWorldSlot=GetMoonfallWorldSlot();", body)
+        save = hero.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split("\n}", 1)[0]
+        load = hero.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split("\n}", 1)[0]
+        self.assertLess(save.index("MoonfallMasterySave::Write(*Ledger,*Save)"), save.index("SaveGameToSlot("))
+        self.assertLess(load.index("MoonfallMasterySave::Read(*Save,LoadedMastery)"), load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index("TeleportTo("), load.index("MasteryMode->MasterySessionLedger=LoadedMastery"))
+        self.assertIn("!MasteryMode->bMasteryLedgerRestored", load)
+        self.assertIn("Save->SkillMasteryVersion!=0", load)
+
     def test_mastery_crafting_and_jump_preview_contract(self):
         for method, notification in (
             ("UpgradeInventoryItem", "OnEquipmentCrafted"),
