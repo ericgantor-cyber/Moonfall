@@ -49,7 +49,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const double Distance=FVector::Dist2D(Start,Goal);
  const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
  if(!FMath::IsFinite(Distance))return false;
- if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;return true;}
+ if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;return true;}
  // A moving goal can invalidate a cached waypoint without bypassing the query cooldown.
  if(bFollowerWaypointValid&&(FollowerPathGoal.ContainsNaN()||
      FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0))){bFollowerWaypointValid=false;FollowerBlockedSteps=0;}
@@ -68,7 +68,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  }
  const FVector Target=bFollowerWaypointValid?FollowerWaypoint:Goal;
  FVector Step=Target-Start;Step.Z=0;
- if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;return false;}
+ if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;FollowerLastStep=0.0;return false;}
  // Try one bounded diagonal detour on a later pulse, never an extra trace
  // batch. Alternate sides after repeated obstructions; authored nav wins.
  const bool bDetour=!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2;
@@ -81,8 +81,10 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const auto MarkBlocked=[&](){
   bFollowerWaypointValid=false;
   FollowerBlockedSteps=FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1;
+  FollowerLastStep=0.0;
  };
- const double StepLimit=bSameFloor?FMath::Min(60.0,FMath::Max(0.0,Distance-StopDistance)):60.0;
+ const double Remaining=bSameFloor?FMath::Max(0.0,Distance-StopDistance):120.0;
+ const double StepLimit=MoonfallWorldPolicy::FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt);
  const FVector End=Start+Step.GetClampedToMaxSize2D(StepLimit);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
  FHitResult Obstacle;
@@ -100,6 +102,7 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
  const FVector ActualMove=GetActorLocation()-Start;
  if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0){
   FollowerBlockedSteps=0;
+  FollowerLastStep=FMath::Min(60.0,ActualMove.Size2D());FollowerLastMoveAt=Now;
   // Bound visible turns per existing 0.2-second follower pulse, including
   // wraparound at +/-180 degrees. No animation tick or asset dependency.
   const float CurrentYaw=static_cast<float>(GetActorRotation().Yaw);
@@ -144,7 +147,7 @@ bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
   FHitResult Sight;
   if(GetWorld()->LineTraceSingleByChannel(Sight,Center,Player,ECC_Visibility,GroundParams))continue;
   if(!TeleportTo(Destination,GetActorRotation(),false,false))continue;
-  bFollowerWaypointValid=false;FollowerBlockedSteps=0;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
+  bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;FollowerLastMoveAt=-1.f;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
   return true;
  }
  return false;
