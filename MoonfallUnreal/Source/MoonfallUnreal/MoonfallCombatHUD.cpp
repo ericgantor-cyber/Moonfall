@@ -2388,7 +2388,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
     const int32 FocusedRing=Hero->GetFocusedRingIndex();
     const int32 SwapSource=Hero->GetRingNavigationSwapSource();
-    DrawText(SwapSource!=INDEX_NONE?TEXT("SWAP: LEFT/RIGHT | A/ENTER confirm | UP cancel"):
+    DrawText(Hero->IsRingNavigationSwapInterrupted()?TEXT("SWAP CANCELED | A/ENTER or UP dismiss"):
+       SwapSource!=INDEX_NONE?TEXT("SWAP: LEFT/RIGHT | A/ENTER confirm | UP cancel"):
        FocusedRing!=INDEX_NONE?TEXT("RINGS: A/ENTER equip | UP pick up | X/DEL remove"):
        TEXT("RINGS: drag to equip / swap | drag to bag to remove"),
        FLinearColor::White,Left+18.f,Top+PanelHeight-HelpOffset,nullptr,PanelWidth<550.f?0.48f:0.68f);

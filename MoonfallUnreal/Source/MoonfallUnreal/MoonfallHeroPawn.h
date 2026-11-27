@@ -448,6 +448,7 @@ public:
  int32 HitTestInventoryRingStrip() const;
  int32 GetFocusedRingIndex() const;
  int32 GetRingNavigationSwapSource() const;
+ bool IsRingNavigationSwapInterrupted() const;
  bool HasRingNavigationFocus() const;
  int32 GetRingPointerDragCode() const;
  int32 GetRingPointerDragFinger() const { return RingDragFingerIndex; }
@@ -522,6 +523,7 @@ private:
  int32 RingNavigationSwapCode=0;
  uint32 RingNavigationSwapRevision=0;
  uint64 RingNavigationSwapFingerprint=0;
+ bool bRingNavigationSwapInterrupted=false;
  void ClearRingNavigationSwap();
  void ClearRingNavigationFocus();
  void ArmOrCancelRingNavigationSwap();

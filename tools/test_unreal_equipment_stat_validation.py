@@ -186,6 +186,12 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("if(HasRingNavigationFocus()){ConfirmRingNavigationAction();return;}", self.source)
         swap = self.source.split("void AMoonfallHeroPawn::ConfirmRingNavigationAction()", 1)[1].split("\n}", 1)[0]
         self.assertIn("RingNavigationSwapRevision==EquipmentInventoryRevision", swap)
+        self.assertIn("!bRingNavigationSwapInterrupted&&CanEditEquippedRings()", swap)
+        self.assertIn("RingNavigationSwapSource!=INDEX_NONE&&!bRingNavigationSwapInterrupted", self.source)
+        self.assertIn("bRingNavigationSwapInterrupted=true;", self.source)
+        clear_swap = self.source.split("void AMoonfallHeroPawn::ClearRingNavigationSwap()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bRingNavigationSwapInterrupted=false;", clear_swap)
+        self.assertIn("SWAP CANCELED | A/ENTER or UP dismiss", hud)
         self.assertIn("RingNavigationSwapFingerprint==GetEquipmentLoadoutFingerprint()", swap)
         self.assertLess(swap.index("ClearRingNavigationSwap();"), swap.index("MoveEquippedRing(Source,RingNavigationIndex);"))
         self.assertIn("if(bValid&&Source!=RingNavigationIndex)MoveEquippedRing(Source,RingNavigationIndex);", swap)
