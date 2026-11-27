@@ -3,6 +3,7 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
+#include "MoonfallPackTactics.h"
 #include "MoonfallOmniattack.h"
 #include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
@@ -1400,7 +1401,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Cap the iterator itself, not only eligible allies. Large worlds can
     // contain many bosses, defeated actors, and inactive enemies.
     for (TActorIterator<AMoonfallEnemy> It(GetWorld());
-         It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
+         It && ScannedActors < MoonfallPackTactics::MaxScannedActors
+             && ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates; ++It) {
      ++ScannedActors;
      const AMoonfallEnemy* Other = *It;
      // Ignore teardown and invalid-health actors before consuming the limited
@@ -1427,11 +1429,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // A corrupt infinite windup must not reserve an attack slot forever.
      // Failed/NaN timers also cannot represent a real active warning.
      if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now) {
-      if (++NearbyWindingAllies >= 2) break;
+      if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;
      }
     }
-    if (NearbyWindingAllies >= 2) {
-     const float SlotDelay = 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
+    if (MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)) {
+     const float SlotDelay = MoonfallPackTactics::AttackSlotDelay(NearbyWindingAllies, GetUniqueID());
      NextAttackAt = Now + SlotDelay;
      return;
     }
