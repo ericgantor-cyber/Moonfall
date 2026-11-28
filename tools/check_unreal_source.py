@@ -14,6 +14,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_vault_transfer_ownership_and_rollback(self):
+        guard=self.hero_cpp.split("bool AMoonfallHeroPawn::CanTransferVaultItem()",1)[1].split("\n}",1)[0]
+        for required in ("HasBagRoom()", "VaultHasRoom", "CanRemoveFullCopy", "IsRecentlyInCombatForAmbientAI()"):
+            self.assertIn(required,guard)
+        transfer=self.hero_cpp.split("bool AMoonfallHeroPawn::ChooseVaultAction(",1)[1].split("\n}",1)[0]
+        self.assertLess(transfer.index("IsVaultConfirmationCurrent()"),transfer.index("Destination.Add(Code)"))
+        self.assertLess(transfer.index("VaultConfirmAfter"),transfer.index("Destination.Add(Code)"))
+        self.assertIn("Destination.RemoveAt(Added);Source.Insert(Code,Index);",transfer)
+        self.assertIn("Save->VaultItemCodes=VaultItemCodes;",self.hero_cpp)
+        self.assertIn("VaultItemCodes=Save->VaultItemCodes;",self.hero_cpp)
+        self.assertIn("Save->VaultItemCodes.Num()>MoonfallMoney::VaultMax",self.hero_cpp)
+        self.assertIn('TEXT("Storage vault")',self.hud)
+
     def test_merchant_transactions_require_live_confirm_and_atomic_save(self):
         sell = self.hero_cpp.split("bool AMoonfallHeroPawn::SellMerchantItem()",1)[1].split("\n}",1)[0]
         buy = self.hero_cpp.split("bool AMoonfallHeroPawn::BuyMerchantItem()",1)[1].split("\n}",1)[0]
