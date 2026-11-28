@@ -66,6 +66,14 @@ namespace MoonfallFishing
     }
     constexpr double SchoolWait(double Wait) { return Wait>3.5?3.5:Wait; }
     enum class EStage { Idle, Waiting, Bite, Reeling };
+    enum class EEndNotice { None, Interrupted, Escaped };
+    inline EEndNotice EndNotice(EStage Previous,EStage Current,bool Eligible,double Now)
+    {
+        if(Previous==EStage::Idle||Current!=EStage::Idle) return EEndNotice::None;
+        if(!Eligible||!std::isfinite(Now)||Now<0.0) return EEndNotice::Interrupted;
+        if(Previous==EStage::Bite) return EEndNotice::Escaped;
+        return Previous==EStage::Waiting?EEndNotice::Interrupted:EEndNotice::None;
+    }
     inline double ReelProgress(double Now,double Started,double Deadline) {
         if(!std::isfinite(Now)||!std::isfinite(Started)||!std::isfinite(Deadline)||Deadline<=Started) return 0.0;
         if(Now<=Started) return 0.0;
