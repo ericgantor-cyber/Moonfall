@@ -102,10 +102,13 @@ namespace MoonfallMoney {
  constexpr Coins ContractReward(int Cost,int Level) {
   return Cost<1||Cost>30||Level<1||Level>100?0:Coins(75)+Cost*20+Level*5;
  }
- constexpr Coins ContractCredit(int Cost,int Level,Coins Balance) {
-  if(!Valid(Balance))return 0;
-  const Coins Reward=ContractReward(Cost,Level),Room=MaxCoins-Balance;
+ constexpr Coins BoundedRewardCredit(Coins Reward,Coins Balance) {
+  if(!Valid(Balance)||Reward<=0||!Valid(Reward))return 0;
+  const Coins Room=MaxCoins-Balance;
   return Reward<Room?Reward:Room;
+ }
+ constexpr Coins ContractCredit(int Cost,int Level,Coins Balance) {
+  return BoundedRewardCredit(ContractReward(Cost,Level),Balance);
  }
  constexpr Coins EnemyReward(int Level,bool Elite,bool Boss) {
   return Level<1||Level>100?0:(Boss?1200:Elite?350:100)+Coins(Level-1)*15;
