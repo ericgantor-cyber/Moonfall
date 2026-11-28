@@ -63,6 +63,7 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallLivingWorldPolicy.h"
 #include "MoonfallCheckpointShrine.h"
+#include "MoonfallMasteryOrb.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -695,6 +696,10 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GetWorld()) {
   for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
    if (IsValid(*It)) It->CheckHeroAtSpawn(this);
+  // Reconcile initial orb overlaps only after the save/character is ready.
+  if(IsSkillMasteryPreviewEnabled())
+   for(TActorIterator<AMoonfallMasteryOrb> It(GetWorld());It;++It)
+    if(IsValid(*It)&&!It->IsActorBeingDestroyed())It->CheckHeroAtSpawn(this);
  }
 }
 void AMoonfallHeroPawn::RefreshSwimPose()
@@ -4157,6 +4162,17 @@ int32 AMoonfallHeroPawn::GetSkillMasteryXP(int32 SkillIndex) const
 int32 AMoonfallHeroPawn::GetSkillMasteryRank(int32 SkillIndex) const
 {
  return MoonfallSkillMastery::Rank(GetSkillMasteryXP(SkillIndex));
+}
+
+int32 AMoonfallHeroPawn::GetCollectedMasteryRouteOrbs() const
+{
+ if(!IsSkillMasteryPreviewEnabled())return -1;
+ int32 Count=0;
+ for(int32 I=0;I<MoonfallSkillMastery::WorldRouteCount;++I){
+  const auto P=MoonfallSkillMastery::RoutePlacement(I);
+  if(MoonfallSkillMastery::IsCollected(SessionMastery,P.Region,P.Index))++Count;
+ }
+ return Count;
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)

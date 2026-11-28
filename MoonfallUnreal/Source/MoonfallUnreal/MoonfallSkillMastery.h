@@ -107,6 +107,25 @@ inline bool TryAward(const State& Current,Action A,bool Confirmed,State& Out) {
  XP=SaturatingXP(XP,Amount);
  Out=Next;return true;
 }
+struct Placement {int Region,Index,X,Y;Orb Kind;};
+inline constexpr int MainlandRegions=6;
+inline constexpr int WorldRouteCount=28;
+// Stable identities: six mainland regions and Firstlight (region 6).
+// Region 7 and indices >=4 are reserved for future authored content.
+constexpr Placement RoutePlacement(int I) {
+ if(I<0||I>=WorldRouteCount)return {-1,-1,0,0,Orb::Agility};
+ if(I>=24){
+  constexpr int Xs[]={-550,550,-900,900};
+  constexpr int Ys[]={2650,2650,2800,3850};
+  const int J=I-24;
+  return {6,J,Xs[J],Ys[J],J==3?Orb::Hidden:Orb::Agility};
+ }
+ const int Region=I/4,Index=I%4;
+ const int Center=(Region*5-12)*1350-675;
+ constexpr int XOffsets[]={-2000,-850,850,2000};
+ constexpr int YOffsets[]={-2600,-2225,-2225,-2675};
+ return {Region,Index,Center+XOffsets[Index],YOffsets[Index],Index==3?Orb::Hidden:Orb::Agility};
+}
 constexpr bool ValidOrbID(int Region,int Index) {
  return Region>=0&&Region<RegionCount&&Index>=0&&Index<OrbsPerRegion;
 }
