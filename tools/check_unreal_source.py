@@ -926,6 +926,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->SetInventorySearchText(FString());", opening)
         self.assertIn("Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase)", match)
         self.assertIn('Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier)', match)
+        self.assertIn('Term.Equals(TEXT("tier"),ESearchCase::IgnoreCase)', match)
+        self.assertIn("ParsedInventorySearchTerms[++TermIndex]!=FString::FromInt(Item.Tier)", match)
+        self.assertIn("Term.Equals(Traits[Item.Trait],ESearchCase::IgnoreCase)", match)
+        self.assertEqual(hero.count("static const TCHAR* Slots[]="), 1)
+        for method in ("GetMerchantSaleItemText", "GetMerchantTradeItemText", "GetVaultSelectionText"):
+            display = hero.split("FString AMoonfallHeroPawn::"+method+"()",1)[1].split("\n}",1)[0]
+            self.assertIn("InventoryDisplay::Describe(", display)
         self.assertLess(closing.index("InventorySearchOverlay.Reset()"), closing.index("RemoveViewportWidgetContent"))
         self.assertIn("FInputModeGameOnly()", closing)
         self.assertIn("Text.Left(64).TrimStartAndEnd()", setter)
