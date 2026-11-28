@@ -110,6 +110,9 @@ private:
  TWeakObjectPtr<AActor> PreviousPlayerViewTarget;
  bool bCinematicViewActive = false;
  bool bVoyagerOnDeck = false;
+ // Synchronous overlap and Blueprint callbacks cannot reenter either transaction.
+ bool bBoardingTransaction = false;
+ bool bStoppingVoyage = false;
  FVector OriginalBoardingLocation = FVector::ZeroVector;
  FRotator OriginalBoardingRotation = FRotator::ZeroRotator;
  FTransform OriginalShipTransform = FTransform::Identity;

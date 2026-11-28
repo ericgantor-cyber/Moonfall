@@ -5,7 +5,8 @@
 #include "MoonfallRegionalDiscovery.h"
 namespace MoonfallProfessionLedger {
  constexpr int LegacyCount=31;
- constexpr int Count=34;
+ constexpr int RegionalCount=34;
+ constexpr int Count=39;
  struct FSnapshot {
   MoonfallOceanGathering::FCollection Gathering;
   MoonfallOceanCrafting::FWorkshop Workshop;
@@ -27,9 +28,11 @@ namespace MoonfallProfessionLedger {
    Out[N++]=int(Journal.Accepted); Out[N++]=int(Journal.Completed); Out[N++]=Journal.Credits;
    Out[N++]=int(Sightings.Seen); Out[N++]=int(Wrecks); Out[N++]=int(Caves);
    Out[N++]=int(Regions.Visited); Out[N++]=int(Regions.Caught); Out[N++]=int(Regions.Harvested);
+   Out[N++]=Workshop.CookingCrafts; Out[N++]=Workshop.AlchemyCrafts; Out[N++]=Workshop.SmithingCrafts;
+   Out[N++]=Workshop.Provisions; Out[N++]=int(Workshop.DeliveredContracts);
   }
   bool Decode(const int* In,int Size) {
-   if(!In||(Size!=Count&&Size!=LegacyCount)) return false;
+   if(!In||(Size!=Count&&Size!=RegionalCount&&Size!=LegacyCount)) return false;
    FSnapshot S;
    int N=0;
    for(int& I:S.Gathering.Harvested) I=In[N++];
@@ -42,7 +45,8 @@ namespace MoonfallProfessionLedger {
    S.Gear.Claims=unsigned(In[N++]); S.Gear.LastCode=In[N++]; S.Gear.TonicCharges=In[N++];
    S.Journal.Accepted=unsigned(In[N++]); S.Journal.Completed=unsigned(In[N++]); S.Journal.Credits=In[N++];
    S.Sightings.Seen=unsigned(In[N++]); S.Wrecks=unsigned(In[N++]); S.Caves=unsigned(In[N++]);
-   if(Size==Count) { S.Regions.Visited=unsigned(In[N++]); S.Regions.Caught=unsigned(In[N++]); S.Regions.Harvested=unsigned(In[N++]); }
+   if(Size>=RegionalCount) { S.Regions.Visited=unsigned(In[N++]); S.Regions.Caught=unsigned(In[N++]); S.Regions.Harvested=unsigned(In[N++]); }
+   if(Size==Count) { S.Workshop.CookingCrafts=In[N++]; S.Workshop.AlchemyCrafts=In[N++]; S.Workshop.SmithingCrafts=In[N++]; S.Workshop.Provisions=In[N++]; S.Workshop.DeliveredContracts=unsigned(In[N++]); }
    if(!S.Regions.Valid()) return false;
    for(int I=0;I<4;++I) if(S.Gathering.Harvested[I]<0||S.Gathering.Harvested[I]>MoonfallOceanGathering::MaxMaterialPerType||
     S.Workshop.Spent[I]<0||S.Workshop.Spent[I]>S.Gathering.Harvested[I]) return false;
@@ -54,6 +58,22 @@ namespace MoonfallProfessionLedger {
     const int Code=S.Gear.Codes[I],Slot=MoonfallAquaticRewards::RewardSlot(I);
     if(Code&&(!MoonfallEquipmentLayout::ValidFullItem(Code,Slot)||MoonfallEquipmentLayout::DecodeFullItem(Code).Trait!=3)) return false;
     if(bool(Code)!=bool(S.Gear.Claims&((1u<<I)|(1u<<(I+3))))) return false;
+   }
+   const auto& W=S.Workshop;
+   using namespace MoonfallOceanCrafting;
+   if(W.CookingCrafts<0||W.CookingCrafts>MaxCraftCount||W.AlchemyCrafts<0||W.AlchemyCrafts>MaxCraftCount||
+      W.SmithingCrafts<0||W.SmithingCrafts>MaxCraftCount||W.Provisions<0||W.Provisions>ProvisionCapacity||
+      W.Provisions>W.CookingCrafts||(W.DeliveredContracts&~ContractMask)||
+      (W.DeliveredContracts&~(S.Regions.Visited&S.Regions.Caught&S.Regions.Harvested))) return false;
+   const int Delivered=W.ContractCount();
+   if(W.CookingCrafts+W.AlchemyCrafts+Delivered>W.Spent[0]||
+      W.CookingCrafts+W.AlchemyCrafts+Delivered>W.FishSpent[0]+W.FishSpent[1]+W.FishSpent[2]||
+      W.SmithingCrafts>W.Spent[1]+W.Spent[3]) return false;
+   for(int Mineral=1;Mineral<4;++Mineral) {
+    int Required=0;
+    for(int Province=0;Province<ContractRegionCount;++Province)
+     if(W.HasDelivered(Province)&&ContractMineral(Province)==Mineral) ++Required;
+    if(Required>W.Spent[Mineral]) return false;
    }
    if(S.Gathering.Catches()>MoonfallOceanGathering::MaxSessionCatches||S.Gathering.LegendarySeen>7||
     S.Workshop.Bait<0||S.Workshop.Bait>MoonfallOceanCrafting::BaitCapacity||

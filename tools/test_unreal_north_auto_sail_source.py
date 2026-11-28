@@ -67,6 +67,14 @@ tick = gate_cpp.split("void AMoonfallNorthFerryGate::UpdateAutomaticVoyage(", 1)
 cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1)[1].split(
     "bool AMoonfallNorthFerryGate::BoardFerry(", 1)[0]
 
+# Teleport and base changes may synchronously fire overlap handlers.
+assert "bool bBoardingTransaction = false" in gate_h
+assert "bool bStoppingVoyage = false" in gate_h
+assert "PairedGate->bBoardingTransaction || PairedGate->bStoppingVoyage" in start
+assert start.index("if (bBoardingTransaction || bStoppingVoyage") < start.index("TGuardValue<bool> BoardingGuard") < start.index("Hero->TeleportTo(DeckSpawn")
+assert cleanup.index("if (bStoppingVoyage) return;") < cleanup.index("TGuardValue<bool> StopGuard") < cleanup.index("ClearTimer(AutomaticVoyageTimer)")
+assert "if (bBoardingTransaction || bStoppingVoyage) return;" in tick
+
 # Boarding places the hero *on the real ship deck*, but cannot teleport to
 # the destination before the complete eleven-second crossing.
 land_guard = gate_cpp.split(
@@ -133,7 +141,33 @@ assert "PendingArrivalGate.Get() != PairedGate" in post_start_event
 assert "PairedGate->PairedGate != this" in post_start_event
 assert "StopAutomaticVoyage();" in post_start_event
 assert "UpdateVoyagePresentation(Hero, 0.f)" in post_start_event
+# Both initial synchronous events must reject a disabled route or
+# passenger that is no longer eligible, before reporting boarding success.
+before_initial_progress, after_initial_progress = post_start_event.split(
+    "UpdateVoyagePresentation(Hero, 0.f);", 1
+)
+for event_guard in (before_initial_progress, after_initial_progress):
+    for expected in (
+        "!HasConfiguredPassage()",
+        "PendingTargetShip.Get() != PairedGate->SailingVessel",
+        "!IsValid(Hero)",
+        "!Hero->IsPlayerControlled()",
+        "!FMath::IsFinite(Hero->Health)",
+        "Hero->Health <= 0.f",
+        "Hero->GetWorld() != GetWorld()",
+        "!IsVoyagerAboard(Hero, SailingVessel)",
+        "Hero->bSpellBookOpen",
+        "Hero->bTalentWebOpen",
+        "Hero->bQuestLogOpen",
+        "StopAutomaticVoyage();",
+    ):
+        assert expected in event_guard, f"Missing boarding event guard: {expected}"
 assert "return bAutoVoyageInProgress && PendingVoyager.Get() == Hero" in post_start_event
+# Cancellation must clear the timer and restore the ship, rather than merely
+# returning failure while a stale active voyage remains.
+assert before_initial_progress.index("return false;") < before_initial_progress.index("!IsValid(PendingShip.Get())")
+assert before_initial_progress.index("!IsValid(PendingShip.Get())") < before_initial_progress.index("StopAutomaticVoyage();")
+assert "!PendingVoyager.IsValid() || !IsValid(PendingShip.Get())" in after_initial_progress
 assert "MoonfallNorth::MayBoard" in start
 assert "bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)" in start
 assert "PC->IsLocalController()" in start
@@ -143,10 +177,29 @@ assert "Hero->bReduceMotion ? 0.f : 0.35f" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
 assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
 post_tick_event = tick.split("UpdateVoyagePresentation(Hero, ElapsedSeconds);", 1)[1]
-assert "!bAutoVoyageInProgress || !IsValid(Hero)" in post_tick_event
+assert "!bAutoVoyageInProgress ||" in post_tick_event
+assert "!IsValid(Hero) || !PendingVoyager.IsValid()" in post_tick_event
 assert "PendingVoyager.Get() != Hero" in post_tick_event
 assert "PendingShip.Get() != Ship" in post_tick_event
+assert post_tick_event.index("return;") < post_tick_event.index("PendingShip.Get() != Ship") < post_tick_event.index("StopAutomaticVoyage();")
 assert "PairedGate != Arrival" in post_tick_event
+# A progress Blueprint can disable or destroy a harbor or invalidate the
+# passenger on the final update. Require the same live guards before arrival.
+post_callback_guard = post_tick_event.split("MoonfallNorth::AutoSailShouldArrive", 1)[0]
+for expected in (
+    "!HasConfiguredPassage()",
+    "!IsValid(Arrival)",
+    "!IsValid(Ship)",
+    "!Hero->IsPlayerControlled()",
+    "!FMath::IsFinite(Hero->Health)",
+    "Hero->Health <= 0.f",
+    "Hero->GetWorld() != GetWorld()",
+    "!IsVoyagerAboard(Hero, Ship)",
+):
+    assert expected in post_callback_guard, f"Missing post-callback guard: {expected}"
+assert post_callback_guard.index("!IsValid(Arrival)") < post_callback_guard.index(
+    "Arrival->PairedGate"
+)
 assert "StopAutomaticVoyage();" in post_tick_event
 assert post_tick_event.index("StopAutomaticVoyage();") < post_tick_event.index(
     "MoonfallNorth::AutoSailShouldArrive"

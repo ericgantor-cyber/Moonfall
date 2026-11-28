@@ -99,7 +99,25 @@ public:
  int32 GetOceanMaterialStock(int32 Id) const { return Workshop.RemainingMaterial(Id,Gathering); }
  int32 GetOceanFishCount(int32 Id) const { return Workshop.RemainingSpecies(Id,Gathering); }
  int32 GetOceanGatheringRank() const { return MoonfallOceanGathering::GatheringRank(Gathering.Materials()); }
- bool CraftOceanRecipe(int32 Recipe) { const bool OK=Workshop.Craft(Recipe,Gathering,GrottoGear); bProfessionDirty|=OK; return OK; }
+ int32 GetProfessionRank(int32 Id) const {
+  if(Id==0) return MoonfallFishing::Rank(Gathering.Catches());
+  const int32 Actions=Id==1?Gathering.Material(0):Id==2?Gathering.Material(1)+Gathering.Material(2)+Gathering.Material(3):
+   Id==3?Workshop.CookingCrafts:Id==4?Workshop.AlchemyCrafts:Id==5?Workshop.SmithingCrafts:0;
+  return MoonfallOceanGathering::GatheringRank(Actions);
+ }
+ int32 GetProvisions() const { return Workshop.Provisions; }
+ int32 GetRegionalContractCount() const { return Workshop.ContractCount(); }
+ int32 NextRegionalContract() const {
+  for(int32 I=0;I<MoonfallNorth::ZoneCount;++I)
+   if(Regions.Complete(I)&&Workshop.CanDeliver(I,Gathering,GrottoGear)) return I;
+  return -1;
+ }
+ bool DeliverRegionalContract(int32 Id) {
+  const bool OK=HasAuthority()&&Regions.Complete(Id)&&Workshop.Deliver(Id,Gathering,GrottoGear);
+  bProfessionDirty|=OK; return OK;
+ }
+ bool ConsumeProvision() { const bool OK=HasAuthority()&&Workshop.ConsumeProvision(); bProfessionDirty|=OK; return OK; }
+ bool CraftOceanRecipe(int32 Recipe) { const bool OK=HasAuthority()&&Workshop.Craft(Recipe,Gathering,GrottoGear); bProfessionDirty|=OK; return OK; }
  bool CanCraftOceanRecipe(int32 Recipe) const { return Workshop.CanCraft(Recipe,Gathering,GrottoGear); }
  bool HasOceanCraftMaterial(int32 Id) const { return Workshop.HasMaterial(Id,Gathering); }
  int32 GetAvailableOceanMaterials() const { return Workshop.AvailableMaterials(Gathering); }
