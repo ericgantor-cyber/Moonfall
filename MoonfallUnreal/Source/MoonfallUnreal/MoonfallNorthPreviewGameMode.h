@@ -27,7 +27,7 @@ public:
  bool IsProfessionSaveEnabled() const { return bProfessionSaveEnabled; }
  bool HasGrottoClaim(int32 Id) const { return Id>=0&&Id<6&&(GrottoGear.Claims&(1u<<Id)); }
  // Rewards and claims are session-only and survive hero respawn.
- bool ClaimGrotto(int32 Index) { const bool OK=GrottoGear.Claim(Index,FMath::RandRange(0,99)); bProfessionDirty|=OK; return OK; }
+ bool ClaimGrotto(int32) { return false; }
  int32 GetGrottoClaimCount() const { return GrottoGear.Count(); }
  int32 GetGrottoSetPieces() const { return GrottoGear.Pieces(); }
  int32 GetGrottoGearRarity(int32 Piece) const { return GrottoGear.Rarity(Piece); }
@@ -63,7 +63,7 @@ public:
  bool DiscoverAquaticCreature(int32 Id) { const bool OK=Sightings.Discover(Id); bProfessionDirty|=OK; return OK; }
  int32 GetAquaticSightingCount() const { return Sightings.Count(); }
  bool HasAquaticSighting(int32 Id) const { return Sightings.Has(Id); }
- bool CollectOceanResource(int32 Id) { const bool OK=HasAuthority() && GetWorld() && Gathering.Collect(Id,GetOceanActivity(),GetWorld()->GetTimeSeconds()); if(OK&&Id>=MoonfallOceanGathering::BaseNodeCount) Regions.Gather((Id-MoonfallOceanGathering::BaseNodeCount)/4); bProfessionDirty|=OK; return OK; }
+ bool CollectOceanResource(int32) { return false; }
  float GetOceanResourceCooldown(int32 Id) const {
   return GetWorld()?float(Gathering.RemainingCooldown(Id,GetWorld()->GetTimeSeconds())):0.f;
  }
