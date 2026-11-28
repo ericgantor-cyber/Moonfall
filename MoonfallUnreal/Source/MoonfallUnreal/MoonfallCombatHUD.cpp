@@ -761,7 +761,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const FString Quote=Hero->GetMerchantTradeQuoteText();
     Names[0]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Previous stock item"):TEXT("Previous bag item");
     Names[1]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Next stock item"):TEXT("Next bag item");
-    Names[2]=FString::Printf(TEXT("%s | %s"),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
+    Names[2]=FString::Printf(TEXT("%s%s | %s"),Hero->IsMerchantConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
     Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
     Names[4]=TEXT("Back");
    }
@@ -930,8 +930,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
-   else if(Hero->bResidentMerchantMenu&&Hero->MerchantTradeMode==1) {
-    DrawText(Hero->GetMerchantStandingText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,0.72f);
+   else if(Hero->bResidentMerchantMenu) {
+    DrawText(Hero->GetMerchantTradeStatusText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
    }
    else if (bQuestRewardVisible) {
     FString RewardLabel=FString::Printf(TEXT("%d salvage | +%d XP"),ContractCost,QuestReward.RewardXP);
