@@ -44,6 +44,7 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
@@ -1314,12 +1315,26 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
  auto* Viewport=GetWorld()->GetGameViewport();
  if(!IsValid(PC)||!IsValid(Viewport))return;
  ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
- TSharedPtr<SEditableTextBox> Editor;
  const TWeakObjectPtr<AMoonfallHeroPawn> WeakThis(this);
+ const TSharedRef<SEditableTextBox> Editor=SNew(SEditableTextBox)
+  .Text(FText::FromString(InventorySearchText))
+  .HintText(FText::FromString(TEXT("e.g. rare ring T5")))
+  .SelectAllTextWhenFocused(true)
+  .OnTextCommitted_Lambda([WeakThis](const FText& Text,ETextCommit::Type Commit){
+   if(auto* Hero=WeakThis.Get()){
+    if(!Hero->InventorySearchOverlay.IsValid())return;
+    // Moving focus to a button must not close the dialog before its click.
+    if(Commit==ETextCommit::OnEnter){
+     Hero->SetInventorySearchText(Text.ToString());
+     Hero->CloseInventorySearch();
+    }else if(Commit==ETextCommit::OnCleared)Hero->CloseInventorySearch();
+   }
+  });
+ const TWeakPtr<SEditableTextBox> WeakEditor(Editor);
  InventorySearchOverlay=SNew(SOverlay)
   +SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
   [
-   SNew(SBox).WidthOverride(280.f)
+   SNew(SBox).WidthOverride(288.f)
    [
     SNew(SBorder).Padding(FMargin(12.f))
     [
@@ -1327,21 +1342,46 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
      +SVerticalBox::Slot().AutoHeight().Padding(0.f,0.f,0.f,8.f)
      [SNew(STextBlock).Text(FText::FromString(TEXT("Search equipment")))]
      +SVerticalBox::Slot().AutoHeight()
+     [Editor]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,12.f,0.f,0.f)
      [
-      SAssignNew(Editor,SEditableTextBox)
-      .Text(FText::FromString(InventorySearchText))
-      .HintText(FText::FromString(TEXT("e.g. rare ring T5")))
-      .SelectAllTextWhenFocused(true)
-      .OnTextCommitted_Lambda([WeakThis](const FText& Text,ETextCommit::Type Commit){
-       if(auto* Hero=WeakThis.Get()){
-        if(!Hero->InventorySearchOverlay.IsValid())return;
-        if(Commit==ETextCommit::OnEnter)Hero->SetInventorySearchText(Text.ToString());
-        Hero->CloseInventorySearch();
-       }
-      })
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f,0.f,4.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Apply")))
+       .OnClicked_Lambda([WeakThis,WeakEditor](){
+        if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+         if(const auto Box=WeakEditor.Pin())Hero->SetInventorySearchText(Box->GetText().ToString());
+         Hero->CloseInventorySearch();
+        }
+        return FReply::Handled();
+       })
+      ]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Clear")))
+       .OnClicked_Lambda([WeakThis](){
+        if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+         Hero->SetInventorySearchText(FString());
+         Hero->CloseInventorySearch();
+        }
+        return FReply::Handled();
+       })
+      ]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(4.f,0.f,0.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Cancel")))
+       .OnClicked_Lambda([WeakThis](){
+        if(auto* Hero=WeakThis.Get())Hero->CloseInventorySearch();
+        return FReply::Handled();
+       })
+      ]
      ]
      +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
-     [SNew(STextBlock).Text(FText::FromString(TEXT("Enter: apply | Esc: cancel | empty: clear")))]
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Enter: apply | Tab: move focus")))]
     ]
    ]
   ];
@@ -1380,7 +1420,17 @@ bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
  const TCHAR* Slot=MoonfallEquipmentLayout::IsRingSlot(Item.Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Item.Slot];
  const FString Label=FString::Printf(TEXT("%s %s %s T%d tier %d"),Slot,Rarities[Item.Rarity],Traits[Item.Trait],Item.Tier,Item.Tier);
  TArray<FString> Terms;InventorySearchText.ParseIntoArrayWS(Terms);
- for(const FString& Term:Terms)if(!Label.Contains(Term,ESearchCase::IgnoreCase))return false;
+ for(const FString& Term:Terms){
+  bool bRarityTerm=false;
+  for(const TCHAR* Rarity:Rarities)if(Term.Equals(Rarity,ESearchCase::IgnoreCase)){bRarityTerm=true;break;}
+  if(bRarityTerm){if(!Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase))return false;continue;}
+  const FString TierToken=Term.Mid(1);
+  if(Term.StartsWith(TEXT("T"),ESearchCase::IgnoreCase)&&!TierToken.IsEmpty()&&TierToken.Len()<=2&&TierToken.IsNumeric()){
+   if(!Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier),ESearchCase::IgnoreCase))return false;
+   continue;
+  }
+  if(!Label.Contains(Term,ESearchCase::IgnoreCase))return false;
+ }
  return true;
 }
 bool AMoonfallHeroPawn::IsInventorySelectionVisible() const {
