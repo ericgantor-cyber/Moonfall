@@ -14,7 +14,8 @@ class MOONFALLUNREAL_API AMoonfallGrottoTreasure : public AActor
     GENERATED_BODY()
 public:
     AMoonfallGrottoTreasure();
-    UPROPERTY(EditInstanceOnly, Category="Moonfall|Water", meta=(ClampMin="0", ClampMax="5"))
+    UPROPERTY(EditInstanceOnly, Category="Moonfall|Water", meta=(ClampMin="0", ClampMax="14"))
+    // IDs 0-5 are legacy loan gear; 6-14 are regional tonic caches.
     int32 GrottoIndex = 0;
     // -1 is an ordinary grotto chest; 0-47 are gathering nodes (12 base and 36 regional).
     UPROPERTY(EditInstanceOnly, Category="Moonfall|Water", meta=(ClampMin="-1", ClampMax="47"))
