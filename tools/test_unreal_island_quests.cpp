@@ -5,6 +5,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoney.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalAtlas.h"
@@ -205,6 +206,93 @@ int main() {
     assert(!Supplies.Collect(0,0,179.99));
     assert(Supplies.Collect(0,1,180));
     assert(Workshop.AvailableMaterials(Supplies)==1);
+    MoonfallMoney::FWallet Coins;
+    assert(Coins.Credit(12345)&&Coins.Gold()==1&&Coins.Silver()==23&&Coins.LooseCopper()==45);
+    assert(!Coins.Debit(12346)&&!Coins.Credit(-1)&&Coins.Copper==12345);
+    assert(Coins.Debit(345)&&Coins.Copper==12000);
+    MoonfallMoney::FWallet Full{MoonfallMoney::MaxCoins};
+    assert(!Full.Credit(1)&&!Full.Debit(0));
+    assert(MoonfallMoney::EnemyReward(1,false,false)==100);
+    assert(MoonfallMoney::EnemyReward(1,true,false)>100&&MoonfallMoney::EnemyReward(1,true,true)>350);
+    assert(MoonfallMoney::EnemyReward(101,false,false)==0);
+    assert(MoonfallMoney::GearSalePrice(1,0,0)==40);
+    assert(MoonfallMoney::GearSalePrice(25,5,3)==2430);
+    assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
+    assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
+    assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(100,0)==100);
+    assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins-1)==1);
+    assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(-1,0)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(100,-1)==0);
+    assert(MoonfallMoney::ContractReward(1,1)==100);
+    assert(MoonfallMoney::ContractReward(30,100)==1175);
+    assert(MoonfallMoney::ContractReward(0,1)==0&&MoonfallMoney::ContractReward(31,1)==0);
+    assert(MoonfallMoney::ContractReward(1,0)==0&&MoonfallMoney::ContractReward(1,101)==0);
+    for(int Cost=1;Cost<=30;++Cost)for(int L=1;L<=100;++L){
+      const auto Reward=MoonfallMoney::ContractReward(Cost,L);
+      assert(Reward>=100&&Reward<=1175);
+      assert(MoonfallMoney::ContractCredit(Cost,L,0)==Reward);
+      assert(MoonfallMoney::ContractCredit(Cost,L,MoonfallMoney::MaxCoins-1)==1);
+      assert(MoonfallMoney::ContractCredit(Cost,L,MoonfallMoney::MaxCoins)==0);
+      assert(MoonfallMoney::ContractCredit(Cost,L,-1)==0);
+    }
+    assert(MoonfallMoney::HistoricalSalePrice(1,1,0,0)==40);
+    assert(MoonfallMoney::ValidHistoricalSale(1,25,5,3,2430));
+    assert(!MoonfallMoney::ValidHistoricalSale(1,25,5,3,2431));
+    assert(!MoonfallMoney::ValidHistoricalSale(2,1,0,0,40));
+    assert(!MoonfallMoney::ValidHistoricalSale(1,0,0,0,0));
+    MoonfallMoney::FBuybackHistory History;
+    assert(!History.Push(0,50)&&!History.Push(1,-1)&&!History.Push(1,40,2));
+    for(int I=1;I<=15;++I)assert(History.Push(I,I*10));
+    assert(History.Count==12&&History.Get(0).Code==15&&History.Get(11).Code==4);
+    assert(History.Browse(0,-1)==11&&History.Browse(11,1)==0);
+    assert(!History.Remove(12)&&History.Remove(4)&&History.Get(4).Code==10);
+    assert(History.Push(15,150)&&History.Get(0).Code==History.Get(1).Code);
+    assert(History.Remove(0)&&History.Get(0).Code==15);
+    while(History.Count)assert(History.Remove(0));
+    assert(History.Get(0).Code==0&&History.Browse(0,1)==0);
+    const MoonfallMoney::FTradeIntent Confirmed{0,1001,0,40,1};
+    assert(Confirmed.Matches(Confirmed));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{1,1001,0,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1002,0,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,1,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,0,41,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,0,40,2}));
+    assert(!MoonfallMoney::FTradeIntent{}.Matches(MoonfallMoney::FTradeIntent{}));
+    assert(MoonfallMoney::StockGroups==4);
+    assert(MoonfallMoney::NextRestock(10000,0)==11800);
+    assert(!MoonfallMoney::SpecialtyAvailable(11799,11800));
+    assert(MoonfallMoney::SpecialtyAvailable(11800,11800));
+    assert(!MoonfallMoney::SpecialtyAvailable(9999,11800));
+    assert(!MoonfallMoney::SpecialtyAvailable(0,0));
+    assert(!MoonfallMoney::SpecialtyAvailable(10000,-1));
+    assert(MoonfallMoney::NextRestock(MoonfallMoney::MaxUtc,0)==0);
+    for(int Step=0;Step<1800;++Step)assert(!MoonfallMoney::SpecialtyAvailable(10000+Step,11800));
+    assert(MoonfallMoney::SpecialtySlot(1)==0&&MoonfallMoney::SpecialtySlot(2)==1&&MoonfallMoney::SpecialtySlot(3)==8);
+    assert(MoonfallMoney::SpecialtyRarity(25,40)==2&&MoonfallMoney::SpecialtyRarity(24,40)==1);
+    assert(MoonfallMoney::SpecialtyRarity(25,39)==1&&MoonfallMoney::SpecialtyRarity(1,100)==0);
+    assert(MoonfallMoney::ReputationPricePercent(80)==80&&MoonfallMoney::ReputationPricePercent(-40)==120);
+    for(int Standing=-100;Standing<=100;++Standing){
+      for(int Tier=1;Tier<=25;++Tier){
+        const auto Sale=MoonfallMoney::GearSalePrice(Tier,2,1);
+        const auto Buy=MoonfallMoney::FactionPurchasePrice(Tier,2,1,Standing);
+        assert(Buy>Sale&&Buy<=Sale*4);
+      }
+    }
+    assert(MoonfallMoney::VendorTier(1)==1&&MoonfallMoney::VendorTier(100)==20);
+    assert(MoonfallMoney::VendorTier(0)==0&&MoonfallMoney::VendorTier(101)==0);
+    assert(MoonfallMoney::TradeMode(0)==1&&MoonfallMoney::TradeMode(1)==2&&MoonfallMoney::TradeMode(2)==0);
+    for(int Tier=1;Tier<=25;++Tier)for(int Rarity=0;Rarity<=5;++Rarity)for(int Trait=0;Trait<=3;++Trait){
+      const auto Sell=MoonfallMoney::GearSalePrice(Tier,Rarity,Trait);
+      const auto Buy=MoonfallMoney::GearPurchasePrice(Tier,Rarity,Trait);
+      assert(Sell==0?Buy==0:Buy>Sell);
+      if(Sell>0){
+        MoonfallMoney::FWallet Trade{Buy};
+        assert(Trade.Debit(Buy)&&Trade.Credit(Sell)&&Trade.Copper<Buy);
+        assert(Trade.Debit(Sell)&&Trade.Copper==0);
+      }
+    }
     using namespace MoonfallFishing;
     assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
     assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));
@@ -417,6 +505,22 @@ int main() {
     assert(MoonfallRegionalAtlas::Step(2,1,5)==-1);
     assert(MoonfallRegionalAtlas::Step(-1,-1,5)==2);
     assert(MoonfallRegionalAtlas::Step(-1,1,0)==-1);
+    // Every discovery mask must traverse exactly its available provinces,
+    // in both directions, before returning to the clear-waypoint slot.
+    for(unsigned Mask=0;Mask<(1u<<MoonfallNorth::ZoneCount);++Mask) {
+      for(int Direction : {-1,1}) {
+        int Current=-1;
+        for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+          const int Expected=Direction==1?I:MoonfallNorth::ZoneCount-1-I;
+          if(!(Mask&(1u<<Expected))) continue;
+          Current=MoonfallRegionalAtlas::Step(Current,Direction,Mask);
+          assert(Current==Expected);
+        }
+        assert(MoonfallRegionalAtlas::Step(Current,Direction,Mask)==-1);
+      }
+    }
+    assert(MoonfallRegionalAtlas::Step(-1,0,~0u)==-1);
+    assert(MoonfallRegionalAtlas::Step(999,1,1u)==0);
     assert(MoonfallProfessionUI::Rows(280)==3);
     assert(MoonfallProfessionUI::Rows(860)==25);
     assert(MoonfallProfessionUI::Start(99,3)==22);

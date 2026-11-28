@@ -236,6 +236,13 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
    UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!TestNotNull(TEXT("Create equipment save"), Original)) return false;
  TestEqual(TEXT("Fresh equipment save has nine slots"), Original->EquippedSlotCodes.Num(), 9);
+ TestEqual(TEXT("Fresh merchant stock has four faction groups"),Original->MerchantRestockUtc.Num(),4);
+ for(const int64 Deadline:Original->MerchantRestockUtc)TestEqual(TEXT("Fresh specialty is ready"),Deadline,int64(0));
+ Original->WalletCopper=123456;
+ Original->MerchantRestockUtc={0,1800000000LL,1800001800LL,0};
+ TestEqual(TEXT("Fresh buyback history is empty"),Original->MerchantBuybackRecords.Num(),0);
+ FMoonfallBuybackEntry Sold;Sold.Code=1;Sold.Price=40;
+ Original->MerchantBuybackRecords.FindOrAdd(FName(TEXT("Anvilkeeper"))).Entries.Add(Sold);
  for (const int32 Code : Original->EquippedSlotCodes)
   TestEqual(TEXT("Fresh equipment slot is empty"), Code, 0);
  const TArray<int32> AllCodes = {101005,111006,121007,131008,141009,151010,161011,171012,181013};
@@ -249,6 +256,13 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
     UGameplayStatics::LoadGameFromMemory(Bytes));
   if (!TestNotNull(TEXT("Deserialize equipment record from memory"), Restored)) return false;
   TestEqual(TEXT("Schema version preserved"), Restored->Version, Version);
+  TestEqual(TEXT("Wallet copper round trips"),Restored->WalletCopper,Original->WalletCopper);
+  TestTrue(TEXT("Faction restock timestamps round trip"),Restored->MerchantRestockUtc==Original->MerchantRestockUtc);
+  const auto* Buyback=Restored->MerchantBuybackRecords.Find(FName(TEXT("Anvilkeeper")));
+  if(!TestTrue(TEXT("Named merchant history round trips"),Buyback&&Buyback->Entries.Num()==1))return false;
+  TestEqual(TEXT("Sold code preserved"),Buyback->Entries[0].Code,1);
+  TestEqual(TEXT("Sale quote preserved"),Buyback->Entries[0].Price,int64(40));
+  TestEqual(TEXT("Historical sale formula preserved"),Buyback->Entries[0].PriceVersion,1);
   TestTrue(TEXT("Exact slot record preserved without normalization"),
     Restored->EquippedSlotCodes == Codes);
   TestTrue(TEXT("Inventory ownership record preserved"),

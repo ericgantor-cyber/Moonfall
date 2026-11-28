@@ -563,6 +563,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
      Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
      if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()
          || !IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
+     Hero->AwardEnemyCoins(SpawnBalanceLevel,bElite,bBoss);
      Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
     }
    }

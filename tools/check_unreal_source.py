@@ -14,6 +14,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_merchant_transactions_require_live_confirm_and_atomic_save(self):
+        sell = self.hero_cpp.split("bool AMoonfallHeroPawn::SellMerchantItem()",1)[1].split("\n}",1)[0]
+        buy = self.hero_cpp.split("bool AMoonfallHeroPawn::BuyMerchantItem()",1)[1].split("\n}",1)[0]
+        for body, mutation in ((sell,"InventoryItemCodes.RemoveAt(Index)"),(buy,"InventoryItemCodes.Add(Code)")):
+            self.assertLess(body.index("IsMerchantConfirmationCurrent()"),body.index(mutation))
+            self.assertLess(body.index("MerchantConfirmAfter"),body.index(mutation))
+            self.assertLess(body.index("MerchantBuybackRecords."),body.index("SaveWorldProgress()"))
+            self.assertIn("WalletCopper=PreviousWallet;",body)
+            self.assertIn("PreviousHistory",body.split("if(!SaveWorldProgress())",1)[1])
+        confirm=self.hero_cpp.split("bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent()",1)[1].split("\n}",1)[0]
+        self.assertIn("IsRecentlyInCombatForAmbientAI()",confirm)
+        self.assertIn("MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint()",confirm)
+        self.assertIn("Pending.Matches(Current)",confirm)
+        self.assertIn("MerchantConfirmLoadout=GetEquipmentLoadoutFingerprint();",self.hero_cpp)
+        self.assertIn("MerchantConfirmAfter=FPlatformTime::Seconds()+0.35;",self.hero_cpp)
+
     def test_quest_log_mouse_auto_tracking_reset_matches_button(self):
         log=self.hud.split("if(Hero->bQuestLogOpen) {",1)[1].split("// Wide illustrated Atlas",1)[0]
         self.assertIn("MoonfallQuestXP::Preview(Cost,Hero->Level,Hero->Experience,Hero->ExperienceToNextLevel)",log)

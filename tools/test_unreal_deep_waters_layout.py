@@ -50,28 +50,56 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot)', source)
         self.assertNotIn("ManualLootOrFish", source)
         cast = source.split("bool AMoonfallHeroPawn::TryFishingAction(", 1)[1].split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[0]
-        self.assertIn("RequestedWater->Z-(Bounds.Max.Z+2.f)", cast)
-        self.assertIn("RequestedWater->X<Bounds.Min.X+30.f", cast)
-        self.assertIn("RequestedWater->Y<Bounds.Min.Y+30.f", cast)
+        self.assertIn('ActionName="Fishing",Key=N', inputs)
+        self.assertNotIn("RequestedWater", cast)
+        self.assertIn("FishingWaterVolume=Volume;", cast)
+        self.assertIn("FishingWaterVolume=BestVolume;", cast)
+        self.assertIn("Target.X<Bounds.Min.X+30.f", cast)
+        self.assertIn("Target.Y<Bounds.Min.Y+30.f", cast)
         self.assertIn("!MoonfallFishing::InCastRange(Distance,MaxReach)", cast)
         rules = (module / "MoonfallFishing.h").read_text(encoding="utf-8")
         self.assertIn("DistanceSquared>=100.0*100.0", rules)
         self.assertIn("DistanceSquared<=double(Reach)*Reach", rules)
-        self.assertIn("ClickDistance>BestClickDistance", cast)
-        self.assertIn("BestClickDistance=ClickDistance", cast)
-        self.assertLess(cast.index("RequestedWater->Z-(Bounds.Max.Z+2.f)"), cast.index("Preview->IsFishingSchoolAvailable"))
+        self.assertIn("FVector::DotProduct(Forward", cast)
+        self.assertIn("IsFishingWaterValid(true)", cast)
         mouse = source.split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         for token in ("CanContinueFishing()", "DeprojectMousePositionToWorld", "FishingBobber",
-                      "FMath::Square(85.f)", "LineTraceSingleByChannel", "bWaterVolume",
-                      "MoonfallFishing::InCastRange(FVector::DistSquared2D(HeroEye,Point),Reach)", "TryFishingAction(&Target)"):
+                      "FMath::Square(85.f)", "LineTraceSingleByChannel", "TryFishingAction()"):
             self.assertIn(token, mouse)
+        self.assertIn("Fishing.Stage==MoonfallFishing::EStage::Idle", mouse)
+        self.assertLess(mouse.index("Fishing.Stage==MoonfallFishing::EStage::Idle"), mouse.index("TryFishingAction()"))
+        self.assertLess(mouse.index("LineTraceSingleByChannel"), mouse.index("!CanContinueFishing()"))
+        self.assertIn("CancelFishingWithFeedback();return true;", mouse)
+        self.assertNotIn("TActorIterator", mouse)
+        self.assertNotIn("TryFishingAction(&", mouse)
+        pointer = source.split("void AMoonfallHeroPawn::FishingAction()", 1)[1].split("void AMoonfallHeroPawn::SyncFishingPresentation", 1)[0]
+        self.assertIn("FInputModeGameAndUI", pointer)
+        self.assertIn("SetHideCursorDuringCapture(false)", pointer)
+        self.assertIn("PC->bShowMouseCursor=true", pointer)
+        self.assertIn("FishingPointerOwner.Reset()", pointer)
+        self.assertIn("FInputModeGameOnly()", pointer)
+        self.assertIn("bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen", pointer)
+        self.assertIn("EStage::Reeling) ReleaseFishingPointer()", source)
+        self.assertIn("EndPlayReason) {\n ReleaseFishingPointer();", source)
+        # Modal entry must release fishing input before the menu owns the cursor.
+        for method, marker in (
+            ("ToggleAtlas", "bAtlasOpen = !bAtlasOpen"),
+            ("ToggleInventory", "bInventoryOpen = !bInventoryOpen"),
+            ("OpenOptions", "bOptionsOpen = !bOptionsOpen"),
+            ("ToggleTalentWeb", "bTalentWebOpen=true"),
+            ("OpenFocusedResidentContext", "bResidentContextOpen = true"),
+            ("CastRightMouse", "bResidentContextOpen = true"),
+        ):
+            body = source.split("void AMoonfallHeroPawn::"+method+"()",1)[1].split("\n}",1)[0]
+            self.assertLess(body.index("CancelFishingWithFeedback();"),body.index(marker))
         right = source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("int32 AMoonfallHeroPawn::GetRingPointerDragCode()", 1)[0]
         self.assertLess(right.index("Cast<AMoonfallWorldNPC>"), right.index("TryMouseFishingAction()"))
         self.assertLess(right.index("TryMouseFishingAction()"), right.index("CastRight();"))
         pickup = source.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split("void AMoonfallHeroPawn::SetAutoLootEnabled", 1)[0]
         self.assertNotIn("TryFishingAction", pickup)
-        self.assertIn("RMB / X: Cast", hud)
-        self.assertIn("RMB / X: Hook", hud)
+        self.assertIn("N / X: Cast", hud)
+        self.assertIn("RMB / N / X: Reel", hud)
+        self.assertNotIn("RMB / X: Cast", hud)
         self.assertNotIn("F / X: Cast", hud)
         self.assertIn("auto-loot", hud)
         self.assertIn("Preview->CatchOceanFish(FishingSchoolId,FishingProvince)", source)

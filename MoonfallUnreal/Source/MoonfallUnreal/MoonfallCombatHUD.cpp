@@ -741,7 +741,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 ContractCost=bNoContract?0:Resident->GetContractSalvageCost();
    const auto QuestReward=MoonfallQuestXP::Preview(ContractCost,Hero->Level,
        Hero->Experience,Hero->ExperienceToNextLevel);
-   const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu;
+   const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu;
    const auto* IslandPreview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
    const bool bIslandTrader=IsValid(IslandPreview) && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
        && Resident->ResidentId==FName(TEXT("MoonwatchTrader"));
@@ -755,6 +755,16 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
+   if(Hero->CanOpenCoinMerchant())Names[3]=TEXT("Trade equipment");
+   if(Hero->bResidentMerchantMenu){
+    const int32 Mode=Hero->MerchantTradeMode;
+    const FString Quote=Hero->GetMerchantTradeQuoteText();
+    Names[0]=Mode==2?TEXT("Previous sold item"):Mode==1?TEXT("Previous stock item"):TEXT("Previous bag item");
+    Names[1]=Mode==2?TEXT("Next sold item"):Mode==1?TEXT("Next stock item"):TEXT("Next bag item");
+    Names[2]=FString::Printf(TEXT("%s%s | %s"),Hero->IsMerchantConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
+    Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
+    Names[4]=TEXT("Back");
+   }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
    const bool bRecipeReady=bRecipeDetail && IslandPreview->CanCraftOceanRecipe(RecipePage);
@@ -852,7 +862,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (Row == Hero->ResidentContextSelection)
      DrawSelectionRail(L+14.f,Y,Pitch-10.f);
     DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
-    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
+    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
@@ -866,6 +876,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantTradeItemText();
    if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
    if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
@@ -894,7 +905,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -919,11 +930,15 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
+   else if(Hero->bResidentMerchantMenu) {
+    DrawText(Hero->GetMerchantTradeStatusText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
+   }
    else if (bQuestRewardVisible) {
     FString RewardLabel=FString::Printf(TEXT("%d salvage | +%d XP"),ContractCost,QuestReward.RewardXP);
     if (Hero->Level==100) RewardLabel=FString::Printf(TEXT("%d salvage | MAX LEVEL"),ContractCost);
     else if (QuestReward.LevelsGained>0) RewardLabel+=FString::Printf(TEXT(" | Lv %d"),QuestReward.FinalLevel);
-    if (W>=390.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
+    RewardLabel+=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(ContractCost,Hero->Level,Hero->WalletCopper)));
+    if (W>=480.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
     DrawText(RewardLabel, FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.65f:0.76f);
    }
    if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
@@ -1040,6 +1055,7 @@ void AMoonfallCombatHUD::DrawHUD()
            Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
      Detail=FString::Printf(TEXT("%s | Salvage %d/%d | %s"),UTF8_TO_TCHAR(Entry.Name),
        FMath::Clamp(Hero->Salvage,0,Cost),Cost,*RewardLabel);
+     Detail+=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(Cost,Hero->Level,Hero->WalletCopper)));
     } else {
      const int Goal=Id-J::ResidentCount,Zone=Goal/2;
      int Progress=0;
@@ -2429,7 +2445,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
     Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
     PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 49.f, nullptr, 0.9f);
+    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
+  DrawText(FString::Printf(TEXT("Wallet: %s"), *Hero->GetWalletText()),
+    FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
+    nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
@@ -2915,15 +2934,15 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolId>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
-      bBite?TEXT("BITE! RMB / X: Hook"):
+      bBite?TEXT("BITE! RMB / N / X: Reel"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling | auto-loot..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
       (Hero->bFishingCaught?TEXT("Fish auto-looted!"):
        Hero->FishingEndNotice==MoonfallFishing::EEndNotice::Escaped?TEXT("Fish escaped | cast again"):
        Hero->FishingEndNotice==MoonfallFishing::EEndNotice::Interrupted?TEXT("Fishing interrupted"):
        TEXT("Catch unavailable")):
-      TEXT("RMB / X: Cast | auto-loot");
-   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! RMB / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
+      TEXT("N / X: Cast | auto-loot");
+   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! RMB / N / X: Reel %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
    if(bCatchNotice) {
     const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
@@ -3452,7 +3471,8 @@ void AMoonfallCombatHUD::DrawHUD()
       const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
         : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
             Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
-      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel),
+      const FString CoinLabel=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(Cost,Hero->Level,Hero->WalletCopper)));
+      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel)+CoinLabel,
          FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+12.f,nullptr,0.64f);
       continue;
      }

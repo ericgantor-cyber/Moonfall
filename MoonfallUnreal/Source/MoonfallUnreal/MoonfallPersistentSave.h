@@ -30,6 +30,19 @@ struct FMoonfallCompanionPartyRecord {
  // Global cooldown remains even when the follower is dismissed.
  UPROPERTY() int64 AbilityReadyUtc=0;
 };
+USTRUCT()
+struct FMoonfallBuybackEntry {
+ GENERATED_BODY()
+ UPROPERTY() int32 Code=0;
+ UPROPERTY() int64 Price=0;
+ // Missing in early tagged records defaults to the original sale formula.
+ UPROPERTY() int32 PriceVersion=1;
+};
+USTRUCT()
+struct FMoonfallBuybackRecord {
+ GENERATED_BODY()
+ UPROPERTY() TArray<FMoonfallBuybackEntry> Entries;
+};
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
@@ -69,6 +82,11 @@ public:
  UPROPERTY() int32 Level = 1;
  UPROPERTY() int32 Experience = 0;
  UPROPERTY() int32 Salvage = 0;
+ // Additive, tagged economy field; missing in older saves defaults to zero.
+ UPROPERTY() int64 WalletCopper = 0;
+ // Shared faction specialty cooldowns; old tagged saves default to ready.
+ UPROPERTY() TArray<int64> MerchantRestockUtc={0,0,0,0};
+ UPROPERTY() TMap<FName,FMoonfallBuybackRecord> MerchantBuybackRecords;
  UPROPERTY() float MaxHealth = 100.f;
  UPROPERTY() TArray<int32> InventoryItemCodes;
  UPROPERTY() int32 EquippedWeaponCode = 0;

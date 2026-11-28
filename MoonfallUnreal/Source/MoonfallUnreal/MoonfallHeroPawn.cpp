@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallMoney.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallRegionalFishing.h"
 #include "MoonfallRegionalAtlas.h"
@@ -1017,6 +1018,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ // Combat or changed equipment invalidates a pending trade even if the menu stays open.
+ if(bMerchantConfirmPending&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
+     ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmRevision!=EquipmentInventoryRevision
+     ||MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint()))ClearMerchantConfirmation();
  // Replay one deliberately buffered dodge before a pending sword swing.
  if (DodgeBuffer.HasPending()) {
   const float DodgeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
@@ -1986,8 +1991,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
 {
  const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
@@ -3323,6 +3328,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
   SwordBuffer.Clear();
@@ -3377,6 +3383,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
@@ -3673,6 +3680,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   SwordBuffer.Clear(); // Menu entry cancels a queued attack.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
@@ -3744,6 +3752,7 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
 void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ ReleaseFishingPointer();
  // Normal teardown removes only this pawn's own recovery snapshot.
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
  if (!RecoverySnapshotPath.IsEmpty()) {
@@ -4691,7 +4700,30 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
  }
 }
 
+void AMoonfallHeroPawn::FishingAction() {
+ const bool bWasIdle=Fishing.Stage==MoonfallFishing::EStage::Idle;
+ if(!TryFishingAction()||!bWasIdle||Fishing.Stage!=MoonfallFishing::EStage::Waiting||!IsLocallyControlled()) return;
+ // Keyboard fishing owns a free pointer only while waiting for or hooking a bite.
+ if(auto* PC=Cast<APlayerController>(Controller)) {
+  if(!PC->bShowMouseCursor) {
+   FishingPointerOwner=PC;
+   FInputModeGameAndUI Mode;
+   Mode.SetHideCursorDuringCapture(false);
+   PC->SetInputMode(Mode);
+   PC->bShowMouseCursor=true;
+  }
+ }
+}
+void AMoonfallHeroPawn::ReleaseFishingPointer() {
+ auto* PC=FishingPointerOwner.Get();
+ FishingPointerOwner.Reset();
+ if(!IsValid(PC)||PC->GetPawn()!=this) return;
+ PC->SetInputMode(FInputModeGameOnly());
+ // A menu/dialogue may have opened while the fishing session ended.
+ PC->bShowMouseCursor=bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen||bResidentContextOpen||FocusedResident.IsValid();
+}
 void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
+ if(Fishing.Stage==MoonfallFishing::EStage::Idle||Fishing.Stage==MoonfallFishing::EStage::Reeling) ReleaseFishingPointer();
  const int32 Next=static_cast<int32>(Fishing.Stage);
  if(FishingVisualStage==Next&&!bCaught) return;
  FishingVisualStage=Next;
@@ -4715,7 +4747,7 @@ void AMoonfallHeroPawn::CancelFishingWithFeedback() {
  SyncFishingPresentation();
 }
 
-bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
+bool AMoonfallHeroPawn::TryFishingAction() {
  if (!CanContinueFishing()) { CancelFishingWithFeedback(); return false; }
  const float Now=GetWorld()->GetTimeSeconds();
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
@@ -4727,7 +4759,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  if (!IsValid(Preview) || !Preview->CanCatchOceanFish()) return false;
  const FVector Start=GetPawnViewLocation();
  const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
- if(Start.ContainsNaN()||(!RequestedWater&&Forward.IsNearlyZero())||(RequestedWater&&RequestedWater->ContainsNaN())) return false;
+ if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
  FishingSchoolId=-1;
  FishingProvince=-1;
@@ -4735,7 +4767,6 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  FVector BestSchool=FVector::ZeroVector;
  const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
  double BestDistance=FMath::Square(MaxReach);
- double BestClickDistance=FMath::Square(120.f);
  int32 BestSchoolId=-1;
  int32 BestProvince=-1;
  APhysicsVolume* BestVolume=nullptr;
@@ -4744,23 +4775,16 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
   const FBox Bounds=It->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
       ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
-  // A mouse-selected school must belong to the clicked water surface.
-  if(RequestedWater&&(FMath::Abs(RequestedWater->Z-(Bounds.Max.Z+2.f))>1.f
-      ||RequestedWater->X<Bounds.Min.X+30.f||RequestedWater->X>Bounds.Max.X-30.f
-      ||RequestedWater->Y<Bounds.Min.Y+30.f||RequestedWater->Y>Bounds.Max.Y-30.f)) continue;
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
    if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
    const double Distance=FVector::DistSquared2D(Start,Target);
    if(!MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
-   const double ClickDistance=RequestedWater?FVector::DistSquared2D(*RequestedWater,Target):0.0;
-   if(RequestedWater) {
-    if(ClickDistance>BestClickDistance||(ClickDistance==BestClickDistance&&Distance>BestDistance)) continue;
-   } else if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
+   if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   BestDistance=Distance; BestClickDistance=ClickDistance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It); BestVolume=*It;
+   BestDistance=Distance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It); BestVolume=*It;
   }
  }
  if(BestSchoolId>=0) {
@@ -4775,21 +4799,6 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
   const FBox Bounds=Volume->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
       ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
-  if(RequestedWater) {
-   const FVector Target=*RequestedWater;
-   const double Distance=FVector::DistSquared2D(Start,Target);
-   if(FMath::Abs(Target.Z-(Bounds.Max.Z+2.f))>1.f||
-       Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f||
-       Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f||
-       !MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
-   FHitResult Hit;
-   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
-   FishingOrigin=GetActorLocation(); FishingBobber=Target; FishingWaterVolume=Volume;
-   FishingProvince=ResolveFishingProvince(Volume); FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
-   SyncFishingPresentation();
-   return true;
-  }
   for(float Angle : {0.f,-20.f,20.f,-40.f,40.f}) {
   for(float Reach : {250.f,450.f,650.f,850.f,MaxReach}) {
    FVector Target=Start+Forward.RotateAngleAxis(Angle,FVector::UpVector)*Reach;
@@ -4801,6 +4810,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
+   FishingWaterVolume=Volume;
    FishingProvince=ResolveFishingProvince(Volume);
    FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
    SyncFishingPresentation();
@@ -4812,10 +4822,10 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
 }
 
 bool AMoonfallHeroPawn::TryMouseFishingAction() {
- if (!CanContinueFishing() || GetWorld()->IsPaused()) return false;
+ // Right-click can only interact with an existing bobber, never initiate a cast.
+ if (Fishing.Stage==MoonfallFishing::EStage::Idle || !GetWorld() || GetWorld()->IsPaused()) return false;
  auto* PC=Cast<APlayerController>(Controller);
- const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
- if(!IsValid(PC)||!IsValid(Preview)) return false;
+ if(!IsValid(PC)) return false;
  FVector Eye,Direction;
  if(PC->bShowMouseCursor) {
   if(!PC->DeprojectMousePositionToWorld(Eye,Direction)) return false;
@@ -4823,40 +4833,17 @@ bool AMoonfallHeroPawn::TryMouseFishingAction() {
   FRotator View; PC->GetPlayerViewPoint(Eye,View); Direction=View.Vector();
  }
  Direction=Direction.GetSafeNormal();
- if(Eye.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()) return false;
+ if(Eye.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()||FishingBobber.ContainsNaN()) return false;
+ const double Along=FVector::DotProduct(FishingBobber-Eye,Direction);
+ if(!FMath::IsFinite(Along)||Along<=0.0||Along>20000.0||
+     FVector::DistSquared(Eye+Direction*Along,FishingBobber)>FMath::Square(85.f)) return false;
  FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallMouseFishing),false,this);
- if(Fishing.Stage!=MoonfallFishing::EStage::Idle) {
-  if(FishingBobber.ContainsNaN()) return false;
-  const double Along=FVector::DotProduct(FishingBobber-Eye,Direction);
-  if(!FMath::IsFinite(Along)||Along<=0.0||Along>20000.0||
-      FVector::DistSquared(Eye+Direction*Along,FishingBobber)>FMath::Square(85.f)) return false;
-  FHitResult Block;
-  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
-  return TryFishingAction();
- }
- if(FMath::Abs(Direction.Z)<0.0001) return false;
- const FVector HeroEye=GetPawnViewLocation();
- if(HeroEye.ContainsNaN()) return false;
- const float Reach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
- double Nearest=20000.0;
- FVector Target=FVector::ZeroVector;
- bool bFound=false;
- for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
-  if(!IsValid(*It)||!It->bWaterVolume) continue;
-  const FBox Bounds=It->GetComponentsBoundingBox(true);
-  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()||
-      HeroEye.Z<Bounds.Max.Z||HeroEye.Z-Bounds.Max.Z>300.f) continue;
-  const double Along=(Bounds.Max.Z+2.f-Eye.Z)/Direction.Z;
-  if(!FMath::IsFinite(Along)||Along<=0.0||Along>=Nearest) continue;
-  const FVector Point=Eye+Direction*Along;
-  if(Point.ContainsNaN()||Point.X<Bounds.Min.X+30.f||Point.X>Bounds.Max.X-30.f||
-      Point.Y<Bounds.Min.Y+30.f||Point.Y>Bounds.Max.Y-30.f||
-      !MoonfallFishing::InCastRange(FVector::DistSquared2D(HeroEye,Point),Reach)) continue;
-  FHitResult Block;
-  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,Point,ECC_Visibility,Query)) continue;
-  Nearest=Along; Target=Point; bFound=true;
- }
- return bFound && TryFishingAction(&Target);
+ FHitResult Block;
+ if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
+ // Consume a bobber click even if the water became invalid; never cast a combat spell at it.
+ if(!CanContinueFishing()){CancelFishingWithFeedback();return true;}
+ TryFishingAction();
+ return true;
 }
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
@@ -5630,6 +5617,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
      || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid())return;
  // Validate first, then leave the character sheet using its normal cleanup.
  if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }
+ if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
  StopJumping();
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
@@ -5792,6 +5780,22 @@ bool AMoonfallHeroPawn::RespecTalentPoints() {
  return CommitTalentAllocation(Candidate);
 }
 
+FString AMoonfallHeroPawn::GetWalletText() const {
+ const MoonfallMoney::FWallet Wallet{MoonfallMoney::Valid(WalletCopper)?WalletCopper:0};
+ return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Wallet.Gold()),
+  static_cast<long long>(Wallet.Silver()),static_cast<long long>(Wallet.LooseCopper()));
+}
+
+bool AMoonfallHeroPawn::AwardEnemyCoins(int32 EnemyLevel,bool bElite,bool bBoss) {
+ if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f
+    ||!bWorldProgressInitialized||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return false;
+ MoonfallMoney::FWallet Wallet{WalletCopper};
+ const int64 Reward=MoonfallMoney::BoundedRewardCredit(MoonfallMoney::EnemyReward(EnemyLevel,bElite,bBoss),WalletCopper);
+ if(!Wallet.Credit(Reward))return false;
+ WalletCopper=Wallet.Copper;
+ return true;
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
@@ -5945,6 +5949,24 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->TalentRanks.Reserve(MoonfallTalents::NodeCount);
  for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ if(!MoonfallMoney::Valid(WalletCopper))return false;
+ Save->WalletCopper=WalletCopper;
+ if(MerchantRestockUtc.Num()!=MoonfallMoney::StockGroups)return false;
+ for(const int64 Deadline:MerchantRestockUtc)if(!MoonfallMoney::ValidRestock(Deadline))return false;
+ Save->MerchantRestockUtc=MerchantRestockUtc;
+ if(MerchantBuybackRecords.Num()>MoonfallQuestJournal::ResidentCount)return false;
+ for(const auto& Pair:MerchantBuybackRecords){
+  if(!IsNamedMoonfallResident(Pair.Key)||Pair.Value.Count<1||Pair.Value.Count>MoonfallMoney::FBuybackHistory::Capacity)return false;
+  FMoonfallBuybackRecord Record;
+  for(int32 I=0;I<Pair.Value.Count;++I){
+   const auto Entry=Pair.Value.Get(I);
+   const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Entry.Code);
+   if(!ValidMoonfallItemCode(Entry.Code)||!MoonfallMoney::ValidHistoricalSale(Entry.PriceVersion,Item.Tier,Item.Rarity,Item.Trait,Entry.Price))return false;
+   FMoonfallBuybackEntry SavedEntry;SavedEntry.Code=Entry.Code;SavedEntry.Price=Entry.Price;SavedEntry.PriceVersion=Entry.PriceVersion;
+   Record.Entries.Add(SavedEntry);
+  }
+  Save->MerchantBuybackRecords.Add(Pair.Key,MoveTemp(Record));
+ }
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
@@ -5966,6 +5988,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
   return false;
  if (bEquipmentCraftInProgress) return false;
+ if (bMerchantSaleInProgress) return false;
  // Teleport and health notifications can synchronously invoke Blueprint code.
  // Refuse nested loads while the current save is being restored.
  if (bWorldProgressLoadInProgress || bEquipBestInProgress || bTalentAllocationInProgress || !GetWorld() || IsActorBeingDestroyed()) return false;
@@ -5977,12 +6000,30 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // otherwise an older runtime could silently downgrade the save on autosave.
  constexpr int32 MaxEquipmentSaveVersion=MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::FullSlotCount?19:
      MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount?18:17;
- if (!Save || Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion) {
+ if (!Save || Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion || !MoonfallMoney::Valid(Save->WalletCopper)) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ if(Save->MerchantRestockUtc.Num()!=MoonfallMoney::StockGroups){bPersistentSaveWritesBlocked=true;return false;}
+ for(const int64 Deadline:Save->MerchantRestockUtc){
+  if(!MoonfallMoney::ValidRestock(Deadline)){bPersistentSaveWritesBlocked=true;return false;}
+ }
+ TMap<FName,MoonfallMoney::FBuybackHistory> LoadedBuyback;
+ if(Save->MerchantBuybackRecords.Num()>MoonfallQuestJournal::ResidentCount){bPersistentSaveWritesBlocked=true;return false;}
+ for(const auto& Pair:Save->MerchantBuybackRecords){
+  if(!IsNamedMoonfallResident(Pair.Key)||Pair.Value.Entries.Num()<1||Pair.Value.Entries.Num()>MoonfallMoney::FBuybackHistory::Capacity){bPersistentSaveWritesBlocked=true;return false;}
+  MoonfallMoney::FBuybackHistory History;
+  for(int32 I=Pair.Value.Entries.Num()-1;I>=0;--I){
+   const auto& Entry=Pair.Value.Entries[I];
+   const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Entry.Code);
+   if(!ValidMoonfallItemCode(Entry.Code)||!MoonfallMoney::ValidHistoricalSale(Entry.PriceVersion,Item.Tier,Item.Rarity,Item.Trait,Entry.Price)||!History.Push(Entry.Code,Entry.Price,Entry.PriceVersion)){
+    bPersistentSaveWritesBlocked=true;return false;
+   }
+  }
+  LoadedBuyback.Add(Pair.Key,History);
  }
  if(Save->Version>=16){
   const auto& Party=Save->CompanionParty;
@@ -6321,6 +6362,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Restore the same level-derived spell power used by earned level-ups.
  // Do not replay XP awards or add health already recorded in the save.
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
+ WalletCopper=Save->WalletCopper;
+ MerchantRestockUtc=Save->MerchantRestockUtc;
+ MerchantBuybackRecords=MoveTemp(LoadedBuyback);MerchantBuybackIndex=0;
+ ClearMerchantConfirmation();
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
@@ -6730,6 +6775,10 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  // can invalidate the NPC pointer without closing the active input modal.
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  OceanRecipePage = -1;
+ bResidentMerchantMenu=false;
+ MerchantSellIndex=0;MerchantSellCode=0;
+ MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackIndex=0;
+ ClearMerchantConfirmation();
  bResidentContextOpen = false;
  FocusedResident.Reset();
  SwordBuffer.Clear();
@@ -6770,6 +6819,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  // A conversation must cancel any queued swing before taking input.
+ if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
  DodgeBuffer.Clear();
  BufferedDodgeDirection = FVector::ZeroVector;
  SwordBuffer.Clear();
@@ -6831,6 +6881,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
+    if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
     DodgeBuffer.Clear();
     BufferedDodgeDirection = FVector::ZeroVector;
     SwordBuffer.Clear();
@@ -6851,7 +6902,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    return;
   }
  }
- // Only an explicit water or bobber target claims right-click fishing.
+ // Only an existing bobber target claims right-click fishing.
  if (TryMouseFishingAction()) return;
  // All other right clicks retain right-hand attack behavior.
  CastRight();
@@ -6940,7 +6991,215 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
  }
 }
 
+bool AMoonfallHeroPawn::CanOpenCoinMerchant() const {
+ const auto* Resident=FocusedResident.Get();
+ return bResidentContextOpen&&IsValid(Resident)&&!Resident->bAmbientVisitor&&IsNamedMoonfallResident(Resident->ResidentId)
+  &&Resident->SocialRole==FName(TEXT("Merchant"))&&!Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+  &&HasAuthority()&&GetWorld()&&!GetWorld()->IsPaused()&&bWorldProgressInitialized
+  &&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress;
+}
+void AMoonfallHeroPawn::SelectMerchantSaleItem(int32 Direction) {
+ const int32 Count=InventoryItemCodes.Num();
+ if(Count<=0){MerchantSellIndex=0;MerchantSellCode=0;return;}
+ MerchantSellIndex=FMath::Clamp(MerchantSellIndex,0,Count-1);
+ MerchantSellIndex=(MerchantSellIndex+FMath::Clamp(Direction,-1,1)+Count)%Count;
+ MerchantSellCode=InventoryItemCodes[MerchantSellIndex];
+}
+int64 AMoonfallHeroPawn::GetMerchantSaleQuote() const {
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!InventoryItemCodes.IsValidIndex(MerchantSellIndex)
+    ||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode) return 0;
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot) Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ if(!MoonfallEquipmentLayout::CanRemoveFullCopy(MerchantSellCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return 0;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantSellCode);
+ return MoonfallMoney::GearSalePrice(Item.Tier,Item.Rarity,Item.Trait);
+}
+FString AMoonfallHeroPawn::GetMerchantSaleItemText() const {
+ if(!InventoryItemCodes.IsValidIndex(MerchantSellIndex)||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode) return TEXT("No selected item; browse bag");
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantSellCode);
+ if(!Item.IsValid())return TEXT("Invalid item");
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ return FString::Printf(TEXT("%d/%d %s T%d %s %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+}
+bool AMoonfallHeroPawn::SellMerchantItem() {
+ if(MerchantTradeMode!=0||!IsMerchantConfirmationCurrent()||FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress) return false;
+ const int64 Price=GetMerchantSaleQuote();
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Credit(Price))return false;
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int64 PreviousWallet=WalletCopper;
+ const int32 Index=MerchantSellIndex,Code=MerchantSellCode;
+ const FName MerchantId=Resident->ResidentId;
+ const auto PreviousHistory=GetMerchantBuybackHistory();
+ auto NextHistory=PreviousHistory;
+ if(!NextHistory.Push(Code,Price))return false;
+ MerchantBuybackRecords.Add(MerchantId,NextHistory);
+ InventoryItemCodes.RemoveAt(Index);
+ WalletCopper=Candidate.Copper;
+ MarkEquipmentInventoryDirty();
+ if(!SaveWorldProgress()){
+  InventoryItemCodes.Insert(Code,Index);
+  WalletCopper=PreviousWallet;
+  if(PreviousHistory.Count)MerchantBuybackRecords.Add(MerchantId,PreviousHistory);else MerchantBuybackRecords.Remove(MerchantId);
+  MarkEquipmentInventoryDirty();
+  return false;
+ }
+ InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ MerchantBuybackIndex=0;
+ SelectMerchantSaleItem(0);
+ return true;
+}
+int32 AMoonfallHeroPawn::GetMerchantStockCount() const {
+ return MoonfallEquipmentLayout::ActiveSlotCount+1;
+}
+int32 AMoonfallHeroPawn::GetMerchantStockCode() const {
+ const int32 Count=MoonfallEquipmentLayout::ActiveSlotCount;
+ const int32 Tier=MoonfallMoney::VendorTier(MerchantStockLevel);
+ if(MerchantStockIndex<0||MerchantStockIndex>Count||Tier<=0)return 0;
+ if(MerchantStockIndex<Count)return MoonfallEquipmentLayout::EncodeFullItem(MerchantStockIndex,0,0,Tier);
+ const int32 Slot=MoonfallMoney::SpecialtySlot(MerchantStockFaction);
+ const int32 Rarity=MoonfallMoney::SpecialtyRarity(MerchantStockLevel,MerchantStockStanding);
+ return MoonfallEquipmentLayout::EncodeFullItem(Slot<Count?Slot:2,Rarity?MoonfallMoney::SpecialtyTrait(MerchantStockFaction):0,Rarity,Tier);
+}
+FString AMoonfallHeroPawn::GetMerchantStandingText() const {
+ const int32 Percent=MoonfallMoney::ReputationPricePercent(MerchantStockStanding);
+ return Percent<100?FString::Printf(TEXT("Faction discount %d%%"),100-Percent):
+  Percent>100?FString::Printf(TEXT("Faction surcharge %d%%"),Percent-100):FString(TEXT("Standard prices"));
+}
+bool AMoonfallHeroPawn::IsMerchantSpecialtySelected() const {
+ return MerchantTradeMode==1&&MerchantStockIndex==MoonfallEquipmentLayout::ActiveSlotCount;
+}
+int64 AMoonfallHeroPawn::GetMerchantSpecialtyWait() const {
+ if(!MerchantRestockUtc.IsValidIndex(MerchantStockFaction))return -1;
+ const int64 Deadline=MerchantRestockUtc[MerchantStockFaction];
+ const int64 Now=FDateTime::UtcNow().ToUnixTimestamp();
+ if(!MoonfallMoney::ValidRestock(Deadline)||Now<=0||Now>MoonfallMoney::MaxUtc-MoonfallMoney::RestockSeconds)return -1;
+ return Deadline>Now?Deadline-Now:0;
+}
+const MoonfallMoney::FBuybackHistory& AMoonfallHeroPawn::GetMerchantBuybackHistory() const {
+ static const MoonfallMoney::FBuybackHistory Empty{};
+ const auto* Resident=FocusedResident.Get();
+ const auto* History=IsValid(Resident)?MerchantBuybackRecords.Find(Resident->ResidentId):nullptr;
+ return History?*History:Empty;
+}
+int32 AMoonfallHeroPawn::GetMerchantBuybackCode() const {
+ return GetMerchantBuybackHistory().Get(MerchantBuybackIndex).Code;
+}
+int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu)return 0;
+ if(MerchantTradeMode==0)return GetMerchantSaleQuote();
+ if(MerchantTradeMode==2){
+  const auto Entry=GetMerchantBuybackHistory().Get(MerchantBuybackIndex);
+  return ValidMoonfallItemCode(Entry.Code)&&MoonfallMoney::Valid(Entry.Price)?Entry.Price:0;
+ }
+ if(MerchantTradeMode!=1)return 0;
+ if(IsMerchantSpecialtySelected()&&GetMerchantSpecialtyWait()!=0)return 0;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(GetMerchantStockCode());
+ return Item.IsValid()?MoonfallMoney::FactionPurchasePrice(Item.Tier,Item.Rarity,Item.Trait,MerchantStockStanding):0;
+}
+FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
+ if(MerchantTradeMode==0)return GetMerchantSaleItemText();
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode());
+ if(!Item.IsValid())return TEXT("No item available");
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ const FString Prefix=MerchantTradeMode==2?FString::Printf(TEXT("%d/%d "),MerchantBuybackIndex+1,GetMerchantBuybackHistory().Count):
+  (IsMerchantSpecialtySelected()?FString(TEXT("Special: ")):FString());
+ return FString::Printf(TEXT("%s%s T%d %s %s"),*Prefix,Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+}
+FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
+ if(IsMerchantSpecialtySelected()){
+  const int64 Wait=GetMerchantSpecialtyWait();
+  if(Wait<0)return TEXT("Stock unavailable");
+  if(Wait>0)return FString::Printf(TEXT("Restock in %lld min"),static_cast<long long>((Wait+59)/60));
+ }
+ const int64 Price=GetMerchantTradeQuote();
+ if(Price<=0)return TEXT("Unavailable");
+ const MoonfallMoney::FWallet Quote{Price};
+ return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
+}
+void AMoonfallHeroPawn::ClearMerchantConfirmation() {
+ bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
+ MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
+}
+bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent() const {
+ if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
+    ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint())return false;
+ const int32 Code=MerchantTradeMode==0?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+ const int32 Index=MerchantTradeMode==0?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
+ const MoonfallMoney::FTradeIntent Pending{MerchantConfirmMode,MerchantConfirmCode,MerchantConfirmIndex,MerchantConfirmPrice,MerchantConfirmRevision};
+ const MoonfallMoney::FTradeIntent Current{MerchantTradeMode,Code,Index,GetMerchantTradeQuote(),EquipmentInventoryRevision};
+ return Pending.Matches(Current);
+}
+FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
+ if(IsMerchantConfirmationCurrent())return TEXT("Review item and price; confirm or go back");
+ if(IsRecentlyInCombatForAmbientAI())return TEXT("Trading unavailable in combat");
+ const int64 Price=GetMerchantTradeQuote();
+ if(Price<=0)return MerchantTradeMode==0?TEXT("No spare sellable copy selected"):TEXT("Item unavailable");
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(MerchantTradeMode==0){
+  if(!Candidate.Credit(Price))return TEXT("Wallet full or invalid");
+ }else{
+  if(InventoryItemCodes.Num()>=10000)return TEXT("Bag full");
+  if(!Candidate.Debit(Price))return TEXT("Insufficient coins");
+ }
+ return MerchantTradeMode==1?GetMerchantStandingText():FString(TEXT("Ready to review trade"));
+}
+bool AMoonfallHeroPawn::BuyMerchantItem() {
+ if(!IsMerchantConfirmationCurrent()||FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress
+    ||InventoryItemCodes.Num()>=10000||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
+ const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+ if(!ValidMoonfallItemCode(Code)||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip))return false;
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Debit(GetMerchantTradeQuote()))return false;
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int64 PreviousWallet=WalletCopper;
+ const bool bSpecialty=IsMerchantSpecialtySelected();
+ const int32 StockGroup=MerchantStockFaction;
+ int64 PreviousDeadline=0;
+ if(bSpecialty){
+  if(!MerchantRestockUtc.IsValidIndex(StockGroup))return false;
+  PreviousDeadline=MerchantRestockUtc[StockGroup];
+  const int64 Next=MoonfallMoney::NextRestock(FDateTime::UtcNow().ToUnixTimestamp(),PreviousDeadline);
+  if(!Next)return false;
+  MerchantRestockUtc[StockGroup]=Next;
+ }
+ const bool bBuyback=MerchantTradeMode==2;
+ const FName MerchantId=Resident->ResidentId;
+ const auto PreviousHistory=GetMerchantBuybackHistory();
+ if(bBuyback){
+  auto NextHistory=PreviousHistory;
+  if(!NextHistory.Remove(MerchantBuybackIndex))return false;
+  if(NextHistory.Count)MerchantBuybackRecords.Add(MerchantId,NextHistory);else MerchantBuybackRecords.Remove(MerchantId);
+ }
+ const int32 AddedIndex=InventoryItemCodes.Add(Code);
+ WalletCopper=Candidate.Copper;
+ MarkEquipmentInventoryDirty();
+ if(!SaveWorldProgress()){
+  InventoryItemCodes.RemoveAt(AddedIndex);
+  WalletCopper=PreviousWallet;
+  if(bSpecialty)MerchantRestockUtc[StockGroup]=PreviousDeadline;
+  if(bBuyback)MerchantBuybackRecords.Add(MerchantId,PreviousHistory);
+  MarkEquipmentInventoryDirty();
+  return false;
+ }
+ if(bBuyback)MerchantBuybackIndex=FMath::Clamp(MerchantBuybackIndex,0,FMath::Max(0,GetMerchantBuybackHistory().Count-1));
+ InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ return true;
+}
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
+ if(bResidentMerchantMenu)return 5;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -6952,6 +7211,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
      && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage==4?4:OceanRecipePage>=0?3:OceanRecipePage==-2?MoonfallOceanCrafting::RecipeCount+1:5;
+ if(CanOpenCoinMerchant())return 4;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -7268,6 +7528,49 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   CloseResidentContext();
   return false;
  }
+ if(bResidentMerchantMenu){
+  if(Choice==4){ClearMerchantConfirmation();bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
+  if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
+  if(Choice==3){ClearMerchantConfirmation();MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==0||Choice==1){
+   ClearMerchantConfirmation();ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
+   if(MerchantTradeMode==0)SelectMerchantSaleItem(Choice==0?-1:1);
+   else if(MerchantTradeMode==1){
+    const int32 Count=GetMerchantStockCount();
+    MerchantStockIndex=(FMath::Clamp(MerchantStockIndex,0,Count-1)+(Choice==0?-1:1)+Count)%Count;
+   }else if(MerchantTradeMode==2){
+    MerchantBuybackIndex=GetMerchantBuybackHistory().Browse(MerchantBuybackIndex,Choice==0?-1:1);
+   }
+   return true;
+  }
+  if(Choice!=2)return false;
+  const bool bSelling=MerchantTradeMode==0;
+  if(!IsMerchantConfirmationCurrent()){
+   ClearMerchantConfirmation();
+   const int64 Price=GetMerchantTradeQuote();
+   MoonfallMoney::FWallet Candidate{WalletCopper};
+   if(!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+      ||(bSelling?!Candidate.Credit(Price):(InventoryItemCodes.Num()>=10000||!Candidate.Debit(Price)))){
+    ResidentFeedbackMessage=GetMerchantTradeStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
+   }
+   MerchantConfirmMode=MerchantTradeMode;
+   MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+   MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
+   MerchantConfirmPrice=Price;MerchantConfirmRevision=EquipmentInventoryRevision;
+   MerchantConfirmLoadout=GetEquipmentLoadoutFingerprint();
+   MerchantConfirmAfter=FPlatformTime::Seconds()+0.35;
+   bMerchantConfirmPending=true;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
+   return true;
+  }
+  // No expiry: accessibility users may review indefinitely. Ignore repeated early input.
+  if(FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
+  const bool bTraded=bSelling?SellMerchantItem():BuyMerchantItem();
+  ClearMerchantConfirmation();
+  ResidentFeedbackMessage=bTraded?(bSelling?TEXT("Item sold; coins saved."):TEXT("Purchased; item saved in bag.")):
+    TEXT("Trade unavailable: item, funds, combat, capacity or save.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+  return bTraded;
+ }
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear){
    if(Choice==6){bResidentCompanionGear=false;ResidentContextSelection=0;return true;}
@@ -7400,6 +7703,15 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    return bDelivered;
   }
  }
+ if(Choice==3&&CanOpenCoinMerchant()){
+  bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
+  ClearMerchantConfirmation();
+  MerchantTradeMode=0;MerchantStockIndex=0;MerchantStockLevel=Level;MerchantBuybackIndex=0;
+  MerchantStockStanding=GetFactionReputation(Resident->FactionId);
+  MerchantStockFaction=Resident->FactionId==FName(TEXT("AshenClans"))?1:
+    Resident->FactionId==FName(TEXT("StoneHearth"))?2:Resident->FactionId==FName(TEXT("Wanderers"))?3:0;
+  SelectMerchantSaleItem(0);ResidentContextSelection=0;return true;
+ }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
  }
@@ -7462,19 +7774,23 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
    const int32 Cost=Resident->GetContractSalvageCost();
    const int32 RewardXP=MoonfallQuestXP::Reward(Cost,Level);
+   const int64 Coins=MoonfallMoney::ContractCredit(Cost,Level,WalletCopper);
    Message = FText::FromString(FString::Printf(
-     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP));
+     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP)
+     +FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(Coins)));
   } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
    Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
    bResidentTurnInPending = false;
    const auto Reward=MoonfallQuestXP::Preview(Resident->GetContractSalvageCost(),
       Level,Experience,ExperienceToNextLevel);
+   const int64 Coins=MoonfallMoney::ContractCredit(Resident->GetContractSalvageCost(),Level,WalletCopper);
    bSucceeded = Resident->TurnInResidentQuest(this);
    Message = bSucceeded ? FText::FromString(Reward.LevelsGained>0
       ? FString::Printf(TEXT("Complete! +%d XP | Level %d"),Reward.RewardXP,Reward.FinalLevel)
       : FString::Printf(TEXT("Contract complete | +%d XP"),Reward.RewardXP))
      : FText::FromString(TEXT("Contract could not be completed."));
+   if(bSucceeded)Message=FText::FromString(Message.ToString()+FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(Coins)));
   }
  } else {
   Message = FText::FromString(TEXT("This contract is already complete."));
@@ -7712,9 +8028,13 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const float PreviousMaxHealth = MaxHealth, PreviousHealth = Health, PreviousMana = Mana;
  const float PreviousSpellPower = SpellPowerMultiplier;
  const int32 PreviousSalvage = Salvage;
+ const int64 PreviousWallet=WalletCopper;
+ if(!MoonfallMoney::Valid(PreviousWallet))return false;
+ const int64 Coins=MoonfallMoney::ContractCredit(Cost,Level,PreviousWallet);
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
  Salvage -= Cost;
+ WalletCopper=PreviousWallet+Coins;
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
@@ -7735,6 +8055,7 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
   MaxHealth = PreviousMaxHealth; Health = PreviousHealth; Mana = PreviousMana;
   SpellPowerMultiplier = PreviousSpellPower;
   Salvage = PreviousSalvage;
+  WalletCopper=PreviousWallet;
   ResidentQuestStates.Add(Id, 1);
   if (PreviousBond == 0) ResidentBonds.Remove(Id);
   else ResidentBonds.Add(Id, PreviousBond);

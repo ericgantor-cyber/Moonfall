@@ -12,6 +12,7 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallFishing.h"
+#include "MoonfallMoney.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -81,9 +82,11 @@ public:
  float NextFishingSchoolScan=0.f;
  void RefreshFishingSchools(float Now);
  bool CanContinueFishing() const;
- bool TryFishingAction(const FVector* RequestedWater=nullptr);
+ bool TryFishingAction();
  bool TryMouseFishingAction();
- void FishingAction() { TryFishingAction(); }
+ void FishingAction();
+ TWeakObjectPtr<class APlayerController> FishingPointerOwner;
+ void ReleaseFishingPointer();
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSwimming = false;
@@ -180,6 +183,39 @@ public:
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  bool bResidentContextOpen = false;
  bool bResidentCompanionMenu=false;
+ bool bResidentMerchantMenu=false;
+ bool bMerchantSaleInProgress=false;
+ int32 MerchantSellIndex=0;
+ int32 MerchantSellCode=0;
+ bool CanOpenCoinMerchant() const;
+ void SelectMerchantSaleItem(int32 Direction);
+ int64 GetMerchantSaleQuote() const;
+ FString GetMerchantSaleItemText() const;
+ bool SellMerchantItem();
+ int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackIndex=0;
+ TMap<FName,MoonfallMoney::FBuybackHistory> MerchantBuybackRecords;
+ const MoonfallMoney::FBuybackHistory& GetMerchantBuybackHistory() const;
+ int32 GetMerchantBuybackCode() const;
+ int32 MerchantStockFaction=0,MerchantStockStanding=0;
+ TArray<int64> MerchantRestockUtc={0,0,0,0};
+ bool IsMerchantSpecialtySelected() const;
+ int64 GetMerchantSpecialtyWait() const;
+ int32 GetMerchantStockCount() const;
+ FString GetMerchantStandingText() const;
+ int32 GetMerchantStockCode() const;
+ int64 GetMerchantTradeQuote() const;
+ FString GetMerchantTradeItemText() const;
+ FString GetMerchantTradeQuoteText() const;
+ bool BuyMerchantItem();
+ bool bMerchantConfirmPending=false;
+ int32 MerchantConfirmMode=-1,MerchantConfirmCode=0,MerchantConfirmIndex=-1;
+ int64 MerchantConfirmPrice=0;
+ uint32 MerchantConfirmRevision=0;
+ double MerchantConfirmAfter=0.0;
+ uint64 MerchantConfirmLoadout=0;
+ void ClearMerchantConfirmation();
+ bool IsMerchantConfirmationCurrent() const;
+ FString GetMerchantTradeStatusText() const;
  bool bResidentCompanionTalents=false;
  bool bResidentCompanionTraining=false;
  bool bResidentCompanionGear=false;
@@ -477,6 +513,9 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int64 WalletCopper=0;
+ bool AwardEnemyCoins(int32 EnemyLevel,bool bElite,bool bBoss);
+ FString GetWalletText() const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootRarity = 0;
  // Trait codes: 0 none, 1 force, 2 ward, 3 focus.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootAffix = 0;
