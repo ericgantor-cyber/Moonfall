@@ -7779,19 +7779,23 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
    const int32 Cost=Resident->GetContractSalvageCost();
    const int32 RewardXP=MoonfallQuestXP::Reward(Cost,Level);
+   const int64 Coins=MoonfallMoney::ContractCredit(Cost,Level,WalletCopper);
    Message = FText::FromString(FString::Printf(
-     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP));
+     TEXT("Confirm spending %d salvage | +%d XP"),Cost,RewardXP)
+     +FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(Coins)));
   } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
    Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
    bResidentTurnInPending = false;
    const auto Reward=MoonfallQuestXP::Preview(Resident->GetContractSalvageCost(),
       Level,Experience,ExperienceToNextLevel);
+   const int64 Coins=MoonfallMoney::ContractCredit(Resident->GetContractSalvageCost(),Level,WalletCopper);
    bSucceeded = Resident->TurnInResidentQuest(this);
    Message = bSucceeded ? FText::FromString(Reward.LevelsGained>0
       ? FString::Printf(TEXT("Complete! +%d XP | Level %d"),Reward.RewardXP,Reward.FinalLevel)
       : FString::Printf(TEXT("Contract complete | +%d XP"),Reward.RewardXP))
      : FText::FromString(TEXT("Contract could not be completed."));
+   if(bSucceeded)Message=FText::FromString(Message.ToString()+FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(Coins)));
   }
  } else {
   Message = FText::FromString(TEXT("This contract is already complete."));
@@ -8029,9 +8033,13 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
  const float PreviousMaxHealth = MaxHealth, PreviousHealth = Health, PreviousMana = Mana;
  const float PreviousSpellPower = SpellPowerMultiplier;
  const int32 PreviousSalvage = Salvage;
+ const int64 PreviousWallet=WalletCopper;
+ if(!MoonfallMoney::Valid(PreviousWallet))return false;
+ const int64 Coins=MoonfallMoney::ContractCredit(Cost,Level,PreviousWallet);
  const int32 PreviousBond = GetResidentBond(Id);
  const int32 PreviousRep = GetFactionReputation(Faction);
  Salvage -= Cost;
+ WalletCopper=PreviousWallet+Coins;
  ResidentQuestStates.Add(Id, 2);
  ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
  FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
@@ -8052,6 +8060,7 @@ bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
   MaxHealth = PreviousMaxHealth; Health = PreviousHealth; Mana = PreviousMana;
   SpellPowerMultiplier = PreviousSpellPower;
   Salvage = PreviousSalvage;
+  WalletCopper=PreviousWallet;
   ResidentQuestStates.Add(Id, 1);
   if (PreviousBond == 0) ResidentBonds.Remove(Id);
   else ResidentBonds.Add(Id, PreviousBond);
