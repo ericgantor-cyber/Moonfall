@@ -764,6 +764,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[2]=FString::Printf(TEXT("%s%s | %s"),Hero->IsMerchantConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
     Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
     Names[4]=TEXT("Back");
+    Names[5]=Hero->GetBagUpgradeText();
    }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
@@ -2446,7 +2447,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
     PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
-  DrawText(FString::Printf(TEXT("Wallet: %s"), *Hero->GetWalletText()),
+  DrawText(FString::Printf(TEXT("Bag %d/%d | %s"), Hero->InventoryItemCodes.Num(),Hero->BagCapacity,*Hero->GetWalletText()),
     FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
     nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)

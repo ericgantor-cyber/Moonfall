@@ -1904,6 +1904,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertIn("if (InventoryItemCodes.Num() >= 10000) return;", award)
+        self.assertIn("if (!HasBagRoom()) return;", award)
+        self.assertLess(award.index("if (!HasBagRoom()) return;"),award.index("RollEquipmentCode(bEliteEnemy, bBossEnemy)"))
         self.assertIn("if (!ValidMoonfallItemCode(ItemCode)) return;", award)
         self.assertLess(award.index("if (InventoryItemCodes.Num() >= 10000) return;"),
                         award.index("RollEquipmentCode(bEliteEnemy, bBossEnemy)"))

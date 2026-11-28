@@ -225,6 +225,16 @@ int main() {
     assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins)==0);
     assert(MoonfallMoney::BoundedRewardCredit(-1,0)==0);
     assert(MoonfallMoney::BoundedRewardCredit(100,-1)==0);
+    for(int Capacity=0;Capacity<=1000;++Capacity){
+      const bool Valid=Capacity>=100&&Capacity<=500&&Capacity%50==0;
+      assert(MoonfallMoney::ValidBagCapacity(Capacity)==Valid);
+      assert(!MoonfallMoney::BagHasRoom(Capacity,Capacity));
+      assert(MoonfallMoney::BagHasRoom(Capacity-1,Capacity)==Valid);
+      assert(!MoonfallMoney::BagHasRoom(10000,Capacity));
+      assert((MoonfallMoney::BagUpgradePrice(Capacity)>0)==(Valid&&Capacity<500));
+    }
+    assert(MoonfallMoney::BagUpgradePrice(100)==1000);
+    assert(MoonfallMoney::BagUpgradePrice(450)==11500);
     assert(MoonfallMoney::ContractReward(1,1)==100);
     assert(MoonfallMoney::ContractReward(30,100)==1175);
     assert(MoonfallMoney::ContractReward(0,1)==0&&MoonfallMoney::ContractReward(31,1)==0);
