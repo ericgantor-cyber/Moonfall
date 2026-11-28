@@ -7,6 +7,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
+    TestEqual(TEXT("Dive from surface"),ResolveVerticalIntent(-1,true,0.f),-1);
+    TestEqual(TEXT("Rise below surface"),ResolveVerticalIntent(1,true,100.f),1);
+    TestEqual(TEXT("Rise stops at surface"),ResolveVerticalIntent(1,true,0.f),0);
+    TestEqual(TEXT("Menu cancels dive"),ResolveVerticalIntent(-1,false,100.f),0);
+    TestEqual(TEXT("Invalid command rejected"),ResolveVerticalIntent(2,true,100.f),0);
     TestEqual(TEXT("Land pose is neutral"),SwimPosePitch(false,false,false,100.f),0.f);
     TestEqual(TEXT("Surface pose is neutral"),SwimPosePitch(true,false,false,100.f),0.f);
     TestEqual(TEXT("Reduced motion is neutral"),SwimPosePitch(true,true,true,-250.f),0.f);
