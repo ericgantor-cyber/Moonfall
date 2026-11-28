@@ -612,6 +612,8 @@ public:
  bool MatchesInventoryFilter(int32 Index) const;
  bool IsInventorySelectionVisible() const;
  void CycleInventoryRarityFilter();
+ void SetInventoryRarityFilter(int32 Rarity);
+ void ResetInventoryFilters();
  FString GetInventoryFilterLabel() const;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
