@@ -7649,11 +7649,25 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
+int32 AMoonfallHeroPawn::GetResidentContextVisualRowCount() const {
+ return bResidentMerchantMenu&&!bResidentVaultMenu&&MerchantTradeMode==0?7:GetResidentContextRowCount();
+}
 float AMoonfallHeroPawn::GetResidentContextPanelHeight(float ViewportHeight) const {
- return FMath::Min(345.f+53.f*(GetResidentContextRowCount()-3),FMath::Max(270.f,ViewportHeight-24.f));
+ return FMath::Min(345.f+53.f*(GetResidentContextVisualRowCount()-3),FMath::Max(270.f,ViewportHeight-24.f));
 }
 float AMoonfallHeroPawn::GetResidentContextRowPitch(float PanelHeight) const {
- return FMath::Min(53.f,(PanelHeight-134.f)/GetResidentContextRowCount());
+ return FMath::Min(53.f,(PanelHeight-134.f)/GetResidentContextVisualRowCount());
+}
+FBox2D AMoonfallHeroPawn::GetResidentContextActionBounds(int32 Row,float PanelWidth,float PanelHeight) const {
+ const float Pitch=GetResidentContextRowPitch(PanelHeight);
+ const bool bPaired=bResidentMerchantMenu&&!bResidentVaultMenu&&MerchantTradeMode==0;
+ const bool bSplit=bPaired&&(Row<2||Row>=7);
+ const int32 VisualRow=bPaired?(Row<2?0:Row>=7?6:Row-1):Row;
+ const float HalfWidth=(PanelWidth-34.f)*0.5f;
+ const float X=bSplit&&((Row==1)||(Row==8))?20.f+HalfWidth:14.f;
+ const float Width=bSplit?HalfWidth:PanelWidth-28.f;
+ const float Y=122.f+VisualRow*Pitch;
+ return FBox2D(FVector2D(X,Y),FVector2D(X+Width,Y+Pitch-10.f));
 }
 bool AMoonfallHeroPawn::HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const {
  return FMath::IsFinite(ViewportWidth) && FMath::IsFinite(ViewportHeight)
@@ -7934,11 +7948,9 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   return;
  }
  // Shared exact row bounds with the Canvas HUD renderer.
- const float Pitch=GetResidentContextRowPitch(PanelH);
  for (int32 Row = 0; Row < GetResidentContextRowCount(); ++Row) {
-  const float RowTop = Top + 122.f + Row * Pitch;
-  if (MouseX >= Left+14.f && MouseX <= Left+PanelW-14.f
-      && MouseY >= RowTop && MouseY <= RowTop + Pitch-10.f) {
+  const FBox2D Bounds=GetResidentContextActionBounds(Row,PanelW,PanelH);
+  if (Bounds.IsInsideOrOn(FVector2D(MouseX-Left,MouseY-Top))) {
    if (ResidentContextSelection != Row) bResidentTurnInPending = false;
    ResidentContextSelection = Row;
    ChooseResidentContextAction(Row);

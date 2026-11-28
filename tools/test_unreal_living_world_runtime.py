@@ -419,9 +419,15 @@ int main(){
             "void AMoonfallHeroPawn::TalkToNearestNPC()",1)[0]
         panel=hud.split("// Native Canvas resident menu.",1)[1].split("if (Hero->bAtlasOpen)",1)[0]
         for shared in ("GetResidentContextRowCount()","GetResidentContextPanelHeight(",
-                       "GetResidentContextRowPitch(","122.f + Row * Pitch","Pitch-10.f"):
+                       "GetResidentContextActionBounds(","Bounds.IsInsideOrOn("):
             self.assertIn(shared,mouse)
             self.assertIn(shared,panel)
+        bounds=hero.split("FBox2D AMoonfallHeroPawn::GetResidentContextActionBounds(",1)[1].split("\n}",1)[0]
+        self.assertIn("GetResidentContextRowPitch(PanelHeight)",bounds)
+        self.assertIn("Row<2?0:Row>=7?6:Row-1",bounds)
+        self.assertIn("PanelWidth-34.f",bounds)
+        self.assertIn("122.f+VisualRow*Pitch",bounds)
+        self.assertIn("Y+Pitch-10.f",bounds)
         self.assertIn("ChooseResidentContextAction(Row)",mouse)
         self.assertIn("HasResidentContextPointerSurface(Width,Height)",mouse)
         self.assertIn("Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)",panel)
