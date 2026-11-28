@@ -540,7 +540,9 @@ public:
  uint32 PendingVaultRevision=0;
  uint64 PendingVaultLoadout=0;
  double VaultConfirmAfter=0.0;
+ bool bPendingVaultWithdraw=false;
  bool CanTransferVaultItem() const;
+ FString GetVaultTransferStatusText() const;
  bool IsVaultConfirmationCurrent() const;
  FString GetVaultSelectionText() const;
  bool ChooseVaultAction(int32 Choice);

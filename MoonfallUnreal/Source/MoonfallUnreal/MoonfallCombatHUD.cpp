@@ -768,7 +768,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[6]=TEXT("Storage vault");
     if(Hero->bResidentVaultMenu){
      Names[0]=TEXT("Previous item");Names[1]=TEXT("Next item");
-     Names[2]=FString::Printf(TEXT("%s%s"),Hero->IsVaultConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Hero->bVaultWithdraw?TEXT("Withdraw"):TEXT("Deposit"));
+     Names[2]=Hero->CanTransferVaultItem()?FString::Printf(TEXT("%s%s"),Hero->IsVaultConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Hero->bVaultWithdraw?TEXT("Withdraw"):TEXT("Deposit")):Hero->GetVaultTransferStatusText();
      Names[3]=Hero->bVaultWithdraw?TEXT("Browse bag"):TEXT("Browse vault");Names[4]=TEXT("Back to merchant");
      Names[5]=TEXT("Previous 25 items");Names[6]=TEXT("Next 25 items");
     }

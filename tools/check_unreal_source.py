@@ -22,6 +22,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(transfer.index("IsVaultConfirmationCurrent()"),transfer.index("Destination.Add(Code)"))
         self.assertLess(transfer.index("VaultConfirmAfter"),transfer.index("Destination.Add(Code)"))
         self.assertIn("Destination.RemoveAt(Added);Source.Insert(Code,Index);",transfer)
+        self.assertIn("Resident->CanHeroInteract(this)",guard)
+        self.assertIn("bPendingVaultWithdraw=bVaultWithdraw;",transfer)
+        confirmation=self.hero_cpp.split("bool AMoonfallHeroPawn::IsVaultConfirmationCurrent()",1)[1].split("\n}",1)[0]
+        self.assertIn("bPendingVaultWithdraw==bVaultWithdraw",confirmation)
+        self.assertIn("GetVaultTransferStatusText()",transfer)
+        self.assertIn("Hero->GetVaultTransferStatusText()",self.hud)
         self.assertIn("Save->VaultItemCodes=VaultItemCodes;",self.hero_cpp)
         self.assertIn("VaultItemCodes=Save->VaultItemCodes;",self.hero_cpp)
         self.assertIn("Save->VaultItemCodes.Num()>MoonfallMoney::VaultMax",self.hero_cpp)
