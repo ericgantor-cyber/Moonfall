@@ -1822,6 +1822,19 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
  return FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20);
 }
 
+void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()
+{
+ // Crafting may change the selected item's rarity, trait or tier. Never
+ // silently select another item when the crafted item leaves the filter.
+ if(IsInventorySelectionVisible()){
+  KeepInventorySelectionVisible();
+ }else{
+  InventorySelection=INDEX_NONE;
+  const int32 MaxStart=FMath::Max(0,GetInventoryDisplayOrder().Num()-GetInventoryVisibleRows());
+  InventoryViewStart=FMath::Clamp(InventoryViewStart,0,MaxStart);
+ }
+}
+
 void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 {
  const TArray<int32> Visible=GetInventoryDisplayOrder();
@@ -3760,6 +3773,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  if (bUpgradingEquipped && Slot == 1 && PreviousEquippedTier != Tier + 1)
   OnHealthChanged(Health, MaxHealth);
@@ -3811,6 +3825,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootAffix = NewAffix;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentReforged(NewCode, Cost);
  return true;
@@ -3860,6 +3875,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootRarity = Rarity + 1;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentAscended(NewCode, Cost);
  return true;
