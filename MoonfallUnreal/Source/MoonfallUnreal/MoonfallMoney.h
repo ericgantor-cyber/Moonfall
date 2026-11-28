@@ -68,20 +68,21 @@ namespace MoonfallMoney {
   static constexpr int Capacity=12;
   FBuybackEntry Entries[Capacity]{};
   int Count=0;
-  constexpr FBuybackEntry Get(int Index) const {return Index>=0&&Index<Count?Entries[Index]:FBuybackEntry{};}
+  constexpr bool ValidCount() const {return Count>=0&&Count<=Capacity;}
+  constexpr FBuybackEntry Get(int Index) const {return ValidCount()&&Index>=0&&Index<Count?Entries[Index]:FBuybackEntry{};}
   constexpr bool Push(int Code,Coins Price,int Version=CurrentSalePriceVersion) {
-   if(Code<=0||Price<=0||!Valid(Price)||Version!=1||Count<0||Count>Capacity)return false;
+   if(Code<=0||Price<=0||!Valid(Price)||Version!=1||!ValidCount())return false;
    if(Count<Capacity)++Count;
    for(int I=Count-1;I>0;--I)Entries[I]=Entries[I-1];
    Entries[0]={Code,Price,Version};return true;
   }
   constexpr bool Remove(int Index) {
-   if(Index<0||Index>=Count)return false;
+   if(!ValidCount()||Index<0||Index>=Count)return false;
    for(int I=Index;I+1<Count;++I)Entries[I]=Entries[I+1];
    Entries[--Count]={};return true;
   }
   constexpr int Browse(int Index,int Direction) const {
-   if(Count<=0)return 0;
+   if(!ValidCount()||Count==0)return 0;
    if(Index<0||Index>=Count)Index=0;
    return (Index+(Direction<0?-1:Direction>0?1:0)+Count)%Count;
   }
