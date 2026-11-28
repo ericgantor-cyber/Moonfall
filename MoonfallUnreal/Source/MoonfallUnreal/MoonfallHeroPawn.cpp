@@ -88,6 +88,21 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
 namespace {
+namespace InventoryDisplay {
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Search slots must match equipment layout");
+ const TCHAR* SlotName(int32 Slot) {
+  if(Slot<0||Slot>=UE_ARRAY_COUNT(Slots))return TEXT("Unknown");
+  return MoonfallEquipmentLayout::IsRingSlot(Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Slot];
+ }
+ FString Describe(int32 Code) {
+  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Code);
+  if(!Item.IsValid()||Item.Slot<0||Item.Slot>=UE_ARRAY_COUNT(Slots)||Item.Rarity<0||Item.Rarity>=UE_ARRAY_COUNT(Rarities)||Item.Trait<0||Item.Trait>=UE_ARRAY_COUNT(Traits))return TEXT("Invalid item");
+  return FString::Printf(TEXT("%s T%d %s %s"),SlotName(Item.Slot),Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+ }
+}
 // HUD shows only a fallback message below these inventory viewport dimensions.
 bool HasVisibleInventoryPointerSurface(const AController* Controller)
 {
@@ -1482,19 +1497,21 @@ bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[Index]);
  if(!Item.IsValid()||(InventoryRarityFilter!=-1&&Item.Rarity!=InventoryRarityFilter))return false;
  if(InventorySearchText.IsEmpty())return true;
- static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
- static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
- static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
- static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Search slots must match equipment layout");
+ using namespace InventoryDisplay;
  if(Item.Slot<0||Item.Slot>=UE_ARRAY_COUNT(Slots)||Item.Rarity<0||Item.Rarity>=UE_ARRAY_COUNT(Rarities)||Item.Trait<0||Item.Trait>=UE_ARRAY_COUNT(Traits))return false;
- const TCHAR* Slot=MoonfallEquipmentLayout::IsRingSlot(Item.Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Item.Slot];
+ const TCHAR* Slot=SlotName(Item.Slot);
  const FString Label=FString::Printf(TEXT("%s %s %s T%d tier %d"),Slot,Rarities[Item.Rarity],Traits[Item.Trait],Item.Tier,Item.Tier);
  if(ParsedInventorySearchText!=InventorySearchText){
   ParsedInventorySearchTerms.Reset();
   InventorySearchText.ParseIntoArrayWS(ParsedInventorySearchTerms);
   ParsedInventorySearchText=InventorySearchText;
  }
- for(const FString& Term:ParsedInventorySearchTerms){
+ for(int32 TermIndex=0;TermIndex<ParsedInventorySearchTerms.Num();++TermIndex){
+  const FString& Term=ParsedInventorySearchTerms[TermIndex];
+  if(Term.Equals(TEXT("tier"),ESearchCase::IgnoreCase)&&ParsedInventorySearchTerms.IsValidIndex(TermIndex+1)&&ParsedInventorySearchTerms[TermIndex+1].IsNumeric()){
+   if(ParsedInventorySearchTerms[++TermIndex]!=FString::FromInt(Item.Tier))return false;
+   continue;
+  }
   bool bRarityTerm=false;
   for(const TCHAR* Rarity:Rarities)if(Term.Equals(Rarity,ESearchCase::IgnoreCase)){bRarityTerm=true;break;}
   if(bRarityTerm){if(!Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase))return false;continue;}
@@ -1503,6 +1520,9 @@ bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
    if(!Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier),ESearchCase::IgnoreCase))return false;
    continue;
   }
+  bool bTraitTerm=false;
+  for(const TCHAR* Trait:Traits)if(Term.Equals(Trait,ESearchCase::IgnoreCase)){bTraitTerm=true;break;}
+  if(bTraitTerm){if(!Term.Equals(Traits[Item.Trait],ESearchCase::IgnoreCase))return false;continue;}
   if(!Label.Contains(Term,ESearchCase::IgnoreCase))return false;
  }
  return true;
@@ -7323,13 +7343,8 @@ int64 AMoonfallHeroPawn::GetMerchantSaleQuote() const {
  return MoonfallMoney::GearSalePrice(Item.Tier,Item.Rarity,Item.Trait);
 }
 FString AMoonfallHeroPawn::GetMerchantSaleItemText() const {
- if(!InventoryItemCodes.IsValidIndex(MerchantSellIndex)||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode) return TEXT("No selected item; browse bag");
- const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantSellCode);
- if(!Item.IsValid())return TEXT("Invalid item");
- static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
- static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
- static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
- return FString::Printf(TEXT("%d/%d %s T%d %s %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+ if(!InventoryItemCodes.IsValidIndex(MerchantSellIndex)||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode)return TEXT("No selected item; browse bag");
+ return FString::Printf(TEXT("%d/%d %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),*InventoryDisplay::Describe(MerchantSellCode));
 }
 bool AMoonfallHeroPawn::SellMerchantItem() {
  if(MerchantTradeMode!=0||!IsMerchantConfirmationCurrent()||FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
@@ -7413,14 +7428,11 @@ int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
 }
 FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
  if(MerchantTradeMode==0)return GetMerchantSaleItemText();
- const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode());
- if(!Item.IsValid())return TEXT("No item available");
- static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
- static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
- static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+ if(!MoonfallEquipmentLayout::DecodeFullItem(Code).IsValid())return TEXT("No item available");
  const FString Prefix=MerchantTradeMode==2?FString::Printf(TEXT("%d/%d "),MerchantBuybackIndex+1,GetMerchantBuybackHistory().Count):
-  (IsMerchantSpecialtySelected()?FString(TEXT("Special: ")):FString());
- return FString::Printf(TEXT("%s%s T%d %s %s"),*Prefix,Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+  (IsMerchantSpecialtySelected()?FString(TEXT("Special: ")):FString::Printf(TEXT("%d/%d "),MerchantStockIndex+1,GetMerchantStockCount()));
+ return Prefix+InventoryDisplay::Describe(Code);
 }
 FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  if(IsMerchantSpecialtySelected()){
@@ -7596,12 +7608,7 @@ FString AMoonfallHeroPawn::GetVaultTransferStatusText() const {
 FString AMoonfallHeroPawn::GetVaultSelectionText() const {
  const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
  if(!Source.IsValidIndex(VaultSelection))return TEXT("No items to transfer");
- const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Source[VaultSelection]);
- if(!Item.IsValid())return TEXT("Invalid item");
- static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
- static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
- static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
- return FString::Printf(TEXT("%d/%d %s T%d %s %s"),VaultSelection+1,Source.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+ return FString::Printf(TEXT("%d/%d %s"),VaultSelection+1,Source.Num(),*InventoryDisplay::Describe(Source[VaultSelection]));
 }
 bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
  const auto* Resident=FocusedResident.Get();
