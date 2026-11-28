@@ -215,6 +215,11 @@ int main() {
     assert(MoonfallMoney::EnemyReward(1,false,false)==100);
     assert(MoonfallMoney::EnemyReward(1,true,false)>100&&MoonfallMoney::EnemyReward(1,true,true)>350);
     assert(MoonfallMoney::EnemyReward(101,false,false)==0);
+    assert(MoonfallMoney::GearSalePrice(1,0,0)==40);
+    assert(MoonfallMoney::GearSalePrice(25,5,3)==2430);
+    assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
+    assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
+    assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
     using namespace MoonfallFishing;
     assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
     assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));

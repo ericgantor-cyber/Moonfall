@@ -6750,6 +6750,8 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  // can invalidate the NPC pointer without closing the active input modal.
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  OceanRecipePage = -1;
+ bResidentMerchantMenu=false;
+ MerchantSellIndex=0;MerchantSellCode=0;
  bResidentContextOpen = false;
  FocusedResident.Reset();
  SwordBuffer.Clear();
@@ -6960,7 +6962,64 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
  }
 }
 
+bool AMoonfallHeroPawn::CanOpenCoinMerchant() const {
+ const auto* Resident=FocusedResident.Get();
+ return bResidentContextOpen&&IsValid(Resident)&&!Resident->bAmbientVisitor
+  &&Resident->SocialRole==FName(TEXT("Merchant"))&&!Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+  &&HasAuthority()&&GetWorld()&&!GetWorld()->IsPaused()&&bWorldProgressInitialized
+  &&!bPersistentSaveWritesBlocked&&!bWorldProgressLoadInProgress;
+}
+void AMoonfallHeroPawn::SelectMerchantSaleItem(int32 Direction) {
+ const int32 Count=InventoryItemCodes.Num();
+ if(Count<=0){MerchantSellIndex=0;MerchantSellCode=0;return;}
+ MerchantSellIndex=FMath::Clamp(MerchantSellIndex,0,Count-1);
+ MerchantSellIndex=(MerchantSellIndex+FMath::Clamp(Direction,-1,1)+Count)%Count;
+ MerchantSellCode=InventoryItemCodes[MerchantSellIndex];
+}
+int64 AMoonfallHeroPawn::GetMerchantSaleQuote() const {
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!InventoryItemCodes.IsValidIndex(MerchantSellIndex)
+    ||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode) return 0;
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot) Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ if(!MoonfallEquipmentLayout::CanRemoveFullCopy(MerchantSellCode,Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes)) return 0;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantSellCode);
+ return MoonfallMoney::GearSalePrice(Item.Tier,Item.Rarity,Item.Trait);
+}
+FString AMoonfallHeroPawn::GetMerchantSaleItemText() const {
+ if(!InventoryItemCodes.IsValidIndex(MerchantSellIndex)||InventoryItemCodes[MerchantSellIndex]!=MerchantSellCode) return TEXT("No selected item; browse bag");
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantSellCode);
+ if(!Item.IsValid())return TEXT("Invalid item");
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ return FString::Printf(TEXT("%d/%d %s T%d %s %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+}
+bool AMoonfallHeroPawn::SellMerchantItem() {
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress) return false;
+ const int64 Price=GetMerchantSaleQuote();
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Credit(Price))return false;
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int64 PreviousWallet=WalletCopper;
+ const int32 Index=MerchantSellIndex,Code=MerchantSellCode;
+ InventoryItemCodes.RemoveAt(Index);
+ WalletCopper=Candidate.Copper;
+ MarkEquipmentInventoryDirty();
+ if(!SaveWorldProgress()){
+  InventoryItemCodes.Insert(Code,Index);
+  WalletCopper=PreviousWallet;
+  MarkEquipmentInventoryDirty();
+  return false;
+ }
+ InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ SelectMerchantSaleItem(0);
+ return true;
+}
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
+ if(bResidentMerchantMenu)return 4;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -6972,6 +7031,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
      && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage==4?4:OceanRecipePage>=0?3:OceanRecipePage==-2?MoonfallOceanCrafting::RecipeCount+1:5;
+ if(CanOpenCoinMerchant())return 4;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -7288,6 +7348,16 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   CloseResidentContext();
   return false;
  }
+ if(bResidentMerchantMenu){
+  if(Choice==3){bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
+  if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
+  if(Choice==0||Choice==1){SelectMerchantSaleItem(Choice==0?-1:1);return true;}
+  if(Choice!=2)return false;
+  const bool bSold=SellMerchantItem();
+  ResidentFeedbackMessage=bSold?TEXT("Item sold; coins saved."):TEXT("Cannot sell: equipped, combat, wallet full or save failed.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+  return bSold;
+ }
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear){
    if(Choice==6){bResidentCompanionGear=false;ResidentContextSelection=0;return true;}
@@ -7419,6 +7489,10 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
    return bDelivered;
   }
+ }
+ if(Choice==3&&CanOpenCoinMerchant()){
+  bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
+  SelectMerchantSaleItem(0);ResidentContextSelection=0;return true;
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
