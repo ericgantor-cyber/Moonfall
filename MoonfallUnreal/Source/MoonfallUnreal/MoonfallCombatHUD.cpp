@@ -2426,9 +2426,13 @@ void AMoonfallCombatHUD::DrawHUD()
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items | %d salvage | %s"),
-    Count, Hero->Salvage, *Hero->GetWalletText()), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
+    Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
+    PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
+    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
+  DrawText(FString::Printf(TEXT("Wallet: %s"), *Hero->GetWalletText()),
+    FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
+    nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
