@@ -1030,9 +1030,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if(PendingVaultCode!=0&&!IsVaultConfirmationCurrent())ClearMerchantConfirmation();
  if(PendingBagUpgradeCapacity!=0&&!IsBagUpgradeConfirmationCurrent())ClearMerchantConfirmation();
  // Combat or changed equipment invalidates a pending trade even if the menu stays open.
- if(bMerchantConfirmPending&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
-     ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmRevision!=EquipmentInventoryRevision
-     ||MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint()))ClearMerchantConfirmation();
+ if(bMerchantConfirmPending&&!IsMerchantConfirmationCurrent())ClearMerchantConfirmation();
  // Replay one deliberately buffered dodge before a pending sword swing.
  if (DodgeBuffer.HasPending()) {
   const float DodgeNow = GetWorld() ? GetWorld()->GetTimeSeconds() : -1.f;
@@ -7438,15 +7436,21 @@ void AMoonfallHeroPawn::ClearMerchantConfirmation() {
  PendingVaultCode=0;PendingVaultIndex=-1;PendingVaultRevision=0;PendingVaultLoadout=0;VaultConfirmAfter=0.0;bPendingVaultWithdraw=false;
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
  MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
+ MerchantConfirmWallet=-1;MerchantConfirmResident=NAME_None;
 }
 bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent() const {
- if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
+ const auto* Resident=FocusedResident.Get();
+ if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu||bResidentVaultMenu
+    ||!IsValid(Resident)||!Resident->CanHeroInteract(this)||MerchantConfirmResident!=Resident->ResidentId
+    ||MerchantConfirmWallet!=WalletCopper||!FMath::IsFinite(Health)||Health<=0.f
     ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint())return false;
  const int32 Code=MerchantTradeMode==0?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
  const int32 Index=MerchantTradeMode==0?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
  const MoonfallMoney::FTradeIntent Pending{MerchantConfirmMode,MerchantConfirmCode,MerchantConfirmIndex,MerchantConfirmPrice,MerchantConfirmRevision};
  const MoonfallMoney::FTradeIntent Current{MerchantTradeMode,Code,Index,GetMerchantTradeQuote(),EquipmentInventoryRevision};
- return Pending.Matches(Current);
+ if(!Pending.Matches(Current))return false;
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ return MerchantTradeMode==0?Candidate.Credit(Current.Price):(HasBagRoom()&&Candidate.Debit(Current.Price));
 }
 FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
  if(IsMerchantConfirmationCurrent())return TEXT("Review item and price; confirm or go back");
@@ -7992,6 +7996,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
    MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
    MerchantConfirmPrice=Price;MerchantConfirmRevision=EquipmentInventoryRevision;
+   MerchantConfirmWallet=WalletCopper;MerchantConfirmResident=Resident->ResidentId;
    MerchantConfirmLoadout=GetEquipmentLoadoutFingerprint();
    MerchantConfirmAfter=FPlatformTime::Seconds()+0.35;
    bMerchantConfirmPending=true;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
