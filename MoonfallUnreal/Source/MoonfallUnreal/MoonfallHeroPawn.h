@@ -77,7 +77,8 @@ public:
  float NextFishingSchoolScan=0.f;
  void RefreshFishingSchools(float Now);
  bool CanContinueFishing() const;
- bool TryFishingAction();
+ bool TryFishingAction(const FVector* RequestedWater=nullptr);
+ bool TryMouseFishingAction();
  void FishingAction() { TryFishingAction(); }
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")

@@ -40,6 +40,37 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("shore rescue if safe", hud)
         self.assertIn("LOW AIR: rise or find an air pocket", hud)
 
+    def test_mouse_fishing_interaction(self):
+        root = Path(__file__).resolve().parents[1]
+        module = root / "MoonfallUnreal/Source/MoonfallUnreal"
+        source = (module / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (module / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (root / "MoonfallUnreal/Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="PickupLoot",Key=F', inputs)
+        self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot)', source)
+        self.assertNotIn("ManualLootOrFish", source)
+        cast = source.split("bool AMoonfallHeroPawn::TryFishingAction(", 1)[1].split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[0]
+        self.assertIn("RequestedWater->Z-(Bounds.Max.Z+2.f)", cast)
+        self.assertIn("RequestedWater->X<Bounds.Min.X+30.f", cast)
+        self.assertIn("RequestedWater->Y<Bounds.Min.Y+30.f", cast)
+        self.assertIn("Distance>FMath::Square(MaxReach)", cast)
+        self.assertIn("ClickDistance>BestClickDistance", cast)
+        self.assertIn("BestClickDistance=ClickDistance", cast)
+        self.assertLess(cast.index("RequestedWater->Z-(Bounds.Max.Z+2.f)"), cast.index("Preview->IsFishingSchoolAvailable"))
+        mouse = source.split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        for token in ("CanContinueFishing()", "DeprojectMousePositionToWorld", "FishingBobber",
+                      "FMath::Square(85.f)", "LineTraceSingleByChannel", "bWaterVolume",
+                      "FMath::Square(Reach)", "TryFishingAction(&Target)"):
+            self.assertIn(token, mouse)
+        right = source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("int32 AMoonfallHeroPawn::GetRingPointerDragCode()", 1)[0]
+        self.assertLess(right.index("Cast<AMoonfallWorldNPC>"), right.index("TryMouseFishingAction()"))
+        self.assertLess(right.index("TryMouseFishingAction()"), right.index("CastRight();"))
+        pickup = source.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split("void AMoonfallHeroPawn::SetAutoLootEnabled", 1)[0]
+        self.assertNotIn("TryFishingAction", pickup)
+        self.assertIn("RMB / X: Cast", hud)
+        self.assertIn("RMB / X: Hook", hud)
+        self.assertNotIn("F / X: Cast", hud)
+
     def test_regional_water_layout(self):
         from deep_waters_layout import regional_water_plan
         ids=set()

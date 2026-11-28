@@ -2912,12 +2912,12 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("CAUGHT %d | RANK %d/10"),Preview->GetOceanCatchCount(),
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolId>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
-      bBite?TEXT("BITE! N / X: Hook"):
+      bBite?TEXT("BITE! RMB / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
       (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch unavailable")):
-      TEXT("Face water | N / X: Cast");
-   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! N / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
+      TEXT("Aim at water | RMB / X: Cast");
+   FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! RMB / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
    if(bCatchNotice) {
     const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
@@ -3228,14 +3228,14 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->HasDiscoveredShrine(FName(TEXT("sanctuary_firstlight")))) {
     const int32 GuideQuest = Hero->GetResidentQuestState(FName(TEXT("CrossroadsGuide")));
     if (GuideQuest == 0) {
-     Objective = TEXT("Talk to the Wandering Guide (right-click)");
+     Objective = TEXT("Talk to the Wandering Guide (right-click / D-pad Up)");
      Context = TEXT("Accept the Guide's salvage contract");
     } else if (GuideQuest == 1) {
      // Practice sentries award XP, not salvage. Obtain world gear and dismantle
      // it in the inventory to complete this existing quest.
      constexpr int32 GuideSalvageCost = 10;
      Objective = Hero->Salvage >= GuideSalvageCost
-       ? TEXT("Return to the Guide with 10 salvage (right-click)")
+       ? TEXT("Return to the Guide with 10 salvage (right-click / D-pad Up)")
        : FString::Printf(TEXT("Find gear; salvage it in B (%d / 10)"),
            FMath::Clamp(Hero->Salvage, 0, GuideSalvageCost));
      Context = Hero->Salvage >= GuideSalvageCost
