@@ -206,6 +206,15 @@ int main() {
     assert(Supplies.Collect(0,1,180));
     assert(Workshop.AvailableMaterials(Supplies)==1);
     using namespace MoonfallFishing;
+    assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
+    assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));
+    assert(!InCastRange(std::numeric_limits<double>::quiet_NaN(),850.f));
+    FSession BoundaryCast;
+    assert(BoundaryCast.Start(5,2));
+    assert(!BoundaryCast.Hook(6.999));
+    assert(BoundaryCast.Hook(7) && BoundaryCast.Stage==EStage::Reeling);
+    assert(!BoundaryCast.Hook(7.1));
+    assert(BoundaryCast.Advance(8.5,true));
     FSession Cast;
     assert(!Cast.Start(0,1));
     assert(Cast.Start(10,3));
