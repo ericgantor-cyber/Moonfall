@@ -308,9 +308,27 @@ int main() {
     assert(NewRead.Decode(NewLedger,MoonfallProfessionLedger::RegionalCount));
     assert(NewRead.Workshop.CookingCrafts==0 && NewRead.Workshop.ContractCount()==0);
     assert(NewRead.Regions.Complete(0));
-    NewLedger[MoonfallProfessionLedger::Count-1]=2;
+    NewLedger[MoonfallProfessionLedger::WorkshopCount-1]=2;
     assert(!NewRead.Decode(NewLedger,MoonfallProfessionLedger::Count));
     assert(NewRead.Workshop.ContractCount()==0);
+    MoonfallProfessionLedger::FSnapshot TreasureSave,TreasureRead;
+    for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+        assert(!TreasureSave.Regions.Treasure(I));
+        assert(TreasureSave.Regions.Visit(I));
+        assert(TreasureSave.Regions.Treasure(I));
+        assert(!TreasureSave.Regions.Treasure(I));
+    }
+    assert(TreasureSave.Regions.TreasureCount()==9);
+    assert(!TreasureSave.Regions.Treasure(9));
+    int TreasureLedger[MoonfallProfessionLedger::Count]={};
+    TreasureSave.Encode(TreasureLedger);
+    assert(TreasureRead.Decode(TreasureLedger,MoonfallProfessionLedger::Count));
+    assert(TreasureRead.Regions.TreasureCount()==9);
+    assert(TreasureRead.Decode(TreasureLedger,MoonfallProfessionLedger::WorkshopCount));
+    assert(TreasureRead.Regions.TreasureCount()==0);
+    TreasureLedger[MoonfallProfessionLedger::Count-1]=512;
+    assert(!TreasureRead.Decode(TreasureLedger,MoonfallProfessionLedger::Count));
+    assert(TreasureRead.Regions.TreasureCount()==0);
     MoonfallProfessionLedger::FSnapshot Snapshot,Restored;
     Snapshot.Gathering=BaitMaterials; Snapshot.Workshop=BaitWorkshop;
     Snapshot.Gathering.Catch(0,0,0,true,0);
@@ -333,7 +351,7 @@ int main() {
     Ledger[4]=100;
     assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::Count));
     assert(Restored.Gathering.HasLegendary(0));
-    assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::Count-1));
+    assert(!Restored.Decode(Ledger,MoonfallProfessionLedger::WorkshopCount-1));
     assert(Workshop.RemainingMaterial(0,Supplies)==1 && Workshop.RemainingMaterial(-1,Supplies)==0);
     MoonfallOceanGathering::FCollection SchoolCatch;
     assert(SchoolCatch.Catch(0,0,2) && SchoolCatch.Species(2)==1);
