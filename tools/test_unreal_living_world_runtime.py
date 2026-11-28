@@ -668,7 +668,7 @@ int main(){
         trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
             "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
         for guard in ("HasAuthority()","CanHeroInteract(this)","IsRecentlyInCombatForAmbientAI()",
-                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","InventoryItemCodes.Num()>=10000"):
+                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","!HasBagRoom()"):
             self.assertIn(guard,trade)
         self.assertIn("InventoryItemCodes.RemoveAt(Index)",trade)
         self.assertIn("InventoryItemCodes.Add(Old)",trade)
