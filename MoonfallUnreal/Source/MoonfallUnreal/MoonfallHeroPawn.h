@@ -532,7 +532,9 @@ public:
  bool HasBagRoom() const {return MoonfallMoney::BagHasRoom(InventoryItemCodes.Num(),BagCapacity);}
  int32 PendingBagUpgradeCapacity=0;
  double BagUpgradeConfirmAfter=0.0;
+ int64 PendingBagUpgradeWallet=-1;
  FString GetBagUpgradeText() const;
+ bool IsBagUpgradeConfirmationCurrent() const;
  bool ConfirmBagUpgrade();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> VaultItemCodes;
  bool bResidentVaultMenu=false,bVaultWithdraw=false;
