@@ -88,6 +88,9 @@ public:
  // Camera depth drives presentation independently of the hero's breathing.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float WaterCameraDepth = 0.f;
+ // Eye depth for readable navigation, independent of camera placement.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterBreathingDepth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float WaterStrokeSpeed = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
