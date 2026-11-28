@@ -7,9 +7,18 @@ class EquipmentStatSafety(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = SOURCE.read_text(encoding="utf-8")
+    def test_set_preview_cache_tracks_selection_and_loadout(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        preview = hud.split("const uint64 SetLoadout", 1)[1].split("DrawText(CachedSetPreviewLine,", 1)[0]
+        for token in ("CachedSetPreviewHero.Get()!=Hero", "CachedSetPreviewLoadout!=SetLoadout",
+                      "CachedSetPreviewRevision!=SetRevision", "CachedSetPreviewCode!=SelectedCode",
+                      "SetNow-SetPreviewUpdatedAt>=0.25", "if(bRefreshSet)",
+                      "CachedSetPreviewLine=SetLine"):
+            self.assertIn(token, preview)
+
     def test_set_preview_reports_gains_and_losses(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        preview = hud.split("FString SetChanges;", 1)[1].split("DrawText(SetLine,", 1)[0]
+        preview = hud.split("FString SetChanges;", 1)[1].split("DrawText(CachedSetPreviewLine,", 1)[0]
         for token in ("Trait<=3", "Threshold<=3", "GetSetPieceCount(Trait)",
                       "GetProjectedSetPieceCount(Trait,SelectedCode)",
                       "(Current>=Threshold)==(Projected>=Threshold)",
