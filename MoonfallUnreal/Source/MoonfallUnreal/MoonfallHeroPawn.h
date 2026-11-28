@@ -82,9 +82,11 @@ public:
  float NextFishingSchoolScan=0.f;
  void RefreshFishingSchools(float Now);
  bool CanContinueFishing() const;
- bool TryFishingAction(const FVector* RequestedWater=nullptr);
+ bool TryFishingAction();
  bool TryMouseFishingAction();
- void FishingAction() { TryFishingAction(); }
+ void FishingAction();
+ TWeakObjectPtr<class APlayerController> FishingPointerOwner;
+ void ReleaseFishingPointer();
  void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bWaterSwimming = false;
