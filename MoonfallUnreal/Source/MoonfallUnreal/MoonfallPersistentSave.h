@@ -69,6 +69,8 @@ public:
  UPROPERTY() int32 Level = 1;
  UPROPERTY() int32 Experience = 0;
  UPROPERTY() int32 Salvage = 0;
+ // Additive, tagged economy field; missing in older saves defaults to zero.
+ UPROPERTY() int64 WalletCopper = 0;
  UPROPERTY() float MaxHealth = 100.f;
  UPROPERTY() TArray<int32> InventoryItemCodes;
  UPROPERTY() int32 EquippedWeaponCode = 0;
