@@ -2976,6 +2976,29 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(Hero->WaterTonicRemaining > 0.f ? FString::Printf(TEXT("WATER BREATHING %ds"),FMath::CeilToInt(Hero->WaterTonicRemaining)) : Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),(Hero->bInsideAirPocket || Hero->WaterTonicRemaining > 0.f) ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
   DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
   DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
+  // Screen-space exhalation cue, independent of collision and oxygen rules.
+  // Keep bubbles inside the breathing panel: never obscure combat targets.
+  if (Hero->bWaterSubmerged && !Hero->bInsideAirPocket
+      && FMath::IsFinite(Hero->Health) && Hero->Health>0.f && GetWorld()) {
+   const int32 BubbleCount=Hero->bReduceMotion?1:Air<=20.f?3:Air<=55.f?2:1;
+   const float Now=GetWorld()->GetTimeSeconds();
+   if (FMath::IsFinite(Now)) {
+    for(int32 I=0;I<BubbleCount;++I) {
+     const float Phase=Hero->bReduceMotion?0.5f:
+         FMath::Frac(Now*(Air<=20.f?1.25f:0.55f)+float(I)*0.31f);
+     const float BX=X+W-13.f-float(I)*10.f;
+     const float BY=Y+26.f-Phase*3.f;
+     const float Radius=2.5f;
+     const FLinearColor Ink=Air<=20.f?FLinearColor(1.f,0.82f,0.66f):
+         FLinearColor(0.8f,0.98f,1.f);
+     for(int32 J=0;J<8;++J) {
+      const float A=2.f*PI*float(J)/8.f, B=2.f*PI*float(J+1)/8.f;
+      Canvas->K2_DrawLine(FVector2D(BX+Radius*FMath::Cos(A),BY+Radius*FMath::Sin(A)),
+          FVector2D(BX+Radius*FMath::Cos(B),BY+Radius*FMath::Sin(B)),1.f,Ink);
+     }
+    }
+   }
+  }
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+33.f,nullptr,0.76f);
   const TCHAR* WaterTip=Hero->bInsideAirPocket?TEXT("Air pocket: breathe here"):
       Air<=20.f?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
