@@ -191,6 +191,9 @@ public:
  bool SellMerchantItem();
  int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackCode=0;
  int64 MerchantBuybackPrice=0;
+ int32 MerchantStockFaction=0,MerchantStockStanding=0;
+ int32 GetMerchantStockCount() const;
+ FString GetMerchantStandingText() const;
  int32 GetMerchantStockCode() const;
  int64 GetMerchantTradeQuote() const;
  FString GetMerchantTradeItemText() const;

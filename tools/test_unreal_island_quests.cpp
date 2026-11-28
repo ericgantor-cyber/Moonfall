@@ -220,6 +220,17 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::SpecialtySlot(1)==0&&MoonfallMoney::SpecialtySlot(2)==1&&MoonfallMoney::SpecialtySlot(3)==8);
+    assert(MoonfallMoney::SpecialtyRarity(25,40)==2&&MoonfallMoney::SpecialtyRarity(24,40)==1);
+    assert(MoonfallMoney::SpecialtyRarity(25,39)==1&&MoonfallMoney::SpecialtyRarity(1,100)==0);
+    assert(MoonfallMoney::ReputationPricePercent(80)==80&&MoonfallMoney::ReputationPricePercent(-40)==120);
+    for(int Standing=-100;Standing<=100;++Standing){
+      for(int Tier=1;Tier<=25;++Tier){
+        const auto Sale=MoonfallMoney::GearSalePrice(Tier,2,1);
+        const auto Buy=MoonfallMoney::FactionPurchasePrice(Tier,2,1,Standing);
+        assert(Buy>Sale&&Buy<=Sale*4);
+      }
+    }
     assert(MoonfallMoney::VendorTier(1)==1&&MoonfallMoney::VendorTier(100)==20);
     assert(MoonfallMoney::VendorTier(0)==0&&MoonfallMoney::VendorTier(101)==0);
     assert(MoonfallMoney::TradeMode(0)==1&&MoonfallMoney::TradeMode(1)==2&&MoonfallMoney::TradeMode(2)==0);

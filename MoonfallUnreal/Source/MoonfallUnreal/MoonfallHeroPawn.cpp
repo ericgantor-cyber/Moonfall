@@ -7022,9 +7022,22 @@ bool AMoonfallHeroPawn::SellMerchantItem() {
  SelectMerchantSaleItem(0);
  return true;
 }
+int32 AMoonfallHeroPawn::GetMerchantStockCount() const {
+ return MoonfallEquipmentLayout::ActiveSlotCount+1;
+}
 int32 AMoonfallHeroPawn::GetMerchantStockCode() const {
- if(MerchantStockIndex<0||MerchantStockIndex>=MoonfallEquipmentLayout::ActiveSlotCount)return 0;
- return MoonfallEquipmentLayout::EncodeFullItem(MerchantStockIndex,0,0,MoonfallMoney::VendorTier(MerchantStockLevel));
+ const int32 Count=MoonfallEquipmentLayout::ActiveSlotCount;
+ const int32 Tier=MoonfallMoney::VendorTier(MerchantStockLevel);
+ if(MerchantStockIndex<0||MerchantStockIndex>Count||Tier<=0)return 0;
+ if(MerchantStockIndex<Count)return MoonfallEquipmentLayout::EncodeFullItem(MerchantStockIndex,0,0,Tier);
+ const int32 Slot=MoonfallMoney::SpecialtySlot(MerchantStockFaction);
+ const int32 Rarity=MoonfallMoney::SpecialtyRarity(MerchantStockLevel,MerchantStockStanding);
+ return MoonfallEquipmentLayout::EncodeFullItem(Slot<Count?Slot:2,Rarity?MoonfallMoney::SpecialtyTrait(MerchantStockFaction):0,Rarity,Tier);
+}
+FString AMoonfallHeroPawn::GetMerchantStandingText() const {
+ const int32 Percent=MoonfallMoney::ReputationPricePercent(MerchantStockStanding);
+ return Percent<100?FString::Printf(TEXT("Faction discount %d%%"),100-Percent):
+  Percent>100?FString::Printf(TEXT("Faction surcharge %d%%"),Percent-100):FString(TEXT("Standard prices"));
 }
 int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu)return 0;
@@ -7032,7 +7045,7 @@ int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
  if(MerchantTradeMode==2)return ValidMoonfallItemCode(MerchantBuybackCode)&&MoonfallMoney::Valid(MerchantBuybackPrice)?MerchantBuybackPrice:0;
  if(MerchantTradeMode!=1)return 0;
  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(GetMerchantStockCode());
- return Item.IsValid()?MoonfallMoney::GearPurchasePrice(Item.Tier,Item.Rarity,Item.Trait):0;
+ return Item.IsValid()?MoonfallMoney::FactionPurchasePrice(Item.Tier,Item.Rarity,Item.Trait,MerchantStockStanding):0;
 }
 FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
  if(MerchantTradeMode==0)return GetMerchantSaleItemText();
@@ -7041,7 +7054,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
  static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
  static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
  static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
- return FString::Printf(TEXT("%s T%d %s %s"),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+ return FString::Printf(TEXT("%s%s T%d %s %s"),MerchantTradeMode==1&&MerchantStockIndex==MoonfallEquipmentLayout::ActiveSlotCount?TEXT("Special: "):TEXT(""),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  const int64 Price=GetMerchantTradeQuote();
@@ -7411,7 +7424,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   if(Choice==0||Choice==1){
    if(MerchantTradeMode==0)SelectMerchantSaleItem(Choice==0?-1:1);
    else if(MerchantTradeMode==1){
-    const int32 Count=MoonfallEquipmentLayout::ActiveSlotCount;
+    const int32 Count=GetMerchantStockCount();
     MerchantStockIndex=(FMath::Clamp(MerchantStockIndex,0,Count-1)+(Choice==0?-1:1)+Count)%Count;
    }
    return true;
@@ -7559,6 +7572,9 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  if(Choice==3&&CanOpenCoinMerchant()){
   bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
   MerchantTradeMode=0;MerchantStockIndex=0;MerchantStockLevel=Level;
+  MerchantStockStanding=GetFactionReputation(Resident->FactionId);
+  MerchantStockFaction=Resident->FactionId==FName(TEXT("AshenClans"))?1:
+    Resident->FactionId==FName(TEXT("StoneHearth"))?2:Resident->FactionId==FName(TEXT("Wanderers"))?3:0;
   SelectMerchantSaleItem(0);ResidentContextSelection=0;return true;
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
