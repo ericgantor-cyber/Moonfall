@@ -1986,8 +1986,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
 {
  const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
@@ -3744,6 +3744,7 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
 void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ ReleaseFishingPointer();
  // Normal teardown removes only this pawn's own recovery snapshot.
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
  if (!RecoverySnapshotPath.IsEmpty()) {
@@ -4691,7 +4692,30 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
  }
 }
 
+void AMoonfallHeroPawn::FishingAction() {
+ const bool bWasIdle=Fishing.Stage==MoonfallFishing::EStage::Idle;
+ if(!TryFishingAction()||!bWasIdle||Fishing.Stage!=MoonfallFishing::EStage::Waiting||!IsLocallyControlled()) return;
+ // Keyboard fishing owns a free pointer only while waiting for or hooking a bite.
+ if(auto* PC=Cast<APlayerController>(Controller)) {
+  if(!PC->bShowMouseCursor) {
+   FishingPointerOwner=PC;
+   FInputModeGameAndUI Mode;
+   Mode.SetHideCursorDuringCapture(false);
+   PC->SetInputMode(Mode);
+   PC->bShowMouseCursor=true;
+  }
+ }
+}
+void AMoonfallHeroPawn::ReleaseFishingPointer() {
+ auto* PC=FishingPointerOwner.Get();
+ FishingPointerOwner.Reset();
+ if(!IsValid(PC)||PC->GetPawn()!=this) return;
+ PC->SetInputMode(FInputModeGameOnly());
+ // A menu/dialogue may have opened while the fishing session ended.
+ PC->bShowMouseCursor=bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen||bResidentContextOpen||FocusedResident.IsValid();
+}
 void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
+ if(Fishing.Stage==MoonfallFishing::EStage::Idle||Fishing.Stage==MoonfallFishing::EStage::Reeling) ReleaseFishingPointer();
  const int32 Next=static_cast<int32>(Fishing.Stage);
  if(FishingVisualStage==Next&&!bCaught) return;
  FishingVisualStage=Next;
