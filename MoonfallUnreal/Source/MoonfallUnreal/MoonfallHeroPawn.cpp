@@ -3676,8 +3676,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
-  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
-  KeepInventorySelectionVisible();
+  ReconcileCraftedInventorySelection();
  }
  bInventoryOpen = !bInventoryOpen;
  if(!bInventoryOpen)CloseInventorySearch();
@@ -4185,7 +4184,7 @@ void AMoonfallHeroPawn::OptionsUp() {
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
-  if(CurrentRow<=0&&CanFocusRingNavigation()){
+  if((CurrentRow==0||DisplayOrder.IsEmpty())&&CanFocusRingNavigation()){
    ClearRingPointerDrag();
    RingNavigationIndex=0;
    return;
@@ -4637,7 +4636,6 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // The paginated inventory supports growth beyond the former 30-slot limit.
  const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
  MarkEquipmentInventoryDirty();
- InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
   MarkEquipmentInventoryDirty();
@@ -4649,6 +4647,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
   LastLootUpgrade = OldLootUpgrade;
   return;
  }
+ ReconcileCraftedInventorySelection();
  SecondsSinceLastWorldSave = 0.f;
  // Rewards are inventory choices only. Never auto-equip scripted drops;
  // the player chooses when to change weapon, armor, or accessory.
@@ -7850,7 +7849,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
   if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
-   KeepInventorySelectionVisible();
+   ReconcileCraftedInventorySelection();
    return;
   }
   if (HitTestInventoryEquipButton()) {
