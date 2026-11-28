@@ -4248,6 +4248,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
+ if(bResidentContextOpen){NavigateResidentContextHorizontal(-1);return;}
  if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(-1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
@@ -4276,6 +4277,7 @@ void AMoonfallHeroPawn::OptionsRight() {
  }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
+ if(bResidentContextOpen){NavigateResidentContextHorizontal(1);return;}
  if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
@@ -7648,6 +7650,20 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if(CanOpenCoinMerchant())return 4;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
+}
+bool AMoonfallHeroPawn::NavigateResidentContextHorizontal(int32 Direction) {
+ if(!bResidentContextOpen||bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen)return false;
+ if(!FocusedResident.IsValid()||!FocusedResident->CanHeroInteract(this)){
+  CloseResidentContext();return false;
+ }
+ if(!bResidentMerchantMenu||bResidentVaultMenu||MerchantTradeMode!=0)return false;
+ if(Direction==-1&&(ResidentContextSelection==1||ResidentContextSelection==8)){
+  --ResidentContextSelection;
+ }else if(Direction==1&&(ResidentContextSelection==0||ResidentContextSelection==7)){
+  ++ResidentContextSelection;
+ }else return false;
+ bResidentTurnInPending=false;
+ return true; // Focus movement only: never execute a trade.
 }
 int32 AMoonfallHeroPawn::GetResidentContextVisualRowCount() const {
  return bResidentMerchantMenu&&!bResidentVaultMenu&&MerchantTradeMode==0?7:GetResidentContextRowCount();
