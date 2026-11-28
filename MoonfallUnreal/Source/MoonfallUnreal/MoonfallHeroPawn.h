@@ -637,6 +637,7 @@ public:
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
  void ReconcileCraftedInventorySelection();
+ void ReconcileRemovedInventorySelection(int32 RemovedIndex);
  // Read-only pointer hit test sharing the inventory Canvas row geometry.
  int32 HitTestInventoryRow() const;
  bool HitTestInventoryBagDropSurface() const;

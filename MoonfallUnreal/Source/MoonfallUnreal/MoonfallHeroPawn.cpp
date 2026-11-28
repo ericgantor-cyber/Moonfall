@@ -1822,6 +1822,16 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
  return FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20);
 }
 
+void AMoonfallHeroPawn::ReconcileRemovedInventorySelection(int32 RemovedIndex)
+{
+ // Only call after a committed removal. Never retarget a removed selection.
+ if(RemovedIndex!=INDEX_NONE){
+  if(InventorySelection==RemovedIndex)InventorySelection=INDEX_NONE;
+  else if(InventorySelection>RemovedIndex)--InventorySelection;
+ }
+ ReconcileCraftedInventorySelection();
+}
+
 void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()
 {
  // Crafting may change the selected item's rarity, trait or tier. Never
@@ -3725,8 +3735,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  Salvage = SafeBalance + FMath::Min(SalvageReward, MaxSalvage - SafeBalance);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  MarkEquipmentInventoryDirty();
- if (InventorySelection > InventoryIndex) --InventorySelection;
- KeepInventorySelectionVisible();
+ ReconcileRemovedInventorySelection(InventoryIndex);
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
@@ -7347,7 +7356,7 @@ bool AMoonfallHeroPawn::SellMerchantItem() {
   MarkEquipmentInventoryDirty();
   return false;
  }
- InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ ReconcileRemovedInventorySelection(Index);
  MerchantBuybackIndex=0;
  SelectMerchantSaleItem(0);
  return true;
@@ -7494,7 +7503,7 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
   return false;
  }
  if(bBuyback)MerchantBuybackIndex=FMath::Clamp(MerchantBuybackIndex,0,FMath::Max(0,GetMerchantBuybackHistory().Count-1));
- InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ ReconcileCraftedInventorySelection();
  return true;
 }
 FString AMoonfallHeroPawn::GetBagUpgradeText() const {
@@ -7581,8 +7590,7 @@ bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
  MarkEquipmentInventoryDirty();
  if(!SaveWorldProgress()){Destination.RemoveAt(Added);Source.Insert(Code,Index);MarkEquipmentInventoryDirty();ResidentFeedbackMessage=TEXT("Storage save failed; item restored.");ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
  VaultSelection=FMath::Clamp(VaultSelection,0,FMath::Max(0,Source.Num()-1));
- InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
- KeepInventorySelectionVisible();
+ ReconcileRemovedInventorySelection(bVaultWithdraw?INDEX_NONE:Index);
  ResidentFeedbackMessage=bVaultWithdraw?TEXT("Item withdrawn and saved."):TEXT("Item stored and saved.");
  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
  return true;
@@ -8316,7 +8324,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
   else CompanionGear.Add(Id,Previous);
   return false;
  }
- InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ ReconcileRemovedInventorySelection(Index);
  return true;
 }
 bool AMoonfallHeroPawn::CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next){
