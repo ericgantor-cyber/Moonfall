@@ -85,5 +85,13 @@ int main() {
 
     std::cout << "NORTHERN EXPANSE GEOMETRY POLICY PASS: 9 hubs, "
               << observedEdges << " road connections, 18 landmarks" << std::endl;
+    for(int A=0;A<N::ZoneCount;++A) for(int B=0;B<N::ZoneCount;++B) {
+        const auto S=N::RoadSign(A,B);
+        if(!N::Linked(A,B)) { assert(S.From==-1 && S.To==-1); continue; }
+        assert(S.From==A && S.To==B);
+        assert(S.DX!=0 || S.DY!=0);
+        assert(S.X==N::ContinentCenters[A].Xcm+S.DX*.12);
+        assert(S.Y==N::ContinentCenters[A].Ycm+S.DY*.12);
+    }
     return 0;
 }

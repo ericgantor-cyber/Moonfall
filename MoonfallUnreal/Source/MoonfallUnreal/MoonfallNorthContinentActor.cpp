@@ -55,6 +55,16 @@ AMoonfallNorthContinentActor::AMoonfallNorthContinentActor() {
   Sign->SetWorldSize(86.f);
   ProvinceSigns.Add(Sign);
  }
+ for(int32 I=0;I<2*MoonfallNorth::RoadEdgeCount();++I) {
+  auto* Sign=CreateDefaultSubobject<UTextRenderComponent>(FName(*FString::Printf(TEXT("NorthernRoadDirection_%d"),I)));
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetGenerateOverlapEvents(false);
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(65.f);
+  Sign->SetTextRenderColor(FColor(239,222,176));
+  RoadDirectionSigns.Add(Sign);
+ }
 }
 void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
  Super::OnConstruction(Transform);
@@ -111,6 +121,8 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
      static_cast<float>(P.Xcm),static_cast<float>(P.Ycm),220.f));
   }
  }
+ for(UTextRenderComponent* Sign:RoadDirectionSigns) if(IsValid(Sign)) Sign->SetText(FText::GetEmpty());
+ int32 DirectionIndex=0;
  // One road per undirected graph edge: no duplicated bridges or actor ticks.
  for (int32 A=0; A<MoonfallNorth::ZoneCount; ++A) {
   for (int32 B=A+1; B<MoonfallNorth::ZoneCount; ++B) {
@@ -126,6 +138,19 @@ void AMoonfallNorthContinentActor::OnConstruction(const FTransform& Transform) {
    const FRotator Rotation(0.f,FMath::RadiansToDegrees(FMath::Atan2(DY,DX)),0.f);
    ProvinceRoads->AddInstance(FTransform(Rotation,Midpoint,
      FVector(Length/100.f,MoonfallNorth::RoadHalfWidthCm/50.f,0.4f)));
+   for(int32 Side=0;Side<2;++Side) {
+    const int32 From=Side==0?A:B,To=Side==0?B:A;
+    const auto Cue=MoonfallNorth::RoadSign(From,To);
+    const int32 Index=DirectionIndex++;
+    if(!bEnableRoadDirections||!RoadDirectionSigns.IsValidIndex(Index)) continue;
+    if(auto* Sign=RoadDirectionSigns[Index].Get()) {
+     const FVector Along=FVector(Cue.DX,Cue.DY,0).GetSafeNormal();
+     const FVector Across(-Along.Y,Along.X,0);
+     Sign->SetRelativeLocation(FVector(Cue.X,Cue.Y,250)+Across*320.f);
+     Sign->SetRelativeRotation((-Along).Rotation());
+     Sign->SetText(FText::FromString(FString::Printf(TEXT("ROAD TO %s\n%s"),UTF8_TO_TCHAR(MoonfallNorth::Zones[To].Name),UTF8_TO_TCHAR(MoonfallNorth::Zones[To].Hub))));
+    }
+   }
   }
  }
  // Fixed decorative silhouettes per biome: 18 non-colliding instances total.
