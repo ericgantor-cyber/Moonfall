@@ -1862,21 +1862,35 @@ void AMoonfallHeroPawn::RefreshAirPocketGuide()
  Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAirGuide),false,this);
  World->OverlapMultiByObjectType(Hits,Eye,FQuat::Identity,Objects,FCollisionShape::MakeSphere(1200.f),Params);
- double BestSq=FMath::Square(1200.0);
- FVector BestCenter=FVector::ZeroVector;
+ struct FGuideCandidate {
+  AMoonfallAirPocket* Pocket;
+  FVector Center;
+  double EdgeDistance;
+ };
+ TArray<FGuideCandidate> Candidates;
+ TSet<AMoonfallAirPocket*> Seen;
  for (const FOverlapResult& Hit:Hits) {
   auto* Pocket=Cast<AMoonfallAirPocket>(Hit.GetActor());
   FVector Center; float Radius=0.f;
-  if (!IsValid(Pocket) || !Pocket->GetBreathingSphere(Center,Radius) || !Bounds.IsInsideOrOn(Center)) continue;
-  const double DistanceSq=FVector::DistSquared(Eye,Center);
-  if (FMath::IsFinite(DistanceSq) && DistanceSq<BestSq) {
-   BestSq=DistanceSq; BestCenter=Center; GuidedAirPocket=Pocket;
-  }
+  if (!IsValid(Pocket) || Seen.Contains(Pocket)
+      || !Pocket->GetBreathingSphere(Center,Radius) || !Bounds.IsInsideOrOn(Center)) continue;
+  Seen.Add(Pocket);
+  const double Edge=MoonfallWaterRules::GuideEdgeDistance(FVector::Dist(Eye,Center),Radius);
+  if (Edge>=0.0) Candidates.Add({Pocket,Center,Edge});
  }
- if (auto* Pocket=GuidedAirPocket.Get()) {
-  Params.AddIgnoredActor(Pocket);
+ Candidates.Sort([](const FGuideCandidate& A,const FGuideCandidate& B) {
+  return A.EdgeDistance<B.EdgeDistance;
+ });
+ // Try the closest eight candidates, not just the closest obstructed one.
+ for (int32 I=0;I<FMath::Min(Candidates.Num(),8);++I) {
+  const auto& Candidate=Candidates[I];
+  FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallAirGuideSight),false,this);
+  SightParams.AddIgnoredActor(Candidate.Pocket);
   FHitResult Hit;
-  if (World->LineTraceSingleByChannel(Hit,Eye,BestCenter,ECC_Visibility,Params)) GuidedAirPocket.Reset();
+  if (!World->LineTraceSingleByChannel(Hit,Eye,Candidate.Center,ECC_Visibility,SightParams)) {
+   GuidedAirPocket=Candidate.Pocket;
+   break;
+  }
  }
 }
 
