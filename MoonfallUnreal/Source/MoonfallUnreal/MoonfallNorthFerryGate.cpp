@@ -403,10 +403,14 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // A Blueprint can cancel a trip synchronously (for example, closing the
  // travel UI, changing level or disabling the harbor). Never publish a
  // countdown or report boarding success after that cancellation.
- if (!bAutoVoyageInProgress || PendingVoyager.Get() != Hero
-     || !IsValid(PendingShip.Get()) || PendingShip.Get() != SailingVessel)
+ if (!bAutoVoyageInProgress ||
+     (PendingVoyager.IsValid() && PendingVoyager.Get() != Hero))
   return false;
- if (!HasConfiguredPassage() || !IsValid(PairedGate)
+ // A still-active trip with a destroyed passenger or replaced ship
+ // needs full cancellation, not a false result with its timer running.
+ if (!IsValid(PendingVoyager.Get()) || !IsValid(PendingShip.Get())
+     || PendingShip.Get() != SailingVessel
+     || !HasConfiguredPassage() || !IsValid(PairedGate)
      || PendingArrivalGate.Get() != PairedGate
      || PairedGate->PairedGate != this
      || PendingTargetShip.Get() != PairedGate->SailingVessel
@@ -422,8 +426,10 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  UpdateVoyagePresentation(Hero, 0.f);
  // The progress event can also change an enabled harbor into an invalid
  // route before this call returns. End it now, not on a later timer tick.
- if (bAutoVoyageInProgress && PendingVoyager.Get() == Hero &&
-     (!HasConfiguredPassage() || !IsValid(PairedGate)
+ if (bAutoVoyageInProgress &&
+     (!PendingVoyager.IsValid() || PendingVoyager.Get() == Hero) &&
+     (!PendingVoyager.IsValid() || !IsValid(PendingShip.Get())
+     || !HasConfiguredPassage() || !IsValid(PairedGate)
      || PendingArrivalGate.Get() != PairedGate
      || PendingShip.Get() != SailingVessel
      || PendingTargetShip.Get() != PairedGate->SailingVessel
@@ -490,10 +496,12 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  // User Blueprint progress hooks may synchronously disable the harbor,
  // replace its ship, change a menu or cancel this voyage. Never complete
  // arrival using stale actor pointers after such a hook has executed.
- if (!bAutoVoyageInProgress || !IsValid(Hero) || PendingVoyager.Get() != Hero
-     || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival)
+ if (!bAutoVoyageInProgress ||
+     (PendingVoyager.IsValid() && PendingVoyager.Get() != Hero))
   return;
- if (!HasConfiguredPassage() || !IsValid(Arrival) || !IsValid(Ship)
+ if (!IsValid(Hero) || !PendingVoyager.IsValid()
+     || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival
+     || !HasConfiguredPassage() || !IsValid(Arrival) || !IsValid(Ship)
      || PairedGate != Arrival || Arrival->PairedGate != this
      || SailingVessel != Ship || Arrival->SailingVessel != PendingTargetShip.Get()
      || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
