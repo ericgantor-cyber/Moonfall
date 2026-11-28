@@ -3379,11 +3379,11 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f) return;
  if (!bInventoryOpen) {
-  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
@@ -3676,11 +3676,11 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
-  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   SwordBuffer.Clear(); // Menu entry cancels a queued attack.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
