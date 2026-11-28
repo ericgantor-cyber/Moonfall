@@ -212,6 +212,7 @@ public:
  int64 MerchantConfirmPrice=0;
  uint32 MerchantConfirmRevision=0;
  double MerchantConfirmAfter=0.0;
+ uint64 MerchantConfirmLoadout=0;
  void ClearMerchantConfirmation();
  bool IsMerchantConfirmationCurrent() const;
  FString GetMerchantTradeStatusText() const;
