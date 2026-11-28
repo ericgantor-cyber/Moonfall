@@ -220,6 +220,19 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::VendorTier(1)==1&&MoonfallMoney::VendorTier(100)==20);
+    assert(MoonfallMoney::VendorTier(0)==0&&MoonfallMoney::VendorTier(101)==0);
+    assert(MoonfallMoney::TradeMode(0)==1&&MoonfallMoney::TradeMode(1)==2&&MoonfallMoney::TradeMode(2)==0);
+    for(int Tier=1;Tier<=25;++Tier)for(int Rarity=0;Rarity<=5;++Rarity)for(int Trait=0;Trait<=3;++Trait){
+      const auto Sell=MoonfallMoney::GearSalePrice(Tier,Rarity,Trait);
+      const auto Buy=MoonfallMoney::GearPurchasePrice(Tier,Rarity,Trait);
+      assert(Sell==0?Buy==0:Buy>Sell);
+      if(Sell>0){
+        MoonfallMoney::FWallet Trade{Buy};
+        assert(Trade.Debit(Buy)&&Trade.Credit(Sell)&&Trade.Copper<Buy);
+        assert(Trade.Debit(Sell)&&Trade.Copper==0);
+      }
+    }
     using namespace MoonfallFishing;
     assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
     assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));
