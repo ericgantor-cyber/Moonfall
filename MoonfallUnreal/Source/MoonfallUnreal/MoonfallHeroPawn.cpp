@@ -1986,8 +1986,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (FishingPointerOwner.IsValid()) return; if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return; if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ApplyConfirmedHitFeedback(float Now, float Damage, bool bBoss, bool bLethal)
 {
  const auto Feedback = MoonfallImpactFeedback::ConfirmedHit(
@@ -3744,6 +3744,7 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
 void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ ReleaseFishingPointer();
  // Normal teardown removes only this pawn's own recovery snapshot.
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
  if (!RecoverySnapshotPath.IsEmpty()) {
@@ -4691,7 +4692,30 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
  }
 }
 
+void AMoonfallHeroPawn::FishingAction() {
+ const bool bWasIdle=Fishing.Stage==MoonfallFishing::EStage::Idle;
+ if(!TryFishingAction()||!bWasIdle||Fishing.Stage!=MoonfallFishing::EStage::Waiting||!IsLocallyControlled()) return;
+ // Keyboard fishing owns a free pointer only while waiting for or hooking a bite.
+ if(auto* PC=Cast<APlayerController>(Controller)) {
+  if(!PC->bShowMouseCursor) {
+   FishingPointerOwner=PC;
+   FInputModeGameAndUI Mode;
+   Mode.SetHideCursorDuringCapture(false);
+   PC->SetInputMode(Mode);
+   PC->bShowMouseCursor=true;
+  }
+ }
+}
+void AMoonfallHeroPawn::ReleaseFishingPointer() {
+ auto* PC=FishingPointerOwner.Get();
+ FishingPointerOwner.Reset();
+ if(!IsValid(PC)||PC->GetPawn()!=this) return;
+ PC->SetInputMode(FInputModeGameOnly());
+ // A menu/dialogue may have opened while the fishing session ended.
+ PC->bShowMouseCursor=bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen||bResidentContextOpen||FocusedResident.IsValid();
+}
 void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
+ if(Fishing.Stage==MoonfallFishing::EStage::Idle||Fishing.Stage==MoonfallFishing::EStage::Reeling) ReleaseFishingPointer();
  const int32 Next=static_cast<int32>(Fishing.Stage);
  if(FishingVisualStage==Next&&!bCaught) return;
  FishingVisualStage=Next;
@@ -4715,7 +4739,7 @@ void AMoonfallHeroPawn::CancelFishingWithFeedback() {
  SyncFishingPresentation();
 }
 
-bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
+bool AMoonfallHeroPawn::TryFishingAction() {
  if (!CanContinueFishing()) { CancelFishingWithFeedback(); return false; }
  const float Now=GetWorld()->GetTimeSeconds();
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
@@ -4727,7 +4751,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  if (!IsValid(Preview) || !Preview->CanCatchOceanFish()) return false;
  const FVector Start=GetPawnViewLocation();
  const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
- if(Start.ContainsNaN()||(!RequestedWater&&Forward.IsNearlyZero())||(RequestedWater&&RequestedWater->ContainsNaN())) return false;
+ if(Start.ContainsNaN()||Forward.IsNearlyZero()) return false;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
  FishingSchoolId=-1;
  FishingProvince=-1;
@@ -4735,7 +4759,6 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  FVector BestSchool=FVector::ZeroVector;
  const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
  double BestDistance=FMath::Square(MaxReach);
- double BestClickDistance=FMath::Square(120.f);
  int32 BestSchoolId=-1;
  int32 BestProvince=-1;
  APhysicsVolume* BestVolume=nullptr;
@@ -4744,23 +4767,16 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
   const FBox Bounds=It->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
       ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
-  // A mouse-selected school must belong to the clicked water surface.
-  if(RequestedWater&&(FMath::Abs(RequestedWater->Z-(Bounds.Max.Z+2.f))>1.f
-      ||RequestedWater->X<Bounds.Min.X+30.f||RequestedWater->X>Bounds.Max.X-30.f
-      ||RequestedWater->Y<Bounds.Min.Y+30.f||RequestedWater->Y>Bounds.Max.Y-30.f)) continue;
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
    if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
    const double Distance=FVector::DistSquared2D(Start,Target);
    if(!MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
-   const double ClickDistance=RequestedWater?FVector::DistSquared2D(*RequestedWater,Target):0.0;
-   if(RequestedWater) {
-    if(ClickDistance>BestClickDistance||(ClickDistance==BestClickDistance&&Distance>BestDistance)) continue;
-   } else if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
+   if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   BestDistance=Distance; BestClickDistance=ClickDistance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It); BestVolume=*It;
+   BestDistance=Distance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It); BestVolume=*It;
   }
  }
  if(BestSchoolId>=0) {
@@ -4775,21 +4791,6 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
   const FBox Bounds=Volume->GetComponentsBoundingBox(true);
   if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
       ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
-  if(RequestedWater) {
-   const FVector Target=*RequestedWater;
-   const double Distance=FVector::DistSquared2D(Start,Target);
-   if(FMath::Abs(Target.Z-(Bounds.Max.Z+2.f))>1.f||
-       Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f||
-       Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f||
-       !MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
-   FHitResult Hit;
-   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
-   if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
-   FishingOrigin=GetActorLocation(); FishingBobber=Target; FishingWaterVolume=Volume;
-   FishingProvince=ResolveFishingProvince(Volume); FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
-   SyncFishingPresentation();
-   return true;
-  }
   for(float Angle : {0.f,-20.f,20.f,-40.f,40.f}) {
   for(float Reach : {250.f,450.f,650.f,850.f,MaxReach}) {
    FVector Target=Start+Forward.RotateAngleAxis(Angle,FVector::UpVector)*Reach;
@@ -4801,6 +4802,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
+   FishingWaterVolume=Volume;
    FishingProvince=ResolveFishingProvince(Volume);
    FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
    SyncFishingPresentation();
@@ -4812,10 +4814,10 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
 }
 
 bool AMoonfallHeroPawn::TryMouseFishingAction() {
- if (!CanContinueFishing() || GetWorld()->IsPaused()) return false;
+ // Right-click can only interact with an existing bobber, never initiate a cast.
+ if (Fishing.Stage==MoonfallFishing::EStage::Idle || !CanContinueFishing() || GetWorld()->IsPaused()) return false;
  auto* PC=Cast<APlayerController>(Controller);
- const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
- if(!IsValid(PC)||!IsValid(Preview)) return false;
+ if(!IsValid(PC)) return false;
  FVector Eye,Direction;
  if(PC->bShowMouseCursor) {
   if(!PC->DeprojectMousePositionToWorld(Eye,Direction)) return false;
@@ -4823,40 +4825,16 @@ bool AMoonfallHeroPawn::TryMouseFishingAction() {
   FRotator View; PC->GetPlayerViewPoint(Eye,View); Direction=View.Vector();
  }
  Direction=Direction.GetSafeNormal();
- if(Eye.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()) return false;
+ if(Eye.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()||FishingBobber.ContainsNaN()) return false;
+ const double Along=FVector::DotProduct(FishingBobber-Eye,Direction);
+ if(!FMath::IsFinite(Along)||Along<=0.0||Along>20000.0||
+     FVector::DistSquared(Eye+Direction*Along,FishingBobber)>FMath::Square(85.f)) return false;
  FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallMouseFishing),false,this);
- if(Fishing.Stage!=MoonfallFishing::EStage::Idle) {
-  if(FishingBobber.ContainsNaN()) return false;
-  const double Along=FVector::DotProduct(FishingBobber-Eye,Direction);
-  if(!FMath::IsFinite(Along)||Along<=0.0||Along>20000.0||
-      FVector::DistSquared(Eye+Direction*Along,FishingBobber)>FMath::Square(85.f)) return false;
-  FHitResult Block;
-  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
-  return TryFishingAction();
- }
- if(FMath::Abs(Direction.Z)<0.0001) return false;
- const FVector HeroEye=GetPawnViewLocation();
- if(HeroEye.ContainsNaN()) return false;
- const float Reach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
- double Nearest=20000.0;
- FVector Target=FVector::ZeroVector;
- bool bFound=false;
- for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
-  if(!IsValid(*It)||!It->bWaterVolume) continue;
-  const FBox Bounds=It->GetComponentsBoundingBox(true);
-  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()||
-      HeroEye.Z<Bounds.Max.Z||HeroEye.Z-Bounds.Max.Z>300.f) continue;
-  const double Along=(Bounds.Max.Z+2.f-Eye.Z)/Direction.Z;
-  if(!FMath::IsFinite(Along)||Along<=0.0||Along>=Nearest) continue;
-  const FVector Point=Eye+Direction*Along;
-  if(Point.ContainsNaN()||Point.X<Bounds.Min.X+30.f||Point.X>Bounds.Max.X-30.f||
-      Point.Y<Bounds.Min.Y+30.f||Point.Y>Bounds.Max.Y-30.f||
-      !MoonfallFishing::InCastRange(FVector::DistSquared2D(HeroEye,Point),Reach)) continue;
-  FHitResult Block;
-  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,Point,ECC_Visibility,Query)) continue;
-  Nearest=Along; Target=Point; bFound=true;
- }
- return bFound && TryFishingAction(&Target);
+ FHitResult Block;
+ if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
+ // Consume a bobber click even if the water became invalid; never cast a combat spell at it.
+ TryFishingAction();
+ return true;
 }
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
@@ -6851,7 +6829,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    return;
   }
  }
- // Only an explicit water or bobber target claims right-click fishing.
+ // Only an existing bobber target claims right-click fishing.
  if (TryMouseFishingAction()) return;
  // All other right clicks retain right-hand attack behavior.
  CastRight();
