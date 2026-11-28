@@ -25,9 +25,19 @@ public:
  bool IsProfessionSaveBlocked() const { return bProfessionSaveBlocked; }
  bool IsProfessionSaveDirty() const { return bProfessionDirty; }
  bool IsProfessionSaveEnabled() const { return bProfessionSaveEnabled; }
- bool HasGrottoClaim(int32 Id) const { return Id>=0&&Id<6&&(GrottoGear.Claims&(1u<<Id)); }
+ bool HasGrottoClaim(int32 Id) const { return Id>=0&&Id<6 ? bool(GrottoGear.Claims&(1u<<Id)) : Id>=6 && Regions.HasTreasure(Id-6); }
  // Rewards and claims are session-only and survive hero respawn.
- bool ClaimGrotto(int32 Index) { const bool OK=GrottoGear.Claim(Index,FMath::RandRange(0,99)); bProfessionDirty|=OK; return OK; }
+ bool ClaimGrotto(int32 Index) {
+  if(!HasAuthority() || Index<0) return false;
+  if(Index>=6) {
+   if(GrottoGear.TonicCharges<0 || GrottoGear.TonicCharges>=3 || !Regions.Treasure(Index-6)) return false;
+   ++GrottoGear.TonicCharges;
+   bProfessionDirty=true; return true;
+  }
+  const bool OK=GrottoGear.Claim(Index,FMath::RandRange(0,99)); bProfessionDirty|=OK; return OK;
+ }
+ int32 GetRegionalTreasureCount() const { return Regions.TreasureCount(); }
+ bool HasRegionalTreasure(int32 Id) const { return Regions.HasTreasure(Id); }
  int32 GetGrottoClaimCount() const { return GrottoGear.Count(); }
  int32 GetGrottoSetPieces() const { return GrottoGear.Pieces(); }
  int32 GetGrottoGearRarity(int32 Piece) const { return GrottoGear.Rarity(Piece); }
