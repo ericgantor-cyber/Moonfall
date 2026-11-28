@@ -1350,6 +1350,17 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
   }
   return FReply::Handled();
  };
+ const auto RarityButton=[WeakThis](const TCHAR* Label,int32 Rarity)->TSharedRef<SButton>{
+  return SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(2.f,6.f))
+   .Text(FText::FromString(Label))
+   .OnClicked_Lambda([WeakThis,Rarity](){
+    if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+     Hero->SetInventoryRarityFilter(Rarity);
+     Hero->CloseInventorySearch();
+    }
+    return FReply::Handled();
+   });
+ };
  InventorySearchOverlay=SNew(SOverlay)
   +SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
   [
@@ -1375,7 +1386,36 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
       [SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
        .Text(FText::FromString(TEXT("Armor"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Armor"));})]
      ]
-     +SVerticalBox::Slot().AutoHeight().Padding(0.f,12.f,0.f,0.f)
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,6.f,0.f,2.f)
+     [SNew(STextBlock).Text(FText::FromString(FString::Printf(TEXT("Quality: %s"),*GetInventoryFilterLabel())))]
+     +SVerticalBox::Slot().AutoHeight()
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("All"),-1)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Common"),0)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Uncommon"),1)]
+     ]
+     +SVerticalBox::Slot().AutoHeight()
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Rare"),2)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Epic"),3)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Emerald"),4)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Legendary"),5)]
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,4.f,0.f,0.f)
+     [
+      SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,6.f))
+      .Text(FText::FromString(TEXT("Reset all filters")))
+      .OnClicked_Lambda([WeakThis](){
+       if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+        Hero->ResetInventoryFilters();
+        Hero->CloseInventorySearch();
+       }
+       return FReply::Handled();
+      })
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
      [
       SNew(SHorizontalBox)
       +SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f,0.f,4.f,0.f)
@@ -1473,12 +1513,23 @@ FString AMoonfallHeroPawn::GetInventoryFilterLabel() const {
  static const TCHAR* Labels[]={TEXT("All"),TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
  return Labels[FMath::Clamp(InventoryRarityFilter+1,0,6)];
 }
-void AMoonfallHeroPawn::CycleInventoryRarityFilter() {
- if(!bInventoryOpen||bOptionsOpen||bCharacterStatsOpen||bSpellBookOpen)return;
+void AMoonfallHeroPawn::SetInventoryRarityFilter(int32 Rarity) {
+ if(!CanOpenInventorySearch()||Rarity< -1||Rarity>5||Rarity==InventoryRarityFilter)return;
  ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
- InventoryRarityFilter=(FMath::Clamp(InventoryRarityFilter,-1,5)+2)%7-1;
+ InventoryRarityFilter=Rarity;
  InventoryViewStart=0;
  KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::ResetInventoryFilters() {
+ if(!CanOpenInventorySearch())return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventoryRarityFilter=-1;
+ InventorySearchText.Reset();
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::CycleInventoryRarityFilter() {
+ SetInventoryRarityFilter((FMath::Clamp(InventoryRarityFilter,-1,5)+2)%7-1);
 }
 TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 {
