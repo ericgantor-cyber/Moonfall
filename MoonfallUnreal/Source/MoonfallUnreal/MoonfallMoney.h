@@ -51,6 +51,16 @@ namespace MoonfallMoney {
  constexpr Coins NextRestock(Coins Now,Coins Deadline){
   return SpecialtyAvailable(Now,Deadline)?Now+RestockSeconds:0;
  }
+ // Confirm only the identical quote and bag revision the player reviewed.
+ struct FTradeIntent {
+  int Mode=-1, Code=0, Index=-1;
+  Coins Price=0;
+  std::uint32_t Revision=0;
+  constexpr bool Matches(const FTradeIntent& Other) const {
+   return Mode>=0&&Mode<=2&&Code>0&&Index>=0&&Price>0&&Valid(Price)&&Revision!=0
+    &&Mode==Other.Mode&&Code==Other.Code&&Index==Other.Index&&Price==Other.Price&&Revision==Other.Revision;
+  }
+ };
  constexpr int TradeMode(int Mode) {return Mode>=0&&Mode<=2?(Mode+1)%3:0;}
  constexpr Coins EnemyReward(int Level,bool Elite,bool Boss) {
   return Level<1||Level>100?0:(Boss?1200:Elite?350:100)+Coins(Level-1)*15;
