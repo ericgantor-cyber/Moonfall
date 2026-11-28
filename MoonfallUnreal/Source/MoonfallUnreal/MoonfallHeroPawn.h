@@ -595,6 +595,11 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
  // Transient display mode: original order, rarity, then equipment slot.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
+ int32 InventoryRarityFilter=-1;
+ bool MatchesInventoryFilter(int32 Index) const;
+ bool IsInventorySelectionVisible() const;
+ void CycleInventoryRarityFilter();
+ FString GetInventoryFilterLabel() const;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
  bool HitTestInventoryEquipButton() const;
@@ -696,6 +701,7 @@ private:
  uint32 EquipmentInventoryRevision=1;
  mutable uint32 CachedInventoryOrderRevision=0;
  mutable int32 CachedInventoryOrderMode=-1;
+ mutable int32 CachedInventoryFilter=-2;
  mutable TArray<int32> CachedInventoryOrder;
  mutable TArray<int32> CachedInventoryOrderSource;
  mutable uint32 CachedValidatedInventoryRevision=0;
