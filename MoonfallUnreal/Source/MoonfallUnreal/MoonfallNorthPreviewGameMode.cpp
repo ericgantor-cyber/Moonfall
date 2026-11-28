@@ -50,9 +50,9 @@ void AMoonfallNorthPreviewGameMode::LoadProfessions() {
   if(!UGameplayStatics::DoesSaveGameExist(Slot,0)) continue;
   bAny=true;
   const auto* Save=Cast<UMoonfallProfessionSave>(UGameplayStatics::LoadGameFromSlot(Slot,0));
-  if(IsValid(Save)&&Save->Version>2) { bProfessionSaveBlocked=true; return; }
+  if(IsValid(Save)&&Save->Version>3) { bProfessionSaveBlocked=true; return; }
   FSnapshot Candidate;
-  if(!IsValid(Save)||(Save->Version!=1&&Save->Version!=2)||Save->Ledger.Num()!=(Save->Version==1?LegacyCount:Count)||Save->Sequence<=0||Save->Sequence%2!=I||
+  if(!IsValid(Save)||(Save->Version!=1&&Save->Version!=2&&Save->Version!=3)||Save->Ledger.Num()!=(Save->Version==1?LegacyCount:Save->Version==2?RegionalCount:Count)||Save->Sequence<=0||Save->Sequence%2!=I||
     !Candidate.Decode(Save->Ledger.GetData(),Save->Ledger.Num())) continue;
   if(!bValid||Save->Sequence>ProfessionSequence) { Best=Candidate; ProfessionSequence=Save->Sequence; bValid=true; }
  }

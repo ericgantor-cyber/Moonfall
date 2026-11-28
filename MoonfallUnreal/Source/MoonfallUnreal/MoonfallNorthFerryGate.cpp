@@ -81,6 +81,8 @@ void AMoonfallNorthFerryGate::EndPlay(const EEndPlayReason::Type EndPlayReason) 
 }
 
 void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
+ if (bStoppingVoyage) return;
+ TGuardValue<bool> StopGuard(bStoppingVoyage, true);
  if (GetWorld()) GetWorld()->GetTimerManager().ClearTimer(AutomaticVoyageTimer);
  AMoonfallHeroPawn* Hero = PendingVoyager.Get();
  AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
@@ -280,6 +282,7 @@ bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // The boat sails itself. There is no helm, player acceleration, steering
  // or enemy encounter code in this finite-duration boarding gate.
+ if (bBoardingTransaction || bStoppingVoyage || IsActorBeingDestroyed()) return false;
  if (!HasConfiguredPassage() || bAutoVoyageInProgress || !IsValid(Hero) || !IsValid(PairedGate)
      || PairedGate == this || !IsValid(SailingVessel)
      || !IsValid(PairedGate->SailingVessel) || SailingVessel == PairedGate->SailingVessel
@@ -287,8 +290,11 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
      || GetWorld() != PairedGate->GetWorld()
      || SailingVessel->GetWorld() != GetWorld()
      || PairedGate->SailingVessel->GetWorld() != GetWorld()
-     || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress)
+     || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress
+     || PairedGate->bBoardingTransaction || PairedGate->bStoppingVoyage
+     || PairedGate->IsActorBeingDestroyed())
   return false;
+ TGuardValue<bool> BoardingGuard(bBoardingTransaction, true);
  // A visually plausible editor marker is not proof of dry land. Both
  // departure and return routes require collision-backed walkable ground.
  FVector Destination;
@@ -403,12 +409,23 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // A Blueprint can cancel a trip synchronously (for example, closing the
  // travel UI, changing level or disabling the harbor). Never publish a
  // countdown or report boarding success after that cancellation.
- if (!bAutoVoyageInProgress || PendingVoyager.Get() != Hero
-     || !IsValid(PendingShip.Get()) || PendingShip.Get() != SailingVessel)
+ if (!bAutoVoyageInProgress ||
+     (PendingVoyager.IsValid() && PendingVoyager.Get() != Hero))
   return false;
- if (!IsValid(PairedGate) || PendingArrivalGate.Get() != PairedGate
-     || PairedGate->PairedGate != this || !bEnableSeaPassage
-     || !PairedGate->bEnableSeaPassage) {
+ // A still-active trip with a destroyed passenger or replaced ship
+ // needs full cancellation, not a false result with its timer running.
+ if (!IsValid(PendingVoyager.Get()) || !IsValid(PendingShip.Get())
+     || PendingShip.Get() != SailingVessel
+     || !HasConfiguredPassage() || !IsValid(PairedGate)
+     || PendingArrivalGate.Get() != PairedGate
+     || PairedGate->PairedGate != this
+     || PendingTargetShip.Get() != PairedGate->SailingVessel
+     || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, SailingVessel)
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen) {
   StopAutomaticVoyage();
   return false;
  }
@@ -416,14 +433,24 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // The progress event can also change an enabled harbor into an invalid
  // route before this call returns. End it now, not on a later timer tick.
  if (bAutoVoyageInProgress &&
-     (!IsValid(PairedGate) || PendingArrivalGate.Get() != PairedGate
-     || PairedGate->PairedGate != this || !bEnableSeaPassage
-     || !PairedGate->bEnableSeaPassage))
+     (!PendingVoyager.IsValid() || PendingVoyager.Get() == Hero) &&
+     (!PendingVoyager.IsValid() || !IsValid(PendingShip.Get())
+     || !HasConfiguredPassage() || !IsValid(PairedGate)
+     || PendingArrivalGate.Get() != PairedGate
+     || PendingShip.Get() != SailingVessel
+     || PendingTargetShip.Get() != PairedGate->SailingVessel
+     || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, SailingVessel)
+     || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
+     || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
+     || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen))
   StopAutomaticVoyage();
  return bAutoVoyageInProgress && PendingVoyager.Get() == Hero;
 }
 
 void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
+ if (bBoardingTransaction || bStoppingVoyage) return;
  AMoonfallHeroPawn* Hero = PendingVoyager.Get();
  AMoonfallNorthFerryGate* Arrival = PendingArrivalGate.Get();
  AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
@@ -476,11 +503,16 @@ void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
  // User Blueprint progress hooks may synchronously disable the harbor,
  // replace its ship, change a menu or cancel this voyage. Never complete
  // arrival using stale actor pointers after such a hook has executed.
- if (!bAutoVoyageInProgress || !IsValid(Hero) || PendingVoyager.Get() != Hero
-     || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival)
+ if (!bAutoVoyageInProgress ||
+     (PendingVoyager.IsValid() && PendingVoyager.Get() != Hero))
   return;
- if (PairedGate != Arrival || Arrival->PairedGate != this
+ if (!IsValid(Hero) || !PendingVoyager.IsValid()
+     || PendingShip.Get() != Ship || PendingArrivalGate.Get() != Arrival
+     || !HasConfiguredPassage() || !IsValid(Arrival) || !IsValid(Ship)
+     || PairedGate != Arrival || Arrival->PairedGate != this
      || SailingVessel != Ship || Arrival->SailingVessel != PendingTargetShip.Get()
+     || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->GetWorld() != GetWorld() || !IsVoyagerAboard(Hero, Ship)
      || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
      || Hero->bCharacterStatsOpen || Hero->bResidentContextOpen
      || Hero->bSpellBookOpen || Hero->bTalentWebOpen || Hero->bQuestLogOpen) {

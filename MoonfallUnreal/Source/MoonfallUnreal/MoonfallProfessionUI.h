@@ -1,6 +1,6 @@
 #pragma once
 namespace MoonfallProfessionUI {
- constexpr int LineCount=19;
+ constexpr int LineCount=25;
  constexpr int Rows(float PanelHeight) {
   if(!(PanelHeight>=280.f)) return 1;
   const int N=int((PanelHeight-206.f)/22.f);
