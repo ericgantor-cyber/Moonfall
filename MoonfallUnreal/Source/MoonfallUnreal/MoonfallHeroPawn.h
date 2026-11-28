@@ -636,6 +636,7 @@ public:
  // Matches the Canvas inventory row capacity on the active viewport.
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
+ void ReconcileCraftedInventorySelection();
  // Read-only pointer hit test sharing the inventory Canvas row geometry.
  int32 HitTestInventoryRow() const;
  bool HitTestInventoryBagDropSurface() const;
