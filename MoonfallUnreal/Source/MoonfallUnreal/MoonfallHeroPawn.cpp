@@ -812,17 +812,27 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      break;
     }
    }
-   // The eye can enter a pocket before the capsule overlap cache updates.
-   // Query only a tiny local sphere; no world actor iterator or extra tick.
+   // Cache nearby candidates, not breathing permission. Exact containment
+   // is still checked every frame; movement beyond 10 cm refreshes the cache.
    if (!bInsideAirPocket && GetWorld()) {
-    TArray<FOverlapResult> Hits;
-    FCollisionObjectQueryParams Objects;
-    Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
-    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAirPocketEye),false,this);
-    GetWorld()->OverlapMultiByObjectType(Hits,Eye,FQuat::Identity,Objects,
-        FCollisionShape::MakeSphere(1.f),Params);
-    for (const FOverlapResult& Hit : Hits) {
-     const auto* Pocket=Cast<AMoonfallAirPocket>(Hit.GetActor());
+    const double Now=GetWorld()->GetTimeSeconds();
+    if (MoonfallWaterRules::RefreshPocketCandidates(Now,LastAirPocketQueryTime,
+        FVector::DistSquared(Eye,LastAirPocketQueryEye))) {
+     NearbyAirPocketCandidates.Reset();
+     TArray<FOverlapResult> Hits;
+     FCollisionObjectQueryParams Objects;
+     Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+     FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAirPocketEye),false,this);
+     GetWorld()->OverlapMultiByObjectType(Hits,Eye,FQuat::Identity,Objects,
+         FCollisionShape::MakeSphere(25.f),Params);
+     for (const FOverlapResult& Hit : Hits)
+      if (auto* Pocket=Cast<AMoonfallAirPocket>(Hit.GetActor()))
+       if (IsValid(Pocket)) NearbyAirPocketCandidates.AddUnique(TWeakObjectPtr<AMoonfallAirPocket>(Pocket));
+     LastAirPocketQueryEye=Eye;
+     LastAirPocketQueryTime=Now;
+    }
+    for (const auto& Candidate : NearbyAirPocketCandidates) {
+     const auto* Pocket=Candidate.Get();
      if (IsValid(Pocket) && Pocket->ContainsEye(Eye)) {
       bInsideAirPocket=true;
       break;
@@ -830,6 +840,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     }
    }
   }
+ } else {
+  NearbyAirPocketCandidates.Reset();
+  LastAirPocketQueryTime=-1.0;
  }
  if (bWaterSwimming) {
   const FVector Velocity = GetVelocity();
@@ -6339,6 +6352,8 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  WaterBreathingDepth=0.f;
  RefreshSwimPose();
  bInsideAirPocket = false;
+ NearbyAirPocketCandidates.Reset();
+ LastAirPocketQueryTime=-1.0;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();

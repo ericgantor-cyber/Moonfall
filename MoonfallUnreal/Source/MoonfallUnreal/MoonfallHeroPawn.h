@@ -106,6 +106,9 @@ public:
  void RefreshSwimPose();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bInsideAirPocket = false;
+ TArray<TWeakObjectPtr<class AMoonfallAirPocket>> NearbyAirPocketCandidates;
+ FVector LastAirPocketQueryEye=FVector::ZeroVector;
+ double LastAirPocketQueryTime=-1.0;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
  bool CanSteerSwimming() const;
