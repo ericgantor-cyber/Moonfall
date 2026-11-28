@@ -727,7 +727,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SelectedRow >= InventoryViewStart + Rows", selection)
         self.assertIn("InventoryViewStart = SelectedRow - Rows + 1;", selection)
         self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
-        self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows()", self.hero_cpp)
         self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertNotIn("InventoryItemCodes.Sort(", selection)
         self.assertNotIn("EquipInventoryItem(", selection)
@@ -839,7 +839,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("mutable TArray<int32> CachedInventoryOrderSource;", self.hero_h)
         for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, sort)
-        self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
+        self.assertIn("const int32 DisplaySelection = Visible.Find(InventorySelection);", selection)
+        self.assertEqual(selection.count("GetInventoryDisplayOrder()"), 1)
         self.assertIn("const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();", self.hud)
         self.assertIn("const int32 Index = DisplayOrder[DisplayPosition];", self.hud)
         self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", self.hud)
@@ -1298,6 +1299,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
         self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("!IsInventorySelectionVisible()", helper)
         self.assertIn("const float EquipY = Top + 87.f;", helper)
         self.assertIn("MouseX <= EquipX + 172.f", helper)
         self.assertIn("MouseY <= EquipY + 30.f", helper)
@@ -1835,6 +1837,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
+        self.assertIn("if (InventorySelection > InventoryIndex) --InventorySelection;", salvage)
+        self.assertIn("KeepInventorySelectionVisible();", salvage)
         self.assertIn("Worn[Slot] = GetRawEquipmentSlotCode(Slot);", salvage)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", salvage)
         self.assertIn("MoonfallEquipmentLayout::CanRemoveFullCopy(Code,Worn,", salvage)

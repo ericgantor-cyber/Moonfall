@@ -2430,7 +2430,8 @@ void AMoonfallCombatHUD::DrawHUD()
        X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
        Slot == 0 ? 0.55f : 0.68f);
   }
-  const int32 Count = Hero->GetInventoryDisplayOrder().Num();
+  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
+  const int32 Count = DisplayOrder.Num();
   const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
   // Identical rings are fungible codes, not individually tracked bag instances.
   // Report aggregate copies instead of marking every duplicate as equipped.
@@ -2448,7 +2449,6 @@ void AMoonfallCombatHUD::DrawHUD()
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = Hero->IsInventorySelectionVisible()?Hero->InventorySelection:INDEX_NONE;
-  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
   const int32 HoveredIndex = Hero->HitTestInventoryRow();
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));

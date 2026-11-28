@@ -1456,7 +1456,7 @@ bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
  if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
      || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
-     || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
+     || !IsInventorySelectionVisible()) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
@@ -1590,7 +1590,7 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
  if(!Visible.Contains(InventorySelection))InventorySelection=Count>0?Visible[0]:INDEX_NONE;
  const int32 Rows = GetInventoryVisibleRows();
  const int32 MaxStart = FMath::Max(0, Count - Rows);
- const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);
+ const int32 DisplaySelection = Visible.Find(InventorySelection);
  const int32 SelectedRow = DisplaySelection == INDEX_NONE ? 0 : DisplaySelection;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
  if (SelectedRow < InventoryViewStart)
@@ -1619,7 +1619,8 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const float Left = float(Width) - PanelWidth - 12.f;
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const int32 Rows = GetInventoryVisibleRows();
- const int32 Count = GetInventoryDisplayOrder().Num();
+ const TArray<int32> Order = GetInventoryDisplayOrder();
+ const int32 Count = Order.Num();
  const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
  const int32 End = FMath::Min(Count, Start + Rows);
  const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
@@ -1630,7 +1631,6 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
  const int32 DisplayPosition = Start + RelativeRow;
  if (DisplayPosition < Start || DisplayPosition >= End) return INDEX_NONE;
- const TArray<int32> Order = GetInventoryDisplayOrder();
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
@@ -3471,7 +3471,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  Salvage = SafeBalance + FMath::Min(SalvageReward, MaxSalvage - SafeBalance);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  MarkEquipmentInventoryDirty();
- InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ if (InventorySelection > InventoryIndex) --InventorySelection;
+ KeepInventorySelectionVisible();
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
