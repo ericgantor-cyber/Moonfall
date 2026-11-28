@@ -720,6 +720,8 @@ private:
  mutable int32 CachedInventoryOrderMode=-1;
  mutable int32 CachedInventoryFilter=-2;
  mutable FString CachedInventorySearchText;
+ mutable FString ParsedInventorySearchText;
+ mutable TArray<FString> ParsedInventorySearchTerms;
  mutable TArray<int32> CachedInventoryOrder;
  mutable TArray<int32> CachedInventoryOrderSource;
  mutable uint32 CachedValidatedInventoryRevision=0;
