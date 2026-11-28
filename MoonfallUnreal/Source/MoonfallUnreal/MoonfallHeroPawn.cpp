@@ -5984,7 +5984,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
   return false;
- if (bEquipmentCraftInProgress) return false;
+ if (bEquipmentCraftInProgress || bMerchantSaleInProgress) return false;
  // Teleport and health notifications can synchronously invoke Blueprint code.
  // Refuse nested loads while the current save is being restored.
  if (bWorldProgressLoadInProgress || bEquipBestInProgress || bTalentAllocationInProgress || !GetWorld() || IsActorBeingDestroyed()) return false;
@@ -6341,6 +6341,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Do not replay XP awards or add health already recorded in the save.
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
  WalletCopper=Save->WalletCopper;
+ MerchantBuybackCode=0;MerchantBuybackPrice=0;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
@@ -6752,6 +6753,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OceanRecipePage = -1;
  bResidentMerchantMenu=false;
  MerchantSellIndex=0;MerchantSellCode=0;
+ MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackCode=0;MerchantBuybackPrice=0;
  bResidentContextOpen = false;
  FocusedResident.Reset();
  SwordBuffer.Clear();
@@ -7015,11 +7017,64 @@ bool AMoonfallHeroPawn::SellMerchantItem() {
   return false;
  }
  InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ MerchantBuybackCode=Code;MerchantBuybackPrice=Price;
  SelectMerchantSaleItem(0);
  return true;
 }
+int32 AMoonfallHeroPawn::GetMerchantStockCode() const {
+ if(MerchantStockIndex<0||MerchantStockIndex>=MoonfallEquipmentLayout::ActiveSlotCount)return 0;
+ return MoonfallEquipmentLayout::EncodeFullItem(MerchantStockIndex,0,0,MoonfallMoney::VendorTier(MerchantStockLevel));
+}
+int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu)return 0;
+ if(MerchantTradeMode==0)return GetMerchantSaleQuote();
+ if(MerchantTradeMode==2)return ValidMoonfallItemCode(MerchantBuybackCode)&&MoonfallMoney::Valid(MerchantBuybackPrice)?MerchantBuybackPrice:0;
+ if(MerchantTradeMode!=1)return 0;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(GetMerchantStockCode());
+ return Item.IsValid()?MoonfallMoney::GearPurchasePrice(Item.Tier,Item.Rarity,Item.Trait):0;
+}
+FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
+ if(MerchantTradeMode==0)return GetMerchantSaleItemText();
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode);
+ if(!Item.IsValid())return TEXT("No item available");
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ return FString::Printf(TEXT("%s T%d %s %s"),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+}
+FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
+ const int64 Price=GetMerchantTradeQuote();
+ if(Price<=0)return TEXT("Unavailable");
+ const MoonfallMoney::FWallet Quote{Price};
+ return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
+}
+bool AMoonfallHeroPawn::BuyMerchantItem() {
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress
+    ||InventoryItemCodes.Num()>=10000||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
+ const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
+ if(!ValidMoonfallItemCode(Code)||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip))return false;
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Debit(GetMerchantTradeQuote()))return false;
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int64 PreviousWallet=WalletCopper;
+ const int32 AddedIndex=InventoryItemCodes.Add(Code);
+ WalletCopper=Candidate.Copper;
+ MarkEquipmentInventoryDirty();
+ if(!SaveWorldProgress()){
+  InventoryItemCodes.RemoveAt(AddedIndex);
+  WalletCopper=PreviousWallet;
+  MarkEquipmentInventoryDirty();
+  return false;
+ }
+ if(MerchantTradeMode==2){MerchantBuybackCode=0;MerchantBuybackPrice=0;}
+ InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ return true;
+}
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
- if(bResidentMerchantMenu)return 4;
+ if(bResidentMerchantMenu)return 5;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -7349,14 +7404,24 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if(bResidentMerchantMenu){
-  if(Choice==3){bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
+  if(Choice==4){bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
   if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
-  if(Choice==0||Choice==1){SelectMerchantSaleItem(Choice==0?-1:1);return true;}
+  if(Choice==3){MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==0||Choice==1){
+   if(MerchantTradeMode==0)SelectMerchantSaleItem(Choice==0?-1:1);
+   else if(MerchantTradeMode==1){
+    const int32 Count=MoonfallEquipmentLayout::ActiveSlotCount;
+    MerchantStockIndex=(FMath::Clamp(MerchantStockIndex,0,Count-1)+(Choice==0?-1:1)+Count)%Count;
+   }
+   return true;
+  }
   if(Choice!=2)return false;
-  const bool bSold=SellMerchantItem();
-  ResidentFeedbackMessage=bSold?TEXT("Item sold; coins saved."):TEXT("Cannot sell: equipped, combat, wallet full or save failed.");
+  const bool bSelling=MerchantTradeMode==0;
+  const bool bTraded=bSelling?SellMerchantItem():BuyMerchantItem();
+  ResidentFeedbackMessage=bTraded?(bSelling?TEXT("Item sold; coins saved."):TEXT("Purchased; item saved in bag.")):
+    TEXT("Trade unavailable: item, funds, combat, capacity or save.");
   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
-  return bSold;
+  return bTraded;
  }
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear){
@@ -7492,6 +7557,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if(Choice==3&&CanOpenCoinMerchant()){
   bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
+  MerchantTradeMode=0;MerchantStockIndex=0;MerchantStockLevel=Level;
   SelectMerchantSaleItem(0);ResidentContextSelection=0;return true;
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
