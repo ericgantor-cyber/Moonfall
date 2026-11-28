@@ -2918,7 +2918,10 @@ void AMoonfallCombatHUD::DrawHUD()
       bBite?TEXT("BITE! RMB / X: Hook"):
       Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling | auto-loot..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
-      (Hero->bFishingCaught?TEXT("Fish auto-looted!"):TEXT("Catch unavailable")):
+      (Hero->bFishingCaught?TEXT("Fish auto-looted!"):
+       Hero->FishingEndNotice==MoonfallFishing::EEndNotice::Escaped?TEXT("Fish escaped | cast again"):
+       Hero->FishingEndNotice==MoonfallFishing::EEndNotice::Interrupted?TEXT("Fishing interrupted"):
+       TEXT("Catch unavailable")):
       TEXT("RMB / X: Cast | auto-loot");
    FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! RMB / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
