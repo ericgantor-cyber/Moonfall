@@ -2830,7 +2830,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const uint32 AdvisorInventoryRevision=Hero->GetEquipmentInventoryRevision();
   const double AdvisorNow = FPlatformTime::Seconds();
   const bool bAdvisorClockValid = FMath::IsFinite(AdvisorNow) && AdvisorNow >= 0.0;
-  const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
+  const bool bAdvisorHasSelection = Hero->InventoryItemCodes.IsValidIndex(Selected);
+  const int32 AdvisorCode = bAdvisorHasSelection ? Hero->InventoryItemCodes[Selected] : 0;
   const bool bRefreshAdvisor = !bAdvisorClockValid || !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
     || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
     || CachedAdvisorSelectedCode != AdvisorCode
@@ -2842,7 +2843,7 @@ void AMoonfallCombatHUD::DrawHUD()
     || AdvisorNow < AdvisorScoreUpdatedAt
     || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25;
   if (bRefreshAdvisor) {
-   CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
+   CachedAdvisorScore = bAdvisorHasSelection ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
    CachedAdvisorHero = Hero;
    CachedAdvisorCount = Count;
    CachedAdvisorSelected = Selected;
@@ -2861,8 +2862,12 @@ void AMoonfallCombatHUD::DrawHUD()
     ? TEXT("DEFEATED: equip gear, close bag to respawn")
     : Hero->IsRecentlyInCombatForAmbientAI()
     ? TEXT("IN COMBAT: weapon swaps only")
-    : Count == 0
+    : Hero->InventoryItemCodes.IsEmpty()
     ? (bCompactAdvisor ? TEXT("GEAR: EMPTY BAG") : TEXT("GEAR ADVISOR: find equipment to compare"))
+    : Count == 0
+    ? TEXT("GEAR ADVISOR: no matching gear")
+    : !bAdvisorHasSelection
+    ? TEXT("GEAR ADVISOR: select gear to compare")
     : SelectedUpgradeScore > 0
       ? (bCompactAdvisor ? FString::Printf(TEXT("GEAR: UPGRADE (+%d)"), SelectedUpgradeScore)
          : FString::Printf(TEXT("GEAR ADVISOR: selected gear is an upgrade (+%d)"), SelectedUpgradeScore))
