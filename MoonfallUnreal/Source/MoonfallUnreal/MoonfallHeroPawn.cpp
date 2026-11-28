@@ -854,7 +854,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
  if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
+     || !GetWorld() || GetWorld()->IsPaused() || bWorldProgressLoadInProgress
      || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bCharacterStatsOpen || bSpellBookOpen || bQuestLogOpen
      || bResidentContextOpen || FocusedResident.IsValid()
      || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)) {
   WaterVerticalIntent = 0;
@@ -886,6 +888,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  const float BreathScale = WaterBreathScale;
  const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
+ float ProtectedSeconds=0.f;
+ if (bPersistentSaveWritesBlocked && FMath::IsFinite(Health) && Health>0.f
+     && FMath::IsFinite(WaterTonicRemaining))
+  ProtectedSeconds=FMath::Clamp(WaterTonicRemaining,0.f,SafeTimerDelta);
  if (!FMath::IsFinite(Health) || Health <= 0.f || !bPersistentSaveWritesBlocked)
   WaterTonicRemaining = 0.f;
  else
@@ -896,14 +902,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (IsValid(Preview) && Preview->ConsumeBreathingTonic()) {
    WaterTonicRemaining = MoonfallWaterRules::TonicDuration;
    Oxygen = MoonfallWaterRules::MaxAir;
+   ProtectedSeconds=SafeTimerDelta;
   }
  }
- const bool bDrainAir = bNeedsBreath && WaterTonicRemaining <= 0.f;
- const float PreviousAir = Oxygen;
- Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bDrainAir, bWaterPaused, BreathScale);
- const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
-     PreviousAir, SafeTimerDelta, bWaterSwimming && bDrainAir, bWaterPaused, BreathScale);
+ const bool bDrowningPulse = MoonfallWaterRules::AdvanceBreathFrame(Oxygen,DrowningExposureSeconds,
+     SafeTimerDelta,bWaterSwimming,bNeedsBreath,bWaterPaused,ProtectedSeconds,BreathScale);
  if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
   TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
   TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
