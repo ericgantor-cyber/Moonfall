@@ -2460,7 +2460,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float SearchX=Left+PanelWidth-112.f,SearchY=Top+44.f;
   DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f),SearchX,SearchY,98.f,15.f);
   DrawHoverFrame(SearchX,SearchY,98.f,15.f);
-  DrawText(Hero->InventorySearchText.IsEmpty()?FString(TEXT("F9: SEARCH")):FString::Printf(TEXT("F9: %s"),*Hero->InventorySearchText.Left(12)),
+  DrawText(Hero->InventorySearchText.IsEmpty()?FString(TEXT("F9/L3: SEARCH")):FString::Printf(TEXT("F9: %s"),*Hero->InventorySearchText.Left(12)),
     FLinearColor::White,SearchX+4.f,SearchY+2.f,nullptr,0.55f);
   DrawText(FString::Printf(TEXT("Bag %d/%d | %s"), Hero->InventoryItemCodes.Num(),Hero->BagCapacity,*Hero->GetWalletText()),
     FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
