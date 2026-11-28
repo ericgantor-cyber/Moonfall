@@ -46,6 +46,17 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("GEAR ADVISOR: select gear to compare", advisor)
         self.assertNotIn("Count > 0 ? Hero->InventoryItemCodes[Selected]", advisor)
 
+    def test_primary_preview_uses_validated_equipment(self):
+        hero = self.source.split("AMoonfallHeroPawn::GetPrimaryAttributes() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("GetValidatedEquipmentCodes(Codes)", hero)
+        self.assertIn("MoonfallAttributes::BuildPrimary(Level", hero)
+        for slot in range(3):
+            self.assertIn(f"ValidEquippedTier(Codes[{slot}],{slot})", hero)
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("Hero->GetPrimaryAttributes()", hud)
+        self.assertIn("Preview | Str %d  Agi %d  Int %d  Sta %d", hud)
+        self.assertIn("Primary.Strength,Primary.Agility,Primary.Intellect,Primary.Stamina", hud)
+
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", body)

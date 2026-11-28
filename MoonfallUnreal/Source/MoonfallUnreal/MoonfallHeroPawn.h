@@ -13,6 +13,7 @@
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallFishing.h"
 #include "MoonfallMoney.h"
+#include "MoonfallAttributes.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -299,6 +300,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetItemPowerDelta(int32 ItemCode) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const;
  // Derived primary attributes, no additional persistent save schema.
+ MoonfallAttributes::FPrimary GetPrimaryAttributes() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetInsight() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetResolve() const;
