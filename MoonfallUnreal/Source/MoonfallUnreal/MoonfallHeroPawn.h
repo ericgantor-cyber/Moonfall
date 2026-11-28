@@ -12,6 +12,7 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallFishing.h"
+#include "MoonfallMoney.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -189,8 +190,9 @@ public:
  int64 GetMerchantSaleQuote() const;
  FString GetMerchantSaleItemText() const;
  bool SellMerchantItem();
- int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackCode=0;
- int64 MerchantBuybackPrice=0;
+ int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackIndex=0;
+ MoonfallMoney::FBuybackHistory MerchantBuybackHistory;
+ int32 GetMerchantBuybackCode() const;
  int32 MerchantStockFaction=0,MerchantStockStanding=0;
  TArray<int64> MerchantRestockUtc={0,0,0,0};
  bool IsMerchantSpecialtySelected() const;
