@@ -20,9 +20,20 @@ namespace MoonfallMoney {
   }
  };
  // Deliberately bounded vendor buyback value for one canonical equipment copy.
- constexpr Coins GearSalePrice(int Tier,int Rarity,int Trait) {
+ // Historical V1 formula is immutable; future balance changes use a new revision.
+ constexpr int CurrentSalePriceVersion=1;
+ constexpr Coins GearSalePriceV1(int Tier,int Rarity,int Trait) {
   return Tier<1||Tier>25||Rarity<0||Rarity>5||Trait<0||Trait>3||(Rarity==0&&Trait!=0)
    ?0:Coins(25+Tier*15)*(Rarity+1)+Trait*10;
+ }
+ constexpr Coins HistoricalSalePrice(int Version,int Tier,int Rarity,int Trait) {
+  return Version==1?GearSalePriceV1(Tier,Rarity,Trait):0;
+ }
+ constexpr Coins GearSalePrice(int Tier,int Rarity,int Trait) {
+  return HistoricalSalePrice(CurrentSalePriceVersion,Tier,Rarity,Trait);
+ }
+ constexpr bool ValidHistoricalSale(int Version,int Tier,int Rarity,int Trait,Coins Price) {
+  return Price>0&&Valid(Price)&&Price==HistoricalSalePrice(Version,Tier,Rarity,Trait);
  }
  constexpr int VendorTier(int Level) {return Level<1||Level>100?0:1+(Level-1)/5;}
  constexpr Coins GearPurchasePrice(int Tier,int Rarity,int Trait) {return 3*GearSalePrice(Tier,Rarity,Trait);}
@@ -52,17 +63,17 @@ namespace MoonfallMoney {
   return SpecialtyAvailable(Now,Deadline)?Now+RestockSeconds:0;
  }
  // Bounded, newest-first session history; each record represents one sold copy.
- struct FBuybackEntry {int Code=0; Coins Price=0;};
+ struct FBuybackEntry {int Code=0; Coins Price=0; int PriceVersion=CurrentSalePriceVersion;};
  struct FBuybackHistory {
   static constexpr int Capacity=12;
   FBuybackEntry Entries[Capacity]{};
   int Count=0;
   constexpr FBuybackEntry Get(int Index) const {return Index>=0&&Index<Count?Entries[Index]:FBuybackEntry{};}
-  constexpr bool Push(int Code,Coins Price) {
-   if(Code<=0||Price<=0||!Valid(Price)||Count<0||Count>Capacity)return false;
+  constexpr bool Push(int Code,Coins Price,int Version=CurrentSalePriceVersion) {
+   if(Code<=0||Price<=0||!Valid(Price)||Version!=1||Count<0||Count>Capacity)return false;
    if(Count<Capacity)++Count;
    for(int I=Count-1;I>0;--I)Entries[I]=Entries[I-1];
-   Entries[0]={Code,Price};return true;
+   Entries[0]={Code,Price,Version};return true;
   }
   constexpr bool Remove(int Index) {
    if(Index<0||Index>=Count)return false;

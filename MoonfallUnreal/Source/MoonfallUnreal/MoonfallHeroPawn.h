@@ -191,7 +191,8 @@ public:
  FString GetMerchantSaleItemText() const;
  bool SellMerchantItem();
  int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackIndex=0;
- MoonfallMoney::FBuybackHistory MerchantBuybackHistory;
+ TMap<FName,MoonfallMoney::FBuybackHistory> MerchantBuybackRecords;
+ const MoonfallMoney::FBuybackHistory& GetMerchantBuybackHistory() const;
  int32 GetMerchantBuybackCode() const;
  int32 MerchantStockFaction=0,MerchantStockStanding=0;
  TArray<int64> MerchantRestockUtc={0,0,0,0};
