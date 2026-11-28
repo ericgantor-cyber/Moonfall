@@ -2661,7 +2661,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("Dodge();"), tick.index("if (!DodgeBuffer.HasPending())"))
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "float AMoonfallHeroPawn::GetParryCounterRemaining()", 1)[0]
-        self.assertLess(dodge.index("const FVector Direction ="), dodge.index("BufferedDodgeDirection = FVector::ZeroVector;"))
+        swim, land = dodge.split("const float Now = GetWorld()->GetTimeSeconds();", 1)
+        self.assertIn("GetCharacterMovement()->IsSwimming()", swim)
+        self.assertIn("if (!bDispatchingBufferedDodge) WaterVerticalIntent", swim)
+        self.assertIn("DodgeBuffer.Clear();", swim)
+        self.assertIn("BufferedDodgeDirection = FVector::ZeroVector;", swim)
+        self.assertNotIn("LaunchCharacter(", swim)
+        self.assertLess(land.index("const FVector Direction ="), land.index("BufferedDodgeDirection = FVector::ZeroVector;"))
         self.assertIn("LaunchCharacter(Direction *", dodge)
 
     def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
@@ -2725,7 +2731,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, damage)
             self.assertLess(damage.index(guard), damage.index("const float PreviousHealth = Health;"))
         self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
-        self.assertLess(damage.index("const float ArmoredDamage = Amount *"),
+        self.assertLess(damage.index("const float ArmoredDamage = bApplyingDrowningDamage ? Amount : Amount *"),
                         damage.index("const float PreviousHealth = Health;"))
 
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
@@ -4212,7 +4218,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
                         damage.index("if (DamageTaken > 0.f) {",))
         self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
-                        damage.index("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
+                        damage.index("if (Health <= 0.f) {\n  CloseResidentContext();\n  WaterVerticalIntent = 0;\n  DrowningExposureSeconds = 0.f;\n  WaterTonicRemaining = 0.f;\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("ParryCounterUntil = -1.f;", break_guard)
@@ -4433,7 +4439,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_player_and_enemy_health_are_clamped_to_zero(self):
         self.assertIn("Health = FMath::Max(0.f, Health - DamageAfterGuard)", self.hero_cpp)
-        self.assertIn("const float ArmoredDamage = Amount *", self.hero_cpp)
+        self.assertIn("const float ArmoredDamage = bApplyingDrowningDamage ? Amount : Amount *", self.hero_cpp)
         self.assertIn("Health = FMath::Max(0.0f, Health -", self.enemy_cpp)
 
     def test_enemy_level_scaling_is_spawn_only(self):
@@ -4464,8 +4470,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;", cast)
         self.assertIn("!FMath::IsFinite(Enemy->Health)", cast)
-        self.assertIn("!FMath::IsFinite(Enemy->MaxHealth)", cast)
-        self.assertIn("Enemy->MaxHealth <= 0.f", cast)
+        self.assertIn("!FMath::IsFinite(Enemy->GetMaxHealthAtSpawn())", cast)
+        self.assertIn("Enemy->GetMaxHealthAtSpawn() <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
                         cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
