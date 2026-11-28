@@ -423,6 +423,16 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
  return Pieces;
 }
 
+MoonfallAttributes::FPrimary AMoonfallHeroPawn::GetPrimaryAttributes() const
+{
+ TArray<int32> Codes;
+ GetValidatedEquipmentCodes(Codes);
+ return MoonfallAttributes::BuildPrimary(Level,
+   Codes.IsValidIndex(0)?ValidEquippedTier(Codes[0],0):0,
+   Codes.IsValidIndex(1)?ValidEquippedTier(Codes[1],1):0,
+   Codes.IsValidIndex(2)?ValidEquippedTier(Codes[2],2):0);
+}
+
 int32 AMoonfallHeroPawn::GetMight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
