@@ -67,6 +67,14 @@ tick = gate_cpp.split("void AMoonfallNorthFerryGate::UpdateAutomaticVoyage(", 1)
 cleanup = gate_cpp.split("void AMoonfallNorthFerryGate::StopAutomaticVoyage(", 1)[1].split(
     "bool AMoonfallNorthFerryGate::BoardFerry(", 1)[0]
 
+# Teleport and base changes may synchronously fire overlap handlers.
+assert "bool bBoardingTransaction = false" in gate_h
+assert "bool bStoppingVoyage = false" in gate_h
+assert "PairedGate->bBoardingTransaction || PairedGate->bStoppingVoyage" in start
+assert start.index("if (bBoardingTransaction || bStoppingVoyage") < start.index("TGuardValue<bool> BoardingGuard") < start.index("Hero->TeleportTo(DeckSpawn")
+assert cleanup.index("if (bStoppingVoyage) return;") < cleanup.index("TGuardValue<bool> StopGuard") < cleanup.index("ClearTimer(AutomaticVoyageTimer)")
+assert "if (bBoardingTransaction || bStoppingVoyage) return;" in tick
+
 # Boarding places the hero *on the real ship deck*, but cannot teleport to
 # the destination before the complete eleven-second crossing.
 land_guard = gate_cpp.split(
