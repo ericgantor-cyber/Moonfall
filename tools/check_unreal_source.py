@@ -827,7 +827,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return A < B;", sort)
         self.assertIn("CachedInventoryOrderRevision==EquipmentInventoryRevision", sort)
         self.assertIn("CachedInventoryOrderMode==InventorySortMode", sort)
-        self.assertIn("CachedInventoryOrder.Num()==Count", sort)
+        self.assertIn("CachedInventoryFilter==InventoryRarityFilter", sort)
+        self.assertIn("if(MatchesInventoryFilter(Index))Order.Add(Index)",sort)
         self.assertIn("CachedInventoryOrderSource==InventoryItemCodes", sort)
         self.assertLess(sort.index("return CachedInventoryOrder;"), sort.index("Order.Sort("))
         self.assertLess(sort.index("Order.Sort("), sort.index("CachedInventoryOrder=Order;"))
@@ -850,7 +851,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (HitTestInventorySortButton())", left)
         self.assertIn("InventorySortMode = (InventorySortMode + 1) % 3;", left)
         self.assertLess(left.index("if (HitTestInventorySortButton())"), left.index("HitTestInventoryRow()"))
-        self.assertIn("if (HitTestInventorySortButton()) return;", right)
+        self.assertIn("if (HitTestInventorySortButton()) {CycleInventoryRarityFilter();return;}", right)
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 

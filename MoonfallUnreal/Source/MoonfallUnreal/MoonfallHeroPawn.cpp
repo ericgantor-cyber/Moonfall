@@ -1285,6 +1285,26 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
+ if(!InventoryItemCodes.IsValidIndex(Index))return false;
+ if(InventoryRarityFilter==-1)return true;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[Index]);
+ return Item.IsValid()&&Item.Rarity==InventoryRarityFilter;
+}
+bool AMoonfallHeroPawn::IsInventorySelectionVisible() const {
+ return MatchesInventoryFilter(InventorySelection);
+}
+FString AMoonfallHeroPawn::GetInventoryFilterLabel() const {
+ static const TCHAR* Labels[]={TEXT("All"),TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ return Labels[FMath::Clamp(InventoryRarityFilter+1,0,6)];
+}
+void AMoonfallHeroPawn::CycleInventoryRarityFilter() {
+ if(!bInventoryOpen||bOptionsOpen||bCharacterStatsOpen||bSpellBookOpen)return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventoryRarityFilter=(FMath::Clamp(InventoryRarityFilter,-1,5)+2)%7-1;
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
 TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 {
  TArray<int32> Order;
@@ -1292,16 +1312,16 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // Reuse the same sorted order for HUD rendering, hit testing and keyboard
  // selection. Keep an exact source snapshot as a guard against direct C++
  // inventory edits that bypass the normal revisioned mutation paths.
- if(InventorySortMode!=0&&CachedInventoryOrderRevision==EquipmentInventoryRevision
-    &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryOrder.Num()==Count
+ if((InventorySortMode!=0||InventoryRarityFilter!=-1)&&CachedInventoryOrderRevision==EquipmentInventoryRevision
+    &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryFilter==InventoryRarityFilter
     &&CachedInventoryOrderSource==InventoryItemCodes)
   return CachedInventoryOrder;
  Order.Reserve(Count);
- for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
- if (InventorySortMode == 0) return Order;
+ for (int32 Index = 0; Index < Count; ++Index) if(MatchesInventoryFilter(Index))Order.Add(Index);
+ if (InventorySortMode == 0&&InventoryRarityFilter==-1) return Order;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
- Order.Sort([this](int32 A, int32 B) {
+ if(InventorySortMode!=0)Order.Sort([this](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
   const auto DecodedA=MoonfallEquipmentLayout::DecodeFullItem(CodeA);
   const auto DecodedB=MoonfallEquipmentLayout::DecodeFullItem(CodeB);
@@ -1326,6 +1346,7 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  CachedInventoryOrderSource=InventoryItemCodes;
  CachedInventoryOrderRevision=EquipmentInventoryRevision;
  CachedInventoryOrderMode=InventorySortMode;
+ CachedInventoryFilter=InventoryRarityFilter;
  return Order;
 }
 
@@ -1351,7 +1372,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   return false;
  }
  const int32 Rows = GetInventoryVisibleRows();
- const int32 Count = InventoryItemCodes.Num();
+ const int32 Count = GetInventoryDisplayOrder().Num();
  // A bag may shrink while dragging after a salvage or item transfer.
  // Cancel the drag rather than keeping a stale scrollbar gesture alive.
  if (Count <= Rows) {
@@ -1522,7 +1543,7 @@ void AMoonfallHeroPawn::ConfirmRingNavigationAction()
   if(bValid&&Source!=RingNavigationIndex)MoveEquippedRing(Source,RingNavigationIndex);
   return; // Never fall through to equipping a bag item after a canceled swap.
  }
- if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);
+ if(CanEditEquippedRings()&&IsInventorySelectionVisible())EquipInventoryRing(InventorySelection,RingNavigationIndex);
 }
 
 int32 AMoonfallHeroPawn::HitTestInventoryRingStrip() const
@@ -1564,8 +1585,9 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
 
 void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 {
- const int32 Count = InventoryItemCodes.Num();
- InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, Count - 1));
+ const TArray<int32> Visible=GetInventoryDisplayOrder();
+ const int32 Count=Visible.Num();
+ if(!Visible.Contains(InventorySelection))InventorySelection=Count>0?Visible[0]:INDEX_NONE;
  const int32 Rows = GetInventoryVisibleRows();
  const int32 MaxStart = FMath::Max(0, Count - Rows);
  const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);
@@ -1597,7 +1619,7 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const float Left = float(Width) - PanelWidth - 12.f;
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const int32 Rows = GetInventoryVisibleRows();
- const int32 Count = InventoryItemCodes.Num();
+ const int32 Count = GetInventoryDisplayOrder().Num();
  const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
  const int32 End = FMath::Min(Count, Start + Rows);
  const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
@@ -1651,7 +1673,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(-1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
-  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
+  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
@@ -1673,7 +1695,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
-  const int32 MaxStart = FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows());
+  const int32 MaxStart = FMath::Max(0, GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows());
   InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
   InventoryViewStart = FMath::Min(MaxStart, InventoryViewStart + 1);
   return;
@@ -3298,6 +3320,7 @@ void AMoonfallHeroPawn::ResetQuestTracking() {
  ManualQuestMask={};
 }
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ if(bInventoryOpen&&!bCharacterStatsOpen&&!bSpellBookOpen){CycleInventoryRarityFilter();return;}
  // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
  if (bTalentWebOpen) return;
  // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
@@ -3409,10 +3432,10 @@ void AMoonfallHeroPawn::ToggleInventory() {
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
- EquipInventoryItem(InventorySelection);
+ if(IsInventorySelectionVisible())EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() {
  if(HasRingNavigationFocus()){if(RingNavigationSwapSource==INDEX_NONE)UnequipRing(RingNavigationIndex);return;}
@@ -3554,7 +3577,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
@@ -3603,7 +3626,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
@@ -3646,13 +3669,13 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
@@ -6859,7 +6882,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
   if (!HasVisibleInventoryPointerSurface(Controller)) return;
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
-  if (HitTestInventorySortButton()) return;
+  if (HitTestInventorySortButton()) {CycleInventoryRarityFilter();return;}
   if (HitTestInventoryEquipButton()) return;
   const int32 RingIndex=HitTestInventoryRingStrip();
   if(RingIndex!=INDEX_NONE)return; // Worn-slot clicks never remove gear implicitly.
