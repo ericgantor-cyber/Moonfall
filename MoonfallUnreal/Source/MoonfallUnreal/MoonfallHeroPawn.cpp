@@ -6350,7 +6350,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
  WalletCopper=Save->WalletCopper;
  MerchantRestockUtc=Save->MerchantRestockUtc;
- MerchantBuybackCode=0;MerchantBuybackPrice=0;
+ MerchantBuybackHistory={};MerchantBuybackIndex=0;
  ClearMerchantConfirmation();
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
@@ -6763,7 +6763,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  OceanRecipePage = -1;
  bResidentMerchantMenu=false;
  MerchantSellIndex=0;MerchantSellCode=0;
- MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackCode=0;MerchantBuybackPrice=0;
+ MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackHistory={};MerchantBuybackIndex=0;
  ClearMerchantConfirmation();
  bResidentContextOpen = false;
  FocusedResident.Reset();
@@ -7029,7 +7029,7 @@ bool AMoonfallHeroPawn::SellMerchantItem() {
   return false;
  }
  InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
- MerchantBuybackCode=Code;MerchantBuybackPrice=Price;
+ MerchantBuybackHistory.Push(Code,Price);MerchantBuybackIndex=0;
  SelectMerchantSaleItem(0);
  return true;
 }
@@ -7060,10 +7060,16 @@ int64 AMoonfallHeroPawn::GetMerchantSpecialtyWait() const {
  if(!MoonfallMoney::ValidRestock(Deadline)||Now<=0||Now>MoonfallMoney::MaxUtc-MoonfallMoney::RestockSeconds)return -1;
  return Deadline>Now?Deadline-Now:0;
 }
+int32 AMoonfallHeroPawn::GetMerchantBuybackCode() const {
+ return MerchantBuybackHistory.Get(MerchantBuybackIndex).Code;
+}
 int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu)return 0;
  if(MerchantTradeMode==0)return GetMerchantSaleQuote();
- if(MerchantTradeMode==2)return ValidMoonfallItemCode(MerchantBuybackCode)&&MoonfallMoney::Valid(MerchantBuybackPrice)?MerchantBuybackPrice:0;
+ if(MerchantTradeMode==2){
+  const auto Entry=MerchantBuybackHistory.Get(MerchantBuybackIndex);
+  return ValidMoonfallItemCode(Entry.Code)&&MoonfallMoney::Valid(Entry.Price)?Entry.Price:0;
+ }
  if(MerchantTradeMode!=1)return 0;
  if(IsMerchantSpecialtySelected()&&GetMerchantSpecialtyWait()!=0)return 0;
  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(GetMerchantStockCode());
@@ -7071,12 +7077,14 @@ int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
 }
 FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
  if(MerchantTradeMode==0)return GetMerchantSaleItemText();
- const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode);
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode());
  if(!Item.IsValid())return TEXT("No item available");
  static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
  static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
  static const TCHAR* Traits[]={TEXT(""),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
- return FString::Printf(TEXT("%s%s T%d %s %s"),MerchantTradeMode==1&&MerchantStockIndex==MoonfallEquipmentLayout::ActiveSlotCount?TEXT("Special: "):TEXT(""),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+ const FString Prefix=MerchantTradeMode==2?FString::Printf(TEXT("%d/%d "),MerchantBuybackIndex+1,MerchantBuybackHistory.Count):
+  (IsMerchantSpecialtySelected()?FString(TEXT("Special: ")):FString());
+ return FString::Printf(TEXT("%s%s T%d %s %s"),*Prefix,Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  if(IsMerchantSpecialtySelected()){
@@ -7095,8 +7103,8 @@ void AMoonfallHeroPawn::ClearMerchantConfirmation() {
 }
 bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent() const {
  if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu)return false;
- const int32 Code=MerchantTradeMode==0?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
- const int32 Index=MerchantTradeMode==0?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:0;
+ const int32 Code=MerchantTradeMode==0?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+ const int32 Index=MerchantTradeMode==0?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
  const MoonfallMoney::FTradeIntent Pending{MerchantConfirmMode,MerchantConfirmCode,MerchantConfirmIndex,MerchantConfirmPrice,MerchantConfirmRevision};
  const MoonfallMoney::FTradeIntent Current{MerchantTradeMode,Code,Index,GetMerchantTradeQuote(),EquipmentInventoryRevision};
  return Pending.Matches(Current);
@@ -7121,7 +7129,7 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
     ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress
     ||InventoryItemCodes.Num()>=10000||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
- const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
+ const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
  if(!ValidMoonfallItemCode(Code)||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip))return false;
  MoonfallMoney::FWallet Candidate{WalletCopper};
  if(!Candidate.Debit(GetMerchantTradeQuote()))return false;
@@ -7147,7 +7155,10 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
   MarkEquipmentInventoryDirty();
   return false;
  }
- if(MerchantTradeMode==2){MerchantBuybackCode=0;MerchantBuybackPrice=0;}
+ if(MerchantTradeMode==2){
+  MerchantBuybackHistory.Remove(MerchantBuybackIndex);
+  MerchantBuybackIndex=FMath::Clamp(MerchantBuybackIndex,0,FMath::Max(0,MerchantBuybackHistory.Count-1));
+ }
  InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
  return true;
 }
@@ -7491,6 +7502,8 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    else if(MerchantTradeMode==1){
     const int32 Count=GetMerchantStockCount();
     MerchantStockIndex=(FMath::Clamp(MerchantStockIndex,0,Count-1)+(Choice==0?-1:1)+Count)%Count;
+   }else if(MerchantTradeMode==2){
+    MerchantBuybackIndex=MerchantBuybackHistory.Browse(MerchantBuybackIndex,Choice==0?-1:1);
    }
    return true;
   }
@@ -7505,8 +7518,8 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
     ResidentFeedbackMessage=GetMerchantTradeStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
    }
    MerchantConfirmMode=MerchantTradeMode;
-   MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
-   MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:0;
+   MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
+   MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
    MerchantConfirmPrice=Price;MerchantConfirmRevision=EquipmentInventoryRevision;
    bMerchantConfirmPending=true;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
    return true;

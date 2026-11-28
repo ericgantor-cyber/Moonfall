@@ -759,8 +759,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if(Hero->bResidentMerchantMenu){
     const int32 Mode=Hero->MerchantTradeMode;
     const FString Quote=Hero->GetMerchantTradeQuoteText();
-    Names[0]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Previous stock item"):TEXT("Previous bag item");
-    Names[1]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Next stock item"):TEXT("Next bag item");
+    Names[0]=Mode==2?TEXT("Previous sold item"):Mode==1?TEXT("Previous stock item"):TEXT("Previous bag item");
+    Names[1]=Mode==2?TEXT("Next sold item"):Mode==1?TEXT("Next stock item"):TEXT("Next bag item");
     Names[2]=FString::Printf(TEXT("%s%s | %s"),Hero->IsMerchantConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
     Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
     Names[4]=TEXT("Back");
