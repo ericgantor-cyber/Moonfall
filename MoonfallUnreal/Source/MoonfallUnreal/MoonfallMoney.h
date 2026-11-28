@@ -112,7 +112,8 @@ namespace MoonfallMoney {
  }
  // Bag progression: preserve oversized legacy bags but prohibit new additions
  // until they fit. The original 10,000-entry serialization ceiling remains.
- constexpr int BagStart=100,BagMax=500,BagStep=50;
+ constexpr int BagStart=100,BagMax=500,BagStep=50,VaultMax=1000;
+ constexpr bool VaultHasRoom(int Count) {return Count>=0&&Count<VaultMax;}
  constexpr bool ValidBagCapacity(int Capacity) {
   return Capacity>=BagStart&&Capacity<=BagMax&&(Capacity-BagStart)%BagStep==0;
  }
