@@ -11,6 +11,12 @@ namespace MoonfallWaterRules
     constexpr float DrowningHealthFraction = 0.20f;
     constexpr float TonicDuration = 120.f;
     constexpr float TonicThreshold = 10.f;
+    // Vertical commands are discrete and never survive invalid depth or input locks.
+    inline int32 ResolveVerticalIntent(int32 Intent,bool bCanSteer,float EyeDepth)
+    {
+        if (!bCanSteer || !FMath::IsFinite(EyeDepth) || Intent < -1 || Intent > 1) return 0;
+        return Intent>0 && EyeDepth<=0.f ? 0 : Intent;
+    }
     // Presentation-only pitch; no effect on collision, movement or combat.
     inline float SwimPosePitch(bool bSwimming,bool bSubmerged,bool bReducedMotion,float VerticalSpeed)
     {
