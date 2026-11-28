@@ -12,6 +12,7 @@ class MOONFALLUNREAL_API AMoonfallAirPocket : public AActor
     GENERATED_BODY()
 public:
     AMoonfallAirPocket();
+    virtual void BeginPlay() override;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Water")
     USphereComponent* BreathingZone;
     bool ContainsEye(const FVector& EyeLocation) const;
