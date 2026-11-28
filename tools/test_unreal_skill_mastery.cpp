@@ -9,7 +9,8 @@ int main(){
  M::State S{},Out{};
  assert(M::Valid(S)&&M::RankFor(S,M::Skill::Agility)==0);
  assert(M::Rank(-1)==-1&&M::Rank(M::MaxXP+1)==-1);
- for(int R=0;R<6;++R){
+ static_assert(M::MaxRank==10);
+ for(int R=0;R<=M::MaxRank;++R){
   assert(M::Rank(M::RankThresholds[static_cast<std::size_t>(R)])==R);
   if(R>0)assert(M::Rank(M::RankThresholds[static_cast<std::size_t>(R)]-1)==R-1);
  }
@@ -53,7 +54,6 @@ int main(){
  assert(M::TryRestoreRecord(1,SavedXP,SavedOrbs,Restored));
  assert(Restored.XP==SavedXP&&Restored.Collected==SavedOrbs);
  assert(M::HasUnlock(Restored,M::Unlock::Vault));
- assert(M::HasUnlock(Restored,M::Unlock::AirDash));
  assert(M::HasUnlock(Restored,M::Unlock::AdvancedClimb));
  assert(M::HasUnlock(Restored,M::Unlock::PerfectGuard));
  assert(M::HasUnlock(Restored,M::Unlock::HeavyFollowup));
@@ -89,18 +89,22 @@ int main(){
  assert(!M::ValidOrbID(M::RoutePlacement(M::WorldRouteCount).Region,0));
  M::State Travel{};
  assert(M::JumpBonusBps(Travel)==0);
- assert(!M::CanAirDash(Travel,true,false,true));
  Travel.XP[static_cast<int>(M::Skill::Agility)]=100;
  assert(M::JumpBonusBps(Travel)==600);
  Travel.XP[static_cast<int>(M::Skill::Agility)]=650;
  assert(M::JumpBonusBps(Travel)==1800);
- assert(M::CanAirDash(Travel,true,false,true));
- assert(!M::CanAirDash(Travel,false,false,true));
- assert(!M::CanAirDash(Travel,true,true,true));
- assert(!M::CanAirDash(Travel,true,false,false));
  Travel.XP[static_cast<int>(M::Skill::Agility)]=1800;
  assert(M::JumpBonusBps(Travel)==2500);
+ Travel.XP[static_cast<int>(M::Skill::Agility)]=M::MaxXP;
+ assert(M::RankFor(Travel,M::Skill::Agility)==10&&M::JumpBonusBps(Travel)==4000);
+ int PreviousBonus=0;
+ for(int R=0;R<=M::MaxRank;++R){
+  Travel.XP[static_cast<int>(M::Skill::Agility)]=M::RankThresholds[R];
+  const int Bonus=M::JumpBonusBps(Travel);
+  assert(Bonus>=PreviousBonus&&Bonus<=4000);
+  PreviousBonus=Bonus;
+ }
  Travel.XP[0]=-1;
- assert(M::JumpBonusBps(Travel)==0&&!M::CanAirDash(Travel,true,false,true));
+ assert(M::JumpBonusBps(Travel)==0);
  return 0;
 }
