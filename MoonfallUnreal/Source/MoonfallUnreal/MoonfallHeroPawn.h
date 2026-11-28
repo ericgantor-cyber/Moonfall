@@ -202,6 +202,13 @@ public:
  FString GetMerchantTradeItemText() const;
  FString GetMerchantTradeQuoteText() const;
  bool BuyMerchantItem();
+ bool bMerchantConfirmPending=false;
+ int32 MerchantConfirmMode=-1,MerchantConfirmCode=0,MerchantConfirmIndex=-1;
+ int64 MerchantConfirmPrice=0;
+ uint32 MerchantConfirmRevision=0;
+ void ClearMerchantConfirmation();
+ bool IsMerchantConfirmationCurrent() const;
+ FString GetMerchantTradeStatusText() const;
  bool bResidentCompanionTalents=false;
  bool bResidentCompanionTraining=false;
  bool bResidentCompanionGear=false;
