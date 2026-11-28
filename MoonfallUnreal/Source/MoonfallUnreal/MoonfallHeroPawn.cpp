@@ -4816,7 +4816,7 @@ bool AMoonfallHeroPawn::TryFishingAction() {
 
 bool AMoonfallHeroPawn::TryMouseFishingAction() {
  // Right-click can only interact with an existing bobber, never initiate a cast.
- if (Fishing.Stage==MoonfallFishing::EStage::Idle || !CanContinueFishing() || GetWorld()->IsPaused()) return false;
+ if (Fishing.Stage==MoonfallFishing::EStage::Idle || !GetWorld() || GetWorld()->IsPaused()) return false;
  auto* PC=Cast<APlayerController>(Controller);
  if(!IsValid(PC)) return false;
  FVector Eye,Direction;
@@ -4834,6 +4834,7 @@ bool AMoonfallHeroPawn::TryMouseFishingAction() {
  FHitResult Block;
  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
  // Consume a bobber click even if the water became invalid; never cast a combat spell at it.
+ if(!CanContinueFishing()){CancelFishingWithFeedback();return true;}
  TryFishingAction();
  return true;
 }
@@ -7013,7 +7014,7 @@ FString AMoonfallHeroPawn::GetMerchantSaleItemText() const {
  return FString::Printf(TEXT("%d/%d %s T%d %s %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 bool AMoonfallHeroPawn::SellMerchantItem() {
- if(MerchantTradeMode!=0)return false;
+ if(MerchantTradeMode!=0||!IsMerchantConfirmationCurrent()||FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
  const auto* Resident=FocusedResident.Get();
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
@@ -7116,7 +7117,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
 }
 void AMoonfallHeroPawn::ClearMerchantConfirmation() {
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
- MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;
+ MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;
 }
 bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent() const {
  if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu)return false;
@@ -7141,6 +7142,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
  return MerchantTradeMode==1?GetMerchantStandingText():FString(TEXT("Ready to review trade"));
 }
 bool AMoonfallHeroPawn::BuyMerchantItem() {
+ if(!IsMerchantConfirmationCurrent()||FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
  const auto* Resident=FocusedResident.Get();
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
@@ -7544,11 +7546,14 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
    MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:MerchantBuybackIndex;
    MerchantConfirmPrice=Price;MerchantConfirmRevision=EquipmentInventoryRevision;
+   MerchantConfirmAfter=FPlatformTime::Seconds()+0.35;
    bMerchantConfirmPending=true;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
    return true;
   }
-  ClearMerchantConfirmation();
+  // No expiry: accessibility users may review indefinitely. Ignore repeated early input.
+  if(FPlatformTime::Seconds()<MerchantConfirmAfter)return false;
   const bool bTraded=bSelling?SellMerchantItem():BuyMerchantItem();
+  ClearMerchantConfirmation();
   ResidentFeedbackMessage=bTraded?(bSelling?TEXT("Item sold; coins saved."):TEXT("Purchased; item saved in bag.")):
     TEXT("Trade unavailable: item, funds, combat, capacity or save.");
   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
