@@ -220,8 +220,13 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::HistoricalSalePrice(1,1,0,0)==40);
+    assert(MoonfallMoney::ValidHistoricalSale(1,25,5,3,2430));
+    assert(!MoonfallMoney::ValidHistoricalSale(1,25,5,3,2431));
+    assert(!MoonfallMoney::ValidHistoricalSale(2,1,0,0,40));
+    assert(!MoonfallMoney::ValidHistoricalSale(1,0,0,0,0));
     MoonfallMoney::FBuybackHistory History;
-    assert(!History.Push(0,50)&&!History.Push(1,-1));
+    assert(!History.Push(0,50)&&!History.Push(1,-1)&&!History.Push(1,40,2));
     for(int I=1;I<=15;++I)assert(History.Push(I,I*10));
     assert(History.Count==12&&History.Get(0).Code==15&&History.Get(11).Code==4);
     assert(History.Browse(0,-1)==11&&History.Browse(11,1)==0);
