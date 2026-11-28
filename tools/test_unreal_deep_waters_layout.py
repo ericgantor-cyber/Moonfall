@@ -109,6 +109,28 @@ class DeepWatersLayoutTests(unittest.TestCase):
             self.assertIn(large[0],range(5))
             self.assertEqual(large[1],(0,0,-240))
 
+    def test_regional_breathing_routes(self):
+        import math
+        from deep_waters_layout import regional_breathing_plan, regional_water_plan, REGIONAL_DIVE_SITES
+        self.assertEqual(len(set(REGIONAL_DIVE_SITES)), 9)
+        for province in range(9):
+            for w,h,depth,count in ((600,600,500,1),(1400,1400,500,3),(3000,2000,900,3)):
+                plan=regional_breathing_plan(province,w,h,depth)
+                self.assertEqual(len(plan),count)
+                _,nodes=regional_water_plan(province,w,h,depth)
+                for i,(label,(x,y,z)) in enumerate(plan):
+                    self.assertIn(REGIONAL_DIVE_SITES[province],label)
+                    self.assertLess(abs(x)+160,w)
+                    self.assertLess(abs(y)+160,h)
+                    self.assertLess(z+160,0)
+                    self.assertGreater(z-160,-depth)
+                    for _,_,_,pos,scale in nodes:
+                        self.assertGreater(math.dist((x,y,z),pos),160+max(scale)*50)
+                    for _,other in plan[:i]:
+                        self.assertGreater(math.dist((x,y,z),other),320)
+        with self.assertRaises(ValueError):
+            regional_breathing_plan(9,600,600,500)
+
     def test_six_unique_rooms(self):
         rooms = grotto_layout()
         self.assertEqual(len(rooms), 6)
