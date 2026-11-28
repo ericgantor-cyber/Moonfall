@@ -155,6 +155,11 @@ for event_guard in (before_initial_progress, after_initial_progress):
     ):
         assert expected in event_guard, f"Missing boarding event guard: {expected}"
 assert "return bAutoVoyageInProgress && PendingVoyager.Get() == Hero" in post_start_event
+# Cancellation must clear the timer and restore the ship, rather than merely
+# returning failure while a stale active voyage remains.
+assert before_initial_progress.index("return false;") < before_initial_progress.index("!IsValid(PendingShip.Get())")
+assert before_initial_progress.index("!IsValid(PendingShip.Get())") < before_initial_progress.index("StopAutomaticVoyage();")
+assert "!PendingVoyager.IsValid() || !IsValid(PendingShip.Get())" in after_initial_progress
 assert "MoonfallNorth::MayBoard" in start
 assert "bUseVoyageCamera && IsValid(SailingVessel->VoyageCamera)" in start
 assert "PC->IsLocalController()" in start
@@ -164,9 +169,11 @@ assert "Hero->bReduceMotion ? 0.f : 0.35f" in start
 assert "MoonfallNorth::AutoSailEasedProgress" in tick
 assert "UpdateVoyagePresentation(Hero, ElapsedSeconds)" in tick
 post_tick_event = tick.split("UpdateVoyagePresentation(Hero, ElapsedSeconds);", 1)[1]
-assert "!bAutoVoyageInProgress || !IsValid(Hero)" in post_tick_event
+assert "!bAutoVoyageInProgress ||" in post_tick_event
+assert "!IsValid(Hero) || !PendingVoyager.IsValid()" in post_tick_event
 assert "PendingVoyager.Get() != Hero" in post_tick_event
 assert "PendingShip.Get() != Ship" in post_tick_event
+assert post_tick_event.index("return;") < post_tick_event.index("PendingShip.Get() != Ship") < post_tick_event.index("StopAutomaticVoyage();")
 assert "PairedGate != Arrival" in post_tick_event
 # A progress Blueprint can disable or destroy a harbor or invalidate the
 # passenger on the final update. Require the same live guards before arrival.
