@@ -268,6 +268,14 @@ int main() {
     assert(!MoonfallMoney::ValidHistoricalSale(1,25,5,3,2431));
     assert(!MoonfallMoney::ValidHistoricalSale(2,1,0,0,40));
     assert(!MoonfallMoney::ValidHistoricalSale(1,0,0,0,0));
+    for(int InvalidCount : {-1,13,2147483647}) {
+      MoonfallMoney::FBuybackHistory Invalid;
+      Invalid.Count=InvalidCount;
+      assert(Invalid.Get(0).Code==0 && Invalid.Get(12).Code==0);
+      assert(!Invalid.Remove(0) && !Invalid.Push(1,50));
+      assert(Invalid.Browse(0,1)==0 && Invalid.Browse(0,-1)==0);
+      assert(Invalid.Count==InvalidCount);
+    }
     MoonfallMoney::FBuybackHistory History;
     assert(!History.Push(0,50)&&!History.Push(1,-1)&&!History.Push(1,40,2));
     for(int I=1;I<=15;++I)assert(History.Push(I,I*10));
