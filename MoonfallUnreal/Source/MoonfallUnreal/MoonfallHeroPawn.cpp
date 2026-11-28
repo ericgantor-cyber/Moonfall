@@ -1,5 +1,8 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallNorthPreviewGameMode.h"
+#include "MoonfallRegionalFishing.h"
+#include "MoonfallRegionalAtlas.h"
+#include "MoonfallProfessionUI.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallQuestXP.h"
 #include "MoonfallQuestJournal.h"
@@ -13,6 +16,7 @@
 #include "MoonfallSpellBook.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Misc/DateTime.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -26,10 +30,17 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PhysicsVolume.h"
+namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
+#include "MoonfallWaterRules.h"
+#include "MoonfallWaterCurrent.h"
+#include "MoonfallAirPocket.h"
+#include "MoonfallGrottoTreasure.h"
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
@@ -461,6 +472,33 @@ float AMoonfallHeroPawn::GetCriticalChance() const
    0.05f, 0.25f);
 }
 
+void AMoonfallHeroPawn::GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const
+{
+ // One validated snapshot; unequipped, malformed and duplicate unowned items confer no bonus.
+ TArray<int32> Codes;
+ GetValidatedEquipmentCodes(Codes);
+ const auto FocusRarity = [&](int32 Slot) {
+  int32 Trait=0, Rarity=0, Tier=0;
+  return Codes.IsValidIndex(Slot) && DecodeEquippedItem(Codes[Slot],Slot,Trait,Rarity,Tier)
+      && Trait==3 ? Rarity : -1;
+ };
+ int32 BreathRarity=FMath::Max(FocusRarity(2),FocusRarity(9));
+ int32 SwimRarity=FocusRarity(7);
+ int32 Pieces=0;
+ if (bPersistentSaveWritesBlocked && GetWorld()) {
+  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview)) {
+   BreathRarity=FMath::Max(BreathRarity,Preview->GetGrottoGearRarity(0));
+   SwimRarity=FMath::Max(SwimRarity,Preview->GetGrottoGearRarity(1));
+   Pieces=Preview->GetGrottoSetPieces();
+  }
+ }
+ OutBreath=MoonfallWaterRules::SetBreathMultiplier(
+     MoonfallWaterRules::GearBreathMultiplier(bRaceChosen,RaceId,BreathRarity),Pieces);
+ OutSwim=MoonfallWaterRules::SetSwimMultiplier(
+     MoonfallWaterRules::GearSwimMultiplier(SwimRarity),Pieces);
+}
+
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
  const float TraitHaste = ValidEquippedTraitRarity(GetEquipmentSlotCode(2), 2, 3) * 0.006f;
@@ -507,6 +545,8 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
    TEXT("DungeonNavigationInvoker"));
  // Small active navmesh radius helps keep 30 long dungeon lanes affordable.
  DungeonNavigationInvoker->SetGenerationRadii(3000.f, 5000.f);
+ SwimPoseAnchor=CreateDefaultSubobject<USceneComponent>(TEXT("SwimPoseAnchor"));
+ SwimPoseAnchor->SetupAttachment(GetRootComponent());
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = CameraDistance;
@@ -617,6 +657,8 @@ void AMoonfallHeroPawn::BeginPlay() {
   NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
       ? AuthoredWalkSpeed : 600.f;
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  GetCharacterMovement()->GetNavAgentPropertiesRef().bCanSwim = true;
+  GetCharacterMovement()->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
   const float AuthoredJump=GetCharacterMovement()->JumpZVelocity;
   MasteryBaseJumpZ=FMath::IsFinite(AuthoredJump)&&AuthoredJump>0.f?AuthoredJump:600.f;
  }
@@ -676,6 +718,14 @@ void AMoonfallHeroPawn::BeginPlay() {
   ReconcileMasteryOrbOverlaps();
  }
 }
+void AMoonfallHeroPawn::RefreshSwimPose()
+{
+ if(!IsValid(SwimPoseAnchor)) return;
+ const FRotator Pose(MoonfallWaterRules::SwimPosePitch(
+     bWaterSwimming,bWaterSubmerged,bReduceMotion,WaterVerticalSpeed),0.f,0.f);
+ if(!SwimPoseAnchor->GetRelativeRotation().Equals(Pose,0.1f))
+  SwimPoseAnchor->SetRelativeRotation(Pose);
+}
 void AMoonfallHeroPawn::PossessedBy(AController* NewController)
 {
  Super::PossessedBy(NewController);
@@ -723,12 +773,201 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // defeat/respawn timers, leaving the hero unable to save or respawn.
  const float SafeTimerDelta = FMath::IsFinite(DeltaSeconds)
      ? FMath::Clamp(DeltaSeconds, 0.f, 0.25f) : 0.f;
+ // Native swimming mode, never a height-only guess about whether the hero is in water.
+ const bool bWasSwimming = bWaterSwimming;
+ const bool bWasSubmerged = bWaterSubmerged;
+ WaterCameraDepth = 0.f;
+ WaterStrokeSpeed = 0.f;
+ WaterVerticalSpeed = 0.f;
+ WaterCurrentStrength = 0.f;
+ bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
+     && GetCharacterMovement()->IsSwimming();
+ // Remember the last grounded shoreline; only arm it on a nearby water entry.
+ if (bPersistentSaveWritesBlocked && IsLocallyControlled() && GetWorld()) {
+  const double Now=GetWorld()->GetTimeSeconds();
+  const FVector Position=GetActorLocation();
+  const auto* Movement=GetCharacterMovement();
+  if (!bWaterSwimming) {
+   WaterRecoveryVolume.Reset();
+   if (IsValid(Movement) && Movement->IsMovingOnGround()
+       && IsValid(GetPhysicsVolume()) && !GetPhysicsVolume()->bWaterVolume
+       && FMath::IsFinite(Health) && Health>0.f && !Position.ContainsNaN() && FMath::IsFinite(Now)
+       && IsValid(GetMovementBase()) && GetMovementBase()->Mobility==EComponentMobility::Static) {
+    WaterRecoveryShore=Position;
+    WaterRecoveryShoreAt=Now;
+   }
+  } else if (!bWasSwimming) {
+   WaterRecoveryVolume.Reset();
+   APhysicsVolume* Volume=GetPhysicsVolume();
+   if (IsValid(Volume) && Volume->bWaterVolume && WaterRecoveryShoreAt>=0.0
+       && FMath::IsFinite(Now) && Now>=WaterRecoveryShoreAt && Now-WaterRecoveryShoreAt<=3.0
+       && !Position.ContainsNaN() && !WaterRecoveryShore.ContainsNaN()
+       && FVector::DistSquared(Position,WaterRecoveryShore)<=FMath::Square(1200.f))
+    WaterRecoveryVolume=Volume;
+  }
+ }
+ bWaterSubmerged = false;
+ float WaterEyeDepth = 0.f;
+ bool bValidWaterSurface = false;
+ FVector WaterRelativePosition = FVector::ZeroVector;
+ if (bWaterSwimming) {
+  const APhysicsVolume* Volume = GetPhysicsVolume();
+  if (IsValid(Volume) && Volume->bWaterVolume) {
+   const FBox Bounds = Volume->GetComponentsBoundingBox(true);
+   const FVector Eye = GetPawnViewLocation();
+   // Authored water physics volumes must use their upper boundary as the surface.
+   bValidWaterSurface = Bounds.IsValid && !Eye.ContainsNaN()
+       && FMath::IsFinite(Bounds.Max.Z);
+   if (bValidWaterSurface) {
+    WaterEyeDepth = Bounds.Max.Z - Eye.Z;
+    const FVector Center = Bounds.GetCenter();
+    WaterRelativePosition = GetActorLocation()-FVector(Center.X,Center.Y,Bounds.Max.Z);
+    bWaterSubmerged = WaterEyeDepth > 0.f;
+    if (IsValid(FollowCamera)) {
+     const FVector CameraPosition = FollowCamera->GetComponentLocation();
+     if (!CameraPosition.ContainsNaN() && Bounds.IsInsideOrOn(CameraPosition))
+      WaterCameraDepth = FMath::Max(0.f,float(Bounds.Max.Z-CameraPosition.Z));
+    }
+   }
+  }
+ }
+ bInsideAirPocket = false;
+ if (bWaterSwimming && bWaterSubmerged && GetCapsuleComponent()) {
+  // Only query existing local capsule overlaps; no per-frame world actor scan.
+  TArray<AActor*> Pockets;
+  GetCapsuleComponent()->GetOverlappingActors(Pockets, AMoonfallAirPocket::StaticClass());
+  for (AActor* Actor : Pockets) {
+   const AMoonfallAirPocket* Pocket = Cast<AMoonfallAirPocket>(Actor);
+   if (IsValid(Pocket) && Pocket->ContainsEye(GetPawnViewLocation())) {
+    bInsideAirPocket = true;
+    break;
+   }
+  }
+ }
+ if (bWaterSwimming) {
+  const FVector Velocity = GetVelocity();
+  if (!Velocity.ContainsNaN()) {
+   WaterStrokeSpeed = float(Velocity.Size2D());
+   WaterVerticalSpeed = float(Velocity.Z);
+  }
+ }
+ RefreshSwimPose();
+ if (bWasSwimming != bWaterSwimming || bWasSubmerged != bWaterSubmerged) {
+  OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
+  if (IsActorBeingDestroyed()) return;
+ }
+ // Discover wrecks only while actually swimming through their open interiors.
+ if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
+     && IsLocallyControlled() && GetWorld()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")) {
+  if (auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   const int32 Province=ResolveFishingProvince(GetPhysicsVolume());
+   if(MoonfallRegionalFishing::Valid(Province)) Preview->DiscoverRegionalWater(Province);
+   else {
+   const FVector WreckCenters[] = {FVector(-2200,-1250,-260),FVector(2200,1250,-260)};
+   for (int32 I=0; I<2; ++I) {
+    const FVector Offset=WaterRelativePosition-WreckCenters[I];
+    if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
+        && FMath::Abs(Offset.Y)<=100.f && FMath::Abs(Offset.Z)<=90.f)
+     Preview->DiscoverWreck(I);
+   }
+   const FVector CaveCenters[] = {FVector(-3800,2200,-255),FVector(3800,-2200,-255)};
+   const auto* Volume=GetPhysicsVolume();
+   if (IsValid(Volume)) {
+    const FVector Extent=Volume->GetComponentsBoundingBox(true).GetExtent();
+    if (Extent.X>=6000.0 && Extent.Y>=4500.0) {
+     for (int32 I=0; I<2; ++I) {
+      const FVector Offset=WaterRelativePosition-CaveCenters[I];
+      if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
+          && FMath::Abs(Offset.Y)<=160.f && FMath::Abs(Offset.Z)<=70.f)
+       Preview->DiscoverCave(I);
+     }
+    }
+   }
+  }
+  }
+ }
+ const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
+ // Swim through native collision, never teleport or bypass the movement component.
+ if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
+     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
+     || bResidentContextOpen || FocusedResident.IsValid()
+     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)) {
+  WaterVerticalIntent = 0;
+ }
+ if (WaterVerticalIntent != 0)
+  AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
+ // Gentle horizontal flow only in the dedicated preview. Native movement
+ // retains collision, acceleration limits and full player steering authority.
+ if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
+     && IsLocallyControlled() && GetWorld() && !GetWorld()->IsPaused()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) {
+  const FVector Flow=MoonfallWaterCurrent::Input(WaterRelativePosition,WaterVerticalIntent>0,bInsideAirPocket);
+  WaterCurrentStrength=float(Flow.Size());
+  if (WaterCurrentStrength>0.f)
+   AddMovementInput(Flow.GetSafeNormal(),WaterCurrentStrength);
+ }
+ if (bWaterSwimming) {
+  GetWaterTraversalBonuses(WaterBreathScale,WaterSwimScale);
+  if (auto* Movement = GetCharacterMovement())
+   Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale * WaterSwimScale;
+ } else {
+  WaterBreathScale = MoonfallWaterRules::BreathMultiplier(bRaceChosen,RaceId);
+  WaterSwimScale = 1.f;
+  if (auto* Movement = GetCharacterMovement())
+   Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
+ }
+ const float BreathScale = WaterBreathScale;
+ const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !bPersistentSaveWritesBlocked)
+  WaterTonicRemaining = 0.f;
+ else
+  WaterTonicRemaining = MoonfallWaterRules::AdvanceTonic(WaterTonicRemaining,SafeTimerDelta,bWaterPaused);
+ if (bPersistentSaveWritesBlocked && GetWorld() && bWaterSwimming
+     && MoonfallWaterRules::ShouldUseTonic(Oxygen,WaterTonicRemaining,bNeedsBreath,bWaterPaused)) {
+  auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (IsValid(Preview) && Preview->ConsumeBreathingTonic()) {
+   WaterTonicRemaining = MoonfallWaterRules::TonicDuration;
+   Oxygen = MoonfallWaterRules::MaxAir;
+  }
+ }
+ const bool bDrainAir = bNeedsBreath && WaterTonicRemaining <= 0.f;
+ const float PreviousAir = Oxygen;
+ Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
+     bDrainAir, bWaterPaused, BreathScale);
+ const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
+     PreviousAir, SafeTimerDelta, bWaterSwimming && bDrainAir, bWaterPaused, BreathScale);
+ if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
+  TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
+  TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
+  TGuardValue<bool> NoSourceGuard(bHasIncomingDamageSource, false);
+  ApplyMoonfallDamage(MaxHealth * MoonfallWaterRules::DrowningHealthFraction);
+  if (IsActorBeingDestroyed()) return;
+ }
+ if (bPersistentSaveWritesBlocked && GetWorld() && GetWorld()->GetTimeSeconds()>=NextFishingSchoolScan) {
+  RefreshFishingSchools(GetWorld()->GetTimeSeconds());
+ }
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+  bool bCaughtThisTick=false;
+  if (Fishing.Advance(Now,CanContinueFishing())) {
+   auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   bFishingCaught=IsValid(Preview)&&Preview->CatchOceanFish(FishingSchoolId,FishingProvince);
+   FishingNoticeUntil=Now+4.f;
+   bCaughtThisTick=bFishingCaught;
+  }
+  SyncFishingPresentation(bCaughtThisTick);
+ }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
  if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f && Health > 0.f
      && !bTalentWebOpen && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bResidentContextOpen) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
+   TGuardValue<bool> AutoLootGuard(bAutoLootDispatch,true);
    PickupNearestGroundLoot();
   }
  } else AutoLootElapsed = 0.f;
@@ -899,7 +1138,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
   if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  }
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
+ const bool bCanSprint = !bWaterSwimming && bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
      && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
@@ -1022,6 +1261,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("Fishing"), IE_Pressed, this, &AMoonfallHeroPawn::FishingAction);
+ Input->BindAction(TEXT("EmergencySurface"), IE_Pressed, this, &AMoonfallHeroPawn::EmergencySurfaceAction);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1390,6 +1631,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(-1); return; }
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(-1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -1411,6 +1653,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
       MoonfallTalentWeb::MaxTier-Layout.VisibleTiers+1);
   return;
  }
+ if(bInventoryOpen&&bCharacterStatsOpen&&bCharacterProfessionsPageOpen&&!bOptionsOpen) { StepProfessionScroll(1); return; }
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
@@ -1460,6 +1703,7 @@ void AMoonfallHeroPawn::ControllerLootOrSalvage()
  if (bAtlasOpen) { ToggleQuestLog(); return; }
  if (bTalentWebOpen || bOptionsOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid()) return;
  if (bInventoryOpen) { InventorySalvage(); return; }
+ if (!bWaterSwimming && TryFishingAction()) return;
  PickupNearestGroundLoot();
 }
 void AMoonfallHeroPawn::ControllerLeftTrigger()
@@ -1538,6 +1782,70 @@ void AMoonfallHeroPawn::StopJumping()
  bControllerJumpStarted=false;
  Super::StopJumping();
 }
+bool AMoonfallHeroPawn::CanRequestEmergencySurface() const {
+ const auto* Movement=GetCharacterMovement();
+ return bPersistentSaveWritesBlocked && GetWorld() && !GetWorld()->IsPaused()
+     && HasAuthority() && IsLocallyControlled() && !IsActorBeingDestroyed()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && FMath::IsFinite(Health) && Health>0.f && bWaterSwimming && bWaterSubmerged
+     && IsValid(Movement) && Movement->IsSwimming() && WaterRecoveryVolume.IsValid()
+     && WaterRecoveryVolume.Get()==GetPhysicsVolume() && !WaterRecoveryShore.ContainsNaN()
+     && !GetActorLocation().ContainsNaN()
+     && FVector::DistSquared(GetActorLocation(),WaterRecoveryShore)<=FMath::Square(4000.f)
+     && !bWorldProgressLoadInProgress && !bOptionsOpen && !bInventoryOpen
+     && !bAtlasOpen && !bQuestLogOpen && !bTalentWebOpen && !bSpellBookOpen
+     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !IsRecentlyInCombatForAmbientAI();
+}
+bool AMoonfallHeroPawn::TryEmergencySurface() {
+ if (!CanRequestEmergencySurface() || !IsValid(GetCapsuleComponent())) return false;
+ const FVector Origin=GetActorLocation();
+ // Only on an explicit request, conservatively reject living enemies near
+ // either endpoint. This is not an escape from a combat encounter.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* Enemy=*It;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)
+      || Enemy->Health<=0.f) continue;
+  const FVector P=Enemy->GetActorLocation();
+  if (!P.ContainsNaN() && (FVector::DistSquared(P,Origin)<=FMath::Square(1200.f)
+       || FVector::DistSquared(P,WaterRecoveryShore)<=FMath::Square(1200.f))) return false;
+ }
+ const auto* Capsule=GetCapsuleComponent();
+ const float Half=Capsule->GetScaledCapsuleHalfHeight(), Radius=Capsule->GetScaledCapsuleRadius();
+ if (!FMath::IsFinite(Half) || !FMath::IsFinite(Radius) || Radius<=0.f || Half<Radius) return false;
+ FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallEmergencySurface),false,this);
+ FHitResult Floor;
+ const FVector Foot=WaterRecoveryShore-FVector(0,0,Half);
+ if (!GetWorld()->LineTraceSingleByChannel(Floor,Foot+FVector(0,0,50),Foot-FVector(0,0,100),ECC_Visibility,Query)
+     || !Floor.bBlockingHit || !IsValid(Floor.GetComponent()) || Floor.ImpactPoint.ContainsNaN()
+     || Floor.ImpactNormal.ContainsNaN() || Floor.ImpactNormal.Z<0.7f
+     || Floor.GetComponent()->Mobility!=EComponentMobility::Static
+     || Floor.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn)!=ECR_Block) return false;
+ const FVector Candidate=Floor.ImpactPoint+FVector(0,0,Half+3.f);
+ if (Candidate.ContainsNaN() || Candidate.SizeSquared()>=1.0e14f
+     || GetWorld()->OverlapBlockingTestByProfile(Candidate,FQuat::Identity,
+         Capsule->GetCollisionProfileName(),FCollisionShape::MakeCapsule(Radius,Half),Query)) return false;
+ // A collision-free point can still lie in another water volume. Fail
+ // closed if the full capsule bounds overlap any water volume.
+ const FVector Extent(Radius,Radius,Half);
+ const FBox CandidateBounds(Candidate-Extent,Candidate+Extent);
+ for (TActorIterator<APhysicsVolume> It(GetWorld()); It; ++It) {
+  const APhysicsVolume* Volume=*It;
+  if (!IsValid(Volume) || !Volume->bWaterVolume) continue;
+  const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+  if (!Bounds.IsValid || Bounds.Min.ContainsNaN() || Bounds.Max.ContainsNaN()
+      || Bounds.Intersect(CandidateBounds)) return false;
+ }
+ if (!CanRequestEmergencySurface() || !TeleportTo(Candidate,GetActorRotation(),false,false)) return false;
+ if (IsActorBeingDestroyed()) return false;
+ WaterRecoveryVolume.Reset();
+ WaterRecoveryShoreAt=-1.0;
+ WaterVerticalIntent=0;
+ if (auto* Movement=GetCharacterMovement()) Movement->StopMovementImmediately();
+ // The normal native water-state update restores air only after leaving water.
+ return true;
+}
 void AMoonfallHeroPawn::TryJump()
 {
  if (bTalentWebOpen) return;
@@ -1554,20 +1862,25 @@ void AMoonfallHeroPawn::TryJump()
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
+  WaterVerticalIntent = WaterVerticalIntent == 1 ? 0 : 1;
+  return;
+ }
  // Restore the authored jump whenever mastery is temporarily unavailable
  // after a preview jump. Ordinary non-preview movement tuning is untouched.
 #if WITH_EDITOR
  if(GetCharacterMovement()&&FParse::Param(FCommandLine::Get(),TEXT("MoonfallMasteryPreview"))){
   const int32 Bonus=(!bEquipmentCraftInProgress&&!bTalentAllocationInProgress)
     ?GetSkillMasteryBonusBps(static_cast<int32>(MoonfallSkillMastery::Skill::Agility)):0;
+#endif
   GetCharacterMovement()->JumpZVelocity=MasteryBaseJumpZ*(1.f+float(Bonus)/10000.f);
  }
-#endif
  Jump();
 }
 
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
+
 
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (bTalentWebOpen) return;
@@ -1654,8 +1967,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   // Reject corrupted target resource state before damage, mana cost or combo rewards.
-  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
-      || Enemy->MaxHealth <= 0.f) return false;
+  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->GetMaxHealthAtSpawn())
+      || Enemy->GetMaxHealthAtSpawn() <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
   const bool bCounterReady = FMath::IsFinite(ParryCounterUntil) && Time <= ParryCounterUntil
@@ -2156,10 +2469,18 @@ void AMoonfallHeroPawn::MeleeAttack()
      FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
      Now + 3.f);
 
- const FVector Start = Position + FVector(0.f, 0.f, 65.f);
+ const FVector Start = Position + FVector(0.f, 0.f, bWaterSwimming ? 0.f : 65.f);
  // Each angle has a distinct swept reach and contact width. Single-hit
  // visibility sweeps retain the first obstruction and never hit through walls.
- const FVector End = Start + Facing * FMath::Clamp(MeleeAttackRange * Attack.RangeScale, 60.f, 350.f);
+ FVector StrikeDirection = Facing;
+ if (bWaterSwimming && Controller) {
+  const float Pitch = Controller->GetControlRotation().GetNormalized().Pitch;
+  if (FMath::IsFinite(Pitch)) {
+   const float Radians = FMath::DegreesToRadians(FMath::Clamp(Pitch,-60.f,60.f));
+   StrikeDirection = Facing * FMath::Cos(Radians) + FVector::UpVector * FMath::Sin(Radians);
+  }
+ }
+ const FVector End = Start + StrikeDirection * FMath::Clamp(MeleeAttackRange * Attack.RangeScale, 60.f, 350.f);
  FHitResult Hit;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallMelee), false, this);
  Params.AddIgnoredActor(this);
@@ -2412,6 +2733,12 @@ void AMoonfallHeroPawn::Dodge()
  if (bTalentWebOpen) return;
  if (bResolvingCombatAction) return;
  if (!FMath::IsFinite(Health)) return;
+ if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
+  if (!bDispatchingBufferedDodge) WaterVerticalIntent = WaterVerticalIntent == -1 ? 0 : -1;
+  DodgeBuffer.Clear();
+  BufferedDodgeDirection = FVector::ZeroVector;
+  return;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -2540,7 +2867,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
    && Now < RacePowerActiveUntil;
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
+ const float ArmoredDamage = bApplyingDrowningDamage ? Amount : Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -2652,6 +2979,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  }
  if (Health <= 0.f) {
   CloseResidentContext();
+  WaterVerticalIntent = 0;
+  DrowningExposureSeconds = 0.f;
+  WaterTonicRemaining = 0.f;
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2668,6 +2998,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   bSpellBookOpen = false;
   bOptionsOpen = false;
   bAtlasOpen = false;
@@ -2731,19 +3062,42 @@ void AMoonfallHeroPawn::SelectCharacterReputation(int32 FactionIndex)
  CharacterRepSelection = FactionIndex;
 }
 
+bool AMoonfallHeroPawn::HasWaterProfessionsPage() const
+{
+ return bPersistentSaveWritesBlocked && GetWorld()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview");
+}
+
+void AMoonfallHeroPawn::StepProfessionScroll(int32 Direction) {
+ if(!bInventoryOpen||!bCharacterStatsOpen||!bCharacterProfessionsPageOpen||!HasWaterProfessionsPage()||bOptionsOpen) return;
+ int32 W=0,H=0;
+ if(const auto* PC=Cast<APlayerController>(Controller)) PC->GetViewportSize(W,H);
+ const float PanelH=FMath::Min(860.f,FMath::Max(280.f,float(H)-24.f));
+ ProfessionScroll=MoonfallProfessionUI::Step(ProfessionScroll,MoonfallProfessionUI::Rows(PanelH),Direction);
+}
+void AMoonfallHeroPawn::StepCharacterPage(int32 Direction)
+{
+ const int32 Count=HasWaterProfessionsPage()?4:3;
+ const int32 Current=bCharacterProfessionsPageOpen&&Count==4?3:bCharacterRepPageOpen?2:bCharacterRacePageOpen?1:0;
+ SelectCharacterPage((Current+(Direction<0?Count-1:1))%Count);
+}
+
 void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)
 {
  // Read-only navigation. Reject invalid pages and hidden/defeated modals.
- if (Page < 0 || Page > 2 || !bCharacterStatsOpen || !bInventoryOpen
+ if (Page < 0 || Page > (HasWaterProfessionsPage()?3:2) || !bCharacterStatsOpen || !bInventoryOpen
      || bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
  bCharacterRacePageOpen = Page == 1;
  bCharacterRepPageOpen = Page == 2;
+ if(Page==3&&!bCharacterProfessionsPageOpen) ProfessionScroll=0;
+ bCharacterProfessionsPageOpen = Page == 3;
 }
 
 void AMoonfallHeroPawn::ToggleCharacterRacePage()
 {
  // C cycles combined Attributes & Gear -> Ancestry -> Reputation -> Attributes.
- SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1));
+ StepCharacterPage(1);
 }
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
@@ -2758,6 +3112,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   bCharacterStatsOpen = true;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   return;
  }
  // C stays the character shortcut: first press opens Attributes, subsequent
@@ -2766,6 +3121,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bCharacterStatsOpen = true;
  bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
  bSpellBookOpen = false;
  bInventoryScrollbarDragging = false;
 }
@@ -2902,6 +3258,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
   SwordBuffer.Clear();
   AtlasChronicleChapter = -1;
   bAtlasChronicleFocus = false;
+  if (HasWaterProfessionsPage()) RefreshRegionalWaypoints();
   if (bInventoryOpen) ToggleInventory();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2966,6 +3323,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
   bSpellBookOpen = false;
  }
 }
@@ -3235,6 +3593,7 @@ void AMoonfallHeroPawn::OpenOptions() {
    bCharacterStatsOpen = false;
    bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
+  bCharacterProfessionsPageOpen = false;
    bInventoryScrollbarDragging = false;
    return;
   }
@@ -3428,6 +3787,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bTalentWebOpen) { TalentMove(0,-1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
+  if(HasWaterProfessionsPage()) { StepRegionalWaypoint(-1); return; }
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion - 1, 0, 5);
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
@@ -3449,7 +3809,8 @@ void AMoonfallHeroPawn::OptionsUp() {
    return;
   }
   if (bCharacterStatsOpen) {
-   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
+   if(bCharacterProfessionsPageOpen) StepProfessionScroll(-1);
+   else if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Max(0, CharacterRepSelection - 1));
    return; // Never move the hidden bag selection while reading character pages.
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
@@ -3475,6 +3836,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bTalentWebOpen) { TalentMove(0,1); return; }
  if (bAtlasOpen) {
   const int32 PreviousRegion = AtlasSelectedRegion;
+  if(HasWaterProfessionsPage()) { StepRegionalWaypoint(1); return; }
   AtlasSelectedRegion = FMath::Clamp(AtlasSelectedRegion + 1, 0, 5);
   if (AtlasSelectedRegion != PreviousRegion) AtlasChronicleChapter = -1;
   return;
@@ -3496,7 +3858,8 @@ void AMoonfallHeroPawn::OptionsDown() {
    return;
   }
   if (bCharacterStatsOpen) {
-   if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
+   if(bCharacterProfessionsPageOpen) StepProfessionScroll(1);
+   else if (bCharacterRepPageOpen) SelectCharacterReputation(FMath::Min(4, CharacterRepSelection + 1));
    return;
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
@@ -3515,7 +3878,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  if(HasRingNavigationFocus()){RingNavigationIndex=FMath::Max(0,RingNavigationIndex-1);return;}
  if (bAtlasOpen&&bQuestLogOpen) { ResetQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(-1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(-1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(true); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(-1); return; }
@@ -3543,7 +3906,7 @@ void AMoonfallHeroPawn::OptionsRight() {
  }
  if (bAtlasOpen&&bQuestLogOpen) { ToggleSelectedQuestTracking(); return; }
  if (bTalentWebOpen) { TalentMove(1,0); return; }
- if (bCharacterStatsOpen && bInventoryOpen) { SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1)); return; }
+ if (bCharacterStatsOpen && bInventoryOpen) { StepCharacterPage(1); return; }
  if (bInventoryOpen && bSpellBookOpen) { EquipSpellBookSelection(false); return; }
  if (bAtlasOpen) {
   if (bAtlasChronicleFocus) { StepAtlasChronicle(1); return; }
@@ -4219,15 +4582,283 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  }
 }
 
+bool AMoonfallHeroPawn::CanContinueFishing() const {
+ const auto* Movement=GetCharacterMovement();
+ return HasAuthority() && GetWorld() && bPersistentSaveWritesBlocked
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
+     && IsValid(Movement) && Movement->IsMovingOnGround() && !bWaterSwimming
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bCharacterStatsOpen && !bSpellBookOpen && !bQuestLogOpen
+     && !bWorldProgressLoadInProgress && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !IsRecentlyInCombatForAmbientAI()
+     && (Fishing.Stage==MoonfallFishing::EStage::Idle ||
+         FVector::DistSquared(GetActorLocation(),FishingOrigin)<=FMath::Square(35.f));
+}
+
+namespace {
+int32 ResolveFishingProvince(const APhysicsVolume* Volume) {
+ if(!IsValid(Volume)) return -1;
+ int32 Region=-1;
+ for(int32 I=0;I<MoonfallNorth::ZoneCount;++I) {
+  const FName Tag(*FString::Printf(TEXT("MoonfallFishingProvince_%d"),I));
+  if(Volume->ActorHasTag(Tag)) {
+   if(Region>=0) return -1;
+   Region=I;
+  }
+ }
+ return Region;
+}
+bool DeepWaterSchoolPoint(const FBox& Bounds,int32 Id,float Now,FVector& Out) {
+ if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()) return false;
+ const auto Size=Bounds.GetSize();
+ if(Size.X<600||Size.Y<600) return false;
+ const auto Point=MoonfallFishing::SchoolPosition(Id,Now,Size.X,Size.Y);
+ Out=FVector(Bounds.Min.X+Point.X,Bounds.Min.Y+Point.Y,Bounds.Max.Z+2.f);
+ return !Out.ContainsNaN();
+}
+}
+
+bool AMoonfallHeroPawn::HasRegionalWaypoint() const {
+ return HasWaterProfessionsPage()&&MoonfallNorth::ValidZone(RegionalWaypoint)&&
+  (RegionalWaypointAvailable&(1u<<RegionalWaypoint))&&!RegionalWaypointLocation.ContainsNaN();
+}
+
+void AMoonfallHeroPawn::RefreshRegionalWaypoints() {
+ RegionalWaypointAvailable=0;
+ if(!HasWaterProfessionsPage()) { RegionalWaypoint=-1; return; }
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ uint32 Seen=0,Duplicate=0;
+ FVector Locations[MoonfallNorth::ZoneCount];
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const int32 Id=ResolveFishingProvince(*It);
+  if(!MoonfallNorth::ValidZone(Id)||!Preview->HasVisitedRegionalWater(Id)) continue;
+  const uint32 Bit=1u<<Id;
+  if(Seen&Bit) { Duplicate|=Bit; continue; }
+  Seen|=Bit;
+  const FBox B=It->GetComponentsBoundingBox(true);
+  if(!B.IsValid||B.Min.ContainsNaN()||B.Max.ContainsNaN()||B.GetSize().X<1200||B.GetSize().Y<1200) continue;
+  // Aim at the authored western bank, not underwater or at a teleport point.
+  Locations[Id]=FVector(B.Min.X-300,B.GetCenter().Y,B.Max.Z);
+  RegionalWaypointAvailable|=Bit;
+ }
+ RegionalWaypointAvailable&=~Duplicate;
+ if(MoonfallNorth::ValidZone(RegionalWaypoint)&&(RegionalWaypointAvailable&(1u<<RegionalWaypoint)))
+  RegionalWaypointLocation=Locations[RegionalWaypoint];
+ else RegionalWaypoint=-1;
+}
+
+void AMoonfallHeroPawn::SelectRegionalWaypoint(int32 Id) {
+ if(!bAtlasOpen||bQuestLogOpen||!HasWaterProfessionsPage()) return;
+ if(Id!=-1&&(!MoonfallNorth::ValidZone(Id)||!(RegionalWaypointAvailable&(1u<<Id)))) return;
+ RegionalWaypoint=Id;
+ RefreshRegionalWaypoints();
+}
+
+void AMoonfallHeroPawn::StepRegionalWaypoint(int32 Direction) {
+ SelectRegionalWaypoint(MoonfallRegionalAtlas::Step(RegionalWaypoint,Direction,RegionalWaypointAvailable));
+}
+
+void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
+ NearbyFishingSchools.Reset();
+ NextFishingSchoolScan=Now+1.f;
+ if(!CanContinueFishing()||Fishing.Stage!=MoonfallFishing::EStage::Idle) return;
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ if(!IsValid(Preview)) return;
+ const FVector Start=GetPawnViewLocation();
+ if(Start.ContainsNaN()) return;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSchoolSight),false,this);
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const FBox Bounds=It->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
+   if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
+   FVector Target;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(MoonfallFishing::CastReach(Preview->GetOceanCatchCount()))) continue;
+   FHitResult Hit;
+   if(!GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) NearbyFishingSchools.Add(Target);
+  }
+ }
+}
+
+void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
+ const int32 Next=static_cast<int32>(Fishing.Stage);
+ if(FishingVisualStage==Next&&!bCaught) return;
+ FishingVisualStage=Next;
+ if(!IsLocallyControlled()||GetNetMode()==NM_DedicatedServer) return;
+ USoundBase* Sound=bCaught?FishingCatchSound:
+  Fishing.Stage==MoonfallFishing::EStage::Waiting?FishingCastSound:
+  Fishing.Stage==MoonfallFishing::EStage::Bite?FishingBiteSound:
+  Fishing.Stage==MoonfallFishing::EStage::Reeling?FishingReelSound:nullptr;
+ if(IsValid(Sound)) UGameplayStatics::PlaySound2D(this,Sound);
+}
+
+bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
+ if (!CanContinueFishing()) { Fishing.Cancel(); SyncFishingPresentation(); return false; }
+ const float Now=GetWorld()->GetTimeSeconds();
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  if(Fishing.Hook(Now)) SyncFishingPresentation();
+  return true;
+ }
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ if (!IsValid(Preview) || !Preview->CanCatchOceanFish()) return false;
+ const FVector Start=GetPawnViewLocation();
+ const FVector Forward=GetActorForwardVector().GetSafeNormal2D();
+ if(Start.ContainsNaN()||(!RequestedWater&&Forward.IsNearlyZero())||(RequestedWater&&RequestedWater->ContainsNaN())) return false;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFishingCast),false,this);
+ FishingSchoolId=-1;
+ FishingProvince=-1;
+ // Prefer the nearest visible school in the same cast cone; ordinary water stays valid.
+ FVector BestSchool=FVector::ZeroVector;
+ const float MaxReach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
+ double BestDistance=FMath::Square(MaxReach);
+ double BestClickDistance=FMath::Square(120.f);
+ int32 BestSchoolId=-1;
+ int32 BestProvince=-1;
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const FBox Bounds=It->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
+      ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  // A mouse-selected school must belong to the clicked water surface.
+  if(RequestedWater&&(FMath::Abs(RequestedWater->Z-(Bounds.Max.Z+2.f))>1.f
+      ||RequestedWater->X<Bounds.Min.X+30.f||RequestedWater->X>Bounds.Max.X-30.f
+      ||RequestedWater->Y<Bounds.Min.Y+30.f||RequestedWater->Y>Bounds.Max.Y-30.f)) continue;
+  for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
+   if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
+   FVector Target;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
+   const double Distance=FVector::DistSquared2D(Start,Target);
+   if(Distance<FMath::Square(100.f)||Distance>FMath::Square(MaxReach)) continue;
+   const double ClickDistance=RequestedWater?FVector::DistSquared2D(*RequestedWater,Target):0.0;
+   if(RequestedWater) {
+    if(ClickDistance>BestClickDistance||(ClickDistance==BestClickDistance&&Distance>BestDistance)) continue;
+   } else if(Distance>BestDistance||FVector::DotProduct(Forward,(Target-Start).GetSafeNormal2D())<0.76) continue;
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
+   BestDistance=Distance; BestClickDistance=ClickDistance; BestSchool=Target; BestSchoolId=Id; BestProvince=ResolveFishingProvince(*It);
+  }
+ }
+ if(BestSchoolId>=0) {
+  if(!Fishing.Start(Now,MoonfallFishing::SchoolWait(MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount())),Preview->GetOceanCatchCount())) return false;
+  FishingSchoolId=BestSchoolId; FishingProvince=BestProvince; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingNoticeUntil=0.f;
+  SyncFishingPresentation();
+  return true;
+ }
+ for (TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  const auto* Volume=*It;
+  if(!IsValid(Volume)||!Volume->bWaterVolume) continue;
+  const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()
+      ||Start.Z<Bounds.Max.Z||Start.Z-Bounds.Max.Z>300.f) continue;
+  if(RequestedWater) {
+   const FVector Target=*RequestedWater;
+   const double Distance=FVector::DistSquared2D(Start,Target);
+   if(FMath::Abs(Target.Z-(Bounds.Max.Z+2.f))>1.f||
+       Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f||
+       Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f||
+       Distance<FMath::Square(100.f)||Distance>FMath::Square(MaxReach)) continue;
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
+   if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
+   FishingOrigin=GetActorLocation(); FishingBobber=Target;
+   FishingProvince=ResolveFishingProvince(Volume); FishingNoticeUntil=0.f;
+   SyncFishingPresentation();
+   return true;
+  }
+  for(float Angle : {0.f,-20.f,20.f,-40.f,40.f}) {
+  for(float Reach : {250.f,450.f,650.f,850.f,MaxReach}) {
+   FVector Target=Start+Forward.RotateAngleAxis(Angle,FVector::UpVector)*Reach;
+   Target.Z=Bounds.Max.Z+2.f;
+   if(Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f
+       ||Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f) continue;
+   FHitResult Hit;
+   if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
+   if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
+   FishingOrigin=GetActorLocation();
+   FishingBobber=Target;
+   FishingProvince=ResolveFishingProvince(Volume);
+   FishingNoticeUntil=0.f;
+   SyncFishingPresentation();
+   return true;
+  }
+  }
+ }
+ return false;
+}
+
+bool AMoonfallHeroPawn::TryMouseFishingAction() {
+ if (!CanContinueFishing() || GetWorld()->IsPaused()) return false;
+ auto* PC=Cast<APlayerController>(Controller);
+ const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+ if(!IsValid(PC)||!IsValid(Preview)) return false;
+ FVector Eye,Direction;
+ if(PC->bShowMouseCursor) {
+  if(!PC->DeprojectMousePositionToWorld(Eye,Direction)) return false;
+ } else {
+  FRotator View; PC->GetPlayerViewPoint(Eye,View); Direction=View.Vector();
+ }
+ Direction=Direction.GetSafeNormal();
+ if(Eye.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()) return false;
+ FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallMouseFishing),false,this);
+ if(Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  if(FishingBobber.ContainsNaN()) return false;
+  const double Along=FVector::DotProduct(FishingBobber-Eye,Direction);
+  if(!FMath::IsFinite(Along)||Along<=0.0||Along>20000.0||
+      FVector::DistSquared(Eye+Direction*Along,FishingBobber)>FMath::Square(85.f)) return false;
+  FHitResult Block;
+  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,FishingBobber,ECC_Visibility,Query)) return false;
+  return TryFishingAction();
+ }
+ if(FMath::Abs(Direction.Z)<0.0001) return false;
+ const FVector HeroEye=GetPawnViewLocation();
+ if(HeroEye.ContainsNaN()) return false;
+ const float Reach=MoonfallFishing::CastReach(Preview->GetOceanCatchCount());
+ double Nearest=20000.0;
+ FVector Target=FVector::ZeroVector;
+ bool bFound=false;
+ for(TActorIterator<APhysicsVolume> It(GetWorld());It;++It) {
+  if(!IsValid(*It)||!It->bWaterVolume) continue;
+  const FBox Bounds=It->GetComponentsBoundingBox(true);
+  if(!Bounds.IsValid||Bounds.Min.ContainsNaN()||Bounds.Max.ContainsNaN()||
+      HeroEye.Z<Bounds.Max.Z||HeroEye.Z-Bounds.Max.Z>300.f) continue;
+  const double Along=(Bounds.Max.Z+2.f-Eye.Z)/Direction.Z;
+  if(!FMath::IsFinite(Along)||Along<=0.0||Along>=Nearest) continue;
+  const FVector Point=Eye+Direction*Along;
+  if(Point.ContainsNaN()||Point.X<Bounds.Min.X+30.f||Point.X>Bounds.Max.X-30.f||
+      Point.Y<Bounds.Min.Y+30.f||Point.Y>Bounds.Max.Y-30.f||
+      FVector::DistSquared2D(HeroEye,Point)>FMath::Square(Reach)||
+      FVector::DistSquared2D(HeroEye,Point)<FMath::Square(100.f)) continue;
+  FHitResult Block;
+  if(GetWorld()->LineTraceSingleByChannel(Block,Eye,Point,ECC_Visibility,Query)) continue;
+  Nearest=Along; Target=Point; bFound=true;
+ }
+ return bFound && TryFishingAction(&Target);
+}
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
 
  // Do not pick up world items while a resident conversation owns input.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !GetWorld() || bResidentContextOpen) return;
  if (bTalentWebOpen) return;
- if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || !bWorldProgressInitialized
-     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+ if (!FMath::IsFinite(Health) || IsActorBeingDestroyed() || bWorldProgressLoadInProgress
      || bCharacterStatsOpen || FocusedResident.IsValid()) return;
+ // Only the isolated preview may collect its session-only grotto discoveries.
+ if (bPersistentSaveWritesBlocked) {
+  if (bSpellBookOpen || bQuestLogOpen) return;
+  if ((bWaterSwimming || !bAutoLootDispatch) && GetCapsuleComponent()
+      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   TArray<AActor*> Chests;
+   GetCapsuleComponent()->GetOverlappingActors(Chests, AMoonfallGrottoTreasure::StaticClass());
+   for (AActor* Actor : Chests)
+    if (auto* Chest = Cast<AMoonfallGrottoTreasure>(Actor); IsValid(Chest)) Chest->TryClaim(this,!bAutoLootDispatch);
+  }
+  return;
+ }
+ if (!bWorldProgressInitialized) return;
  // No arbitrary six-drop or candidate cap: nearby loot remains collectible.
  // World scans happen at a throttled interval for automatic collection.
  const FVector HeroPosition = GetActorLocation();
@@ -5783,6 +6414,8 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress) return;
  if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
  DefeatElapsedSeconds = 0.f;
+ WaterRecoveryVolume.Reset();
+ WaterRecoveryShoreAt=-1.0;
  // Presentation state is transient, including forced or failed respawns.
  ImpactCameraOffset = 0.f;
  LastOffensiveImpactAt = -100.f;
@@ -5836,6 +6469,14 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  for (int32& Code : DefeatedEquipmentSelection) Code = 0;
  if (bReadyDefeatedWeapon) ReadyRightHandWeapon();
  if (!bPersistentSaveWritesBlocked) RestorePendingWorldEquipmentDrops();
+ Oxygen = MoonfallWaterRules::MaxAir;
+ WaterVerticalIntent = 0;
+ DrowningExposureSeconds = 0.f;
+ WaterTonicRemaining = 0.f;
+ bWaterSwimming = false;
+ bWaterSubmerged = false;
+ RefreshSwimPose();
+ bInsideAirPocket = false;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();
@@ -5925,7 +6566,8 @@ FString AMoonfallHeroPawn::GetRacePassiveSummary() const {
      TEXT("+%d Might  |  +%d Insight  |  +%d Resolve\nStamina regen +%.0f%%  |  Mana regen +%.0f%%"),
      R.Might,R.Insight,R.Resolve,
      static_cast<double>(R.StaminaRegen)*100.0,
-     static_cast<double>(R.ManaRegen)*100.0);
+     static_cast<double>(R.ManaRegen)*100.0)
+     + (MoonfallWaterRules::BreathMultiplier(bRaceChosen, RaceId)>1.f ? FString(TEXT("\nExtended breath: 6 minutes")) : FString());
 }
 FString AMoonfallHeroPawn::GetRacePowerDescription() const {
  if (!bRaceChosen) return TEXT("Choose an ancestry to unlock its racial power.");
@@ -6088,6 +6730,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  // Never depend on actor lifetime for menu cleanup: streaming or destruction
  // can invalidate the NPC pointer without closing the active input modal.
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
+ OceanRecipePage = -1;
  bResidentContextOpen = false;
  FocusedResident.Reset();
  SwordBuffer.Clear();
@@ -6123,13 +6766,17 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  // D-pad Up is NPC interaction when no menu is active. It must not
  // unexpectedly open talents during travel or combat with no nearby NPC.
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  if (bWaterSwimming) TryEmergencySurface();
+  return;
+ }
  // A conversation must cancel any queued swing before taking input.
  DodgeBuffer.Clear();
  BufferedDodgeDirection = FVector::ZeroVector;
  SwordBuffer.Clear();
  FocusedResident = Resident;
  bResidentContextOpen = true;
+    OceanRecipePage = -1;
  bResidentTurnInPending = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
   PC->bShowMouseCursor = true;
@@ -6190,6 +6837,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
     SwordBuffer.Clear();
     FocusedResident = Resident;
     bResidentContextOpen = true;
+    OceanRecipePage = -1;
     bResidentTurnInPending = false;
        if (APlayerController* PC = Cast<APlayerController>(Controller)) {
         PC->bShowMouseCursor = true;
@@ -6204,7 +6852,9 @@ void AMoonfallHeroPawn::CastRightMouse() {
    return;
   }
  }
- // All non-NPC right clicks retain right-hand attack behavior.
+ // Only an explicit water or bobber target claims right-click fishing.
+ if (TryMouseFishingAction()) return;
+ // All other right clicks retain right-hand attack behavior.
  CastRight();
 }
 int32 AMoonfallHeroPawn::GetRingPointerDragCode() const
@@ -6299,6 +6949,10 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
   const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   return Mode&&IsValid(Resident)&&Mode->GetLocalCompanion()==Resident?9:3;
  }
+ if (IsValid(Resident) && bPersistentSaveWritesBlocked && GetWorld()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage==4?4:OceanRecipePage>=0?3:OceanRecipePage==-2?MoonfallOceanCrafting::RecipeCount+1:5;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -6334,6 +6988,11 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= PanelT + 12.f && MouseY <= PanelT + 40.f) {
      ToggleAtlas();
+     return;
+    }
+    if(!bQuestLogOpen&&HasWaterProfessionsPage()) {
+     const int32 Id=MoonfallRegionalAtlas::Hit(MouseX-PanelL,MouseY-PanelT,PanelW,PanelH);
+     if(Id>=0) SelectRegionalWaypoint(Id==RegionalWaypoint?-1:Id);
      return;
     }
     const auto QuestButtons=MoonfallQuestJournal::HeaderButtons(PanelW);
@@ -6493,17 +7152,21 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      const float PanelL=float(ViewW)-PanelW-12.f;
      const float PanelT=(float(ViewH)-PanelH)*0.5f;
      // Match all three HUD tabs. Clicks cannot equip, salvage or change standing.
-     const float TabW=(PanelW-60.f)/3.f;
+     const int32 TabCount=HasWaterProfessionsPage()?4:3;
+     const float TabW=TabCount==3?(PanelW-60.f)/3.f:(PanelW-68.f)/4.f;
      const float TabL=PanelL+18.f;
      const float TabY=PanelT+77.f;
      if (MouseY>=TabY && MouseY<=TabY+32.f) {
-      for (int32 Tab=0;Tab<3;++Tab) {
+      for (int32 Tab=0;Tab<TabCount;++Tab) {
        const float X=TabL+Tab*(TabW+8.f);
        if (MouseX>=X && MouseX<=X+TabW) {
         SelectCharacterPage(Tab);
         break;
        }
       }
+     }
+     if(bCharacterProfessionsPageOpen&&MouseY>=PanelT+PanelH-83.f&&MouseY<PanelT+PanelH-65.f&&MouseX>=PanelL+15.f&&MouseX<PanelL+PanelW-15.f) {
+      StepProfessionScroll(MouseX<PanelL+PanelW*.5f?-1:1); return;
      }
      // Read-only reputation rows share the HUD's responsive panel geometry.
      // Tab clicks above have priority; row hits never mutate gameplay reputation.
@@ -6695,6 +7358,49 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
   return bSuccess;
  }
+ if (Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) {
+  auto* Preview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+  if(!IsValid(Preview)||!bPersistentSaveWritesBlocked||bWaterSwimming||!HasAuthority()) {
+   CloseResidentContext();return false;
+  }
+  if(OceanRecipePage==-2) {
+   if(Choice==MoonfallOceanCrafting::RecipeCount) OceanRecipePage=-1;
+   else if(Choice>=0&&Choice<MoonfallOceanCrafting::RecipeCount) OceanRecipePage=Choice;
+   else return false;
+   ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;
+  }
+  if(OceanRecipePage>=0) {
+   if(Choice==2){CloseResidentContext();return true;}
+   if(Choice==1){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+   if(OceanRecipePage==4&&Choice==3) {
+    const bool bEligible=!IsRecentlyInCombatForAmbientAI() && FMath::IsFinite(Health)
+      && FMath::IsFinite(MaxHealth) && Health>0.f && MaxHealth>0.f && Health<MaxHealth;
+    const bool bAte=bEligible&&Preview->ConsumeProvision();
+    ResidentFeedbackMessage=bAte?TEXT("Provision eaten; health restored."):TEXT("Need a provision, missing health and no combat.");
+    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+    if(bAte) {
+     Health=FMath::Min(MaxHealth,Health+MaxHealth*0.30f);
+     OnHealthChanged(Health,MaxHealth);
+    }
+    return bAte;
+   }
+   if(Choice!=0||OceanRecipePage>=MoonfallOceanCrafting::RecipeCount)return false;
+   const bool bCrafted=!IsRecentlyInCombatForAmbientAI() && Preview->CraftOceanRecipe(OceanRecipePage);
+   ResidentFeedbackMessage=bCrafted?TEXT("Recipe crafted."):TEXT("Need reagents, eligible gear or room; no combat.");
+   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+   return bCrafted;
+  }
+  if(Choice==3){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==4) {
+   const int32 Id=Preview->NextRegionalContract();
+   const bool bDelivered=!IsRecentlyInCombatForAmbientAI()&&Preview->DeliverRegionalContract(Id);
+   ResidentFeedbackMessage=bDelivered?FString::Printf(TEXT("Delivered to %s: +1 breath tonic."),UTF8_TO_TCHAR(MoonfallNorth::Zones[Id].Name)):
+     FString(TEXT("Need regional discovery, fish, kelp, mineral and tonic space."));
+   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+   return bDelivered;
+  }
+ }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
  }
@@ -6710,6 +7416,16 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return true;
  }
  if (Choice != 1) return false;
+ if (Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) {
+  auto* Preview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
+  const bool bBought=IsValid(Preview) && bPersistentSaveWritesBlocked && !bWaterSwimming
+      && Preview->BuyIslandTonic();
+  ResidentFeedbackMessage=bBought?TEXT("Breath tonic purchased."):
+      TEXT("Need credits and room for a tonic.");
+  ResidentFeedbackUntil=GetWorld()?GetWorld()->GetTimeSeconds()+4.f:0.f;
+  return bBought;
+ }
  if (Resident->bAmbientVisitor) {
   // Ambient encounters never offer an unfinishable persistent contract.
   const FText Notice=FText::FromString(
