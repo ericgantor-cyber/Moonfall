@@ -1018,6 +1018,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ if(PendingBagUpgradeCapacity!=0&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||PendingBagUpgradeCapacity!=BagCapacity
+     ||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()))ClearMerchantConfirmation();
  // Combat or changed equipment invalidates a pending trade even if the menu stays open.
  if(bMerchantConfirmPending&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
      ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmRevision!=EquipmentInventoryRevision
@@ -4330,6 +4332,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // Scripted rewards must honor the same persistent inventory capacity as
  // ground pickups. Do not roll or mutate last-loot UI when the bag is full.
  if (InventoryItemCodes.Num() >= 10000) return;
+ if (!HasBagRoom()) return;
  const int32 OldLootAffix = LastLootAffix;
  const int32 OldLootSlot = LastLootSlot;
  const int32 OldLootRarity = LastLootRarity;
@@ -4411,6 +4414,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  // SaveGameToSlot is synchronous here; a failed save must leave pickup and
  // all last-loot UI values untouched, even when this code already exists.
  if (InventoryItemCodes.Num() >= 10000) return false;
+ if (!HasBagRoom()) return false;
  const int32 OldLootAffix = LastLootAffix;
  const int32 OldLootSlot = LastLootSlot;
  const int32 OldLootRarity = LastLootRarity;
@@ -5970,6 +5974,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ if(!MoonfallMoney::ValidBagCapacity(BagCapacity))return false;
+ Save->BagCapacity=BagCapacity;
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
@@ -6074,6 +6080,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // first 10,000 inventory entries (or skipping a large quest-state map)
  // would silently discard the remainder on the next two-second autosave.
  // Keep the original slot intact rather than saving truncated progress.
+ if(!MoonfallMoney::ValidBagCapacity(Save->BagCapacity)){bPersistentSaveWritesBlocked=true;return false;}
  if (Save->InventoryItemCodes.Num() > 10000
      || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords)) {
   bPersistentSaveWritesBlocked = true;
@@ -6370,6 +6377,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
  MaxStamina = static_cast<float>(LoadedStaminaCap);
+ BagCapacity=Save->BagCapacity;
  InventoryItemCodes.Reset();
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
@@ -7126,6 +7134,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
 }
 void AMoonfallHeroPawn::ClearMerchantConfirmation() {
+ PendingBagUpgradeCapacity=0;BagUpgradeConfirmAfter=0.0;
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
  MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
 }
@@ -7147,7 +7156,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
  if(MerchantTradeMode==0){
   if(!Candidate.Credit(Price))return TEXT("Wallet full or invalid");
  }else{
-  if(InventoryItemCodes.Num()>=10000)return TEXT("Bag full");
+  if(!HasBagRoom())return TEXT("Bag full");
   if(!Candidate.Debit(Price))return TEXT("Insufficient coins");
  }
  return MerchantTradeMode==1?GetMerchantStandingText():FString(TEXT("Ready to review trade"));
@@ -7158,7 +7167,7 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
     ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress
-    ||InventoryItemCodes.Num()>=10000||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
+    ||!HasBagRoom()||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
  const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
  if(!ValidMoonfallItemCode(Code)||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip))return false;
  MoonfallMoney::FWallet Candidate{WalletCopper};
@@ -7198,8 +7207,44 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
  InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
  return true;
 }
+FString AMoonfallHeroPawn::GetBagUpgradeText() const {
+ const int64 Price=MoonfallMoney::BagUpgradePrice(BagCapacity);
+ if(Price<=0)return TEXT("Bag capacity: MAX");
+ const MoonfallMoney::FWallet Quote{Price};
+ return FString::Printf(TEXT("%s +50 slots | %lldg %llds %lldc"),
+  PendingBagUpgradeCapacity==BagCapacity?TEXT("Confirm"):TEXT("Buy"),
+  static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
+}
+bool AMoonfallHeroPawn::ConfirmBagUpgrade() {
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress){
+  ClearMerchantConfirmation();return false;
+ }
+ const int64 Price=MoonfallMoney::BagUpgradePrice(BagCapacity);
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Debit(Price)){
+  ClearMerchantConfirmation();ResidentFeedbackMessage=Price<=0?TEXT("Bag capacity is at maximum."):TEXT("Insufficient coins for bag upgrade.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
+ }
+ if(PendingBagUpgradeCapacity!=BagCapacity){
+  ClearMerchantConfirmation();PendingBagUpgradeCapacity=BagCapacity;BagUpgradeConfirmAfter=FPlatformTime::Seconds()+0.35;
+  ResidentFeedbackMessage=TEXT("Review bag upgrade; select again to confirm.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return true;
+ }
+ if(FPlatformTime::Seconds()<BagUpgradeConfirmAfter)return false;
+ ClearMerchantConfirmation();
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int32 PreviousCapacity=BagCapacity;const int64 PreviousWallet=WalletCopper;
+ BagCapacity+=MoonfallMoney::BagStep;WalletCopper=Candidate.Copper;
+ const bool bSaved=SaveWorldProgress();
+ if(!bSaved){BagCapacity=PreviousCapacity;WalletCopper=PreviousWallet;}
+ ResidentFeedbackMessage=bSaved?FString::Printf(TEXT("Bag expanded to %d slots."),BagCapacity):FString(TEXT("Bag upgrade save failed; coins restored."));
+ ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return bSaved;
+}
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
- if(bResidentMerchantMenu)return 5;
+ if(bResidentMerchantMenu)return 6;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -7529,6 +7574,8 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if(bResidentMerchantMenu){
+  if(Choice==5)return ConfirmBagUpgrade();
+  if(PendingBagUpgradeCapacity!=0)ClearMerchantConfirmation();
   if(Choice==4){ClearMerchantConfirmation();bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
   if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
   if(Choice==3){ClearMerchantConfirmation();MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
@@ -7550,7 +7597,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    const int64 Price=GetMerchantTradeQuote();
    MoonfallMoney::FWallet Candidate{WalletCopper};
    if(!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
-      ||(bSelling?!Candidate.Credit(Price):(InventoryItemCodes.Num()>=10000||!Candidate.Debit(Price)))){
+      ||(bSelling?!Candidate.Credit(Price):(!HasBagRoom()||!Candidate.Debit(Price)))){
     ResidentFeedbackMessage=GetMerchantTradeStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
    }
    MerchantConfirmMode=MerchantTradeMode;
@@ -7904,7 +7951,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
    if(Score>BestScore){Index=I;BestScore=Score;}
   }
   if(Index==INDEX_NONE)return false;
- }else if(Old==0||InventoryItemCodes.Num()>=10000)return false;
+ }else if(Old==0||!HasBagRoom())return false;
  const TArray<int32> PreviousBag=InventoryItemCodes;
  FMoonfallCompanionGearRecord Next=Previous;
  const int32 NewCode=bReturn?0:InventoryItemCodes[Index];
