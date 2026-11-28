@@ -14,6 +14,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_bag_upgrade_confirmation_binds_reviewed_wallet_and_capacity(self):
+        hero = self.hero_cpp
+        guard = hero.split("bool AMoonfallHeroPawn::IsBagUpgradeConfirmationCurrent()", 1)[1].split("\n}", 1)[0]
+        buy = hero.split("bool AMoonfallHeroPawn::ConfirmBagUpgrade()", 1)[1].split("\n}", 1)[0]
+        clear = hero.split("void AMoonfallHeroPawn::ClearMerchantConfirmation()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("PendingBagUpgradeCapacity!=BagCapacity", guard)
+        self.assertIn("PendingBagUpgradeWallet!=WalletCopper", guard)
+        self.assertIn("bResidentVaultMenu", guard)
+        self.assertIn("Resident->CanHeroInteract(this)", guard)
+        self.assertIn("PendingBagUpgradeWallet=WalletCopper;", buy)
+        self.assertIn("PendingBagUpgradeWallet=-1;", clear)
+        self.assertLess(buy.index("IsBagUpgradeConfirmationCurrent()"), buy.index("BagCapacity+=MoonfallMoney::BagStep"))
+        self.assertLess(buy.index("BagUpgradeConfirmAfter"), buy.index("BagCapacity+=MoonfallMoney::BagStep"))
+        self.assertIn("if(!bSaved){BagCapacity=PreviousCapacity;WalletCopper=PreviousWallet;}", buy)
+        self.assertIn("if(PendingBagUpgradeCapacity!=0&&!IsBagUpgradeConfirmationCurrent())", hero)
+
     def test_vault_transfer_ownership_and_rollback(self):
         guard=self.hero_cpp.split("bool AMoonfallHeroPawn::CanTransferVaultItem()",1)[1].split("\n}",1)[0]
         for required in ("HasBagRoom()", "VaultHasRoom", "CanRemoveFullCopy", "IsRecentlyInCombatForAmbientAI()"):
