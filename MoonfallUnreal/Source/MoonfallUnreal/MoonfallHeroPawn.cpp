@@ -6351,6 +6351,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  WalletCopper=Save->WalletCopper;
  MerchantRestockUtc=Save->MerchantRestockUtc;
  MerchantBuybackCode=0;MerchantBuybackPrice=0;
+ ClearMerchantConfirmation();
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
@@ -6763,6 +6764,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  bResidentMerchantMenu=false;
  MerchantSellIndex=0;MerchantSellCode=0;
  MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackCode=0;MerchantBuybackPrice=0;
+ ClearMerchantConfirmation();
  bResidentContextOpen = false;
  FocusedResident.Reset();
  SwordBuffer.Clear();
@@ -7006,6 +7008,7 @@ FString AMoonfallHeroPawn::GetMerchantSaleItemText() const {
  return FString::Printf(TEXT("%d/%d %s T%d %s %s"),MerchantSellIndex+1,InventoryItemCodes.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 bool AMoonfallHeroPawn::SellMerchantItem() {
+ if(MerchantTradeMode!=0)return false;
  const auto* Resident=FocusedResident.Get();
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
@@ -7085,6 +7088,32 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  if(Price<=0)return TEXT("Unavailable");
  const MoonfallMoney::FWallet Quote{Price};
  return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
+}
+void AMoonfallHeroPawn::ClearMerchantConfirmation() {
+ bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
+ MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;
+}
+bool AMoonfallHeroPawn::IsMerchantConfirmationCurrent() const {
+ if(!bMerchantConfirmPending||!CanOpenCoinMerchant()||!bResidentMerchantMenu)return false;
+ const int32 Code=MerchantTradeMode==0?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
+ const int32 Index=MerchantTradeMode==0?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:0;
+ const MoonfallMoney::FTradeIntent Pending{MerchantConfirmMode,MerchantConfirmCode,MerchantConfirmIndex,MerchantConfirmPrice,MerchantConfirmRevision};
+ const MoonfallMoney::FTradeIntent Current{MerchantTradeMode,Code,Index,GetMerchantTradeQuote(),EquipmentInventoryRevision};
+ return Pending.Matches(Current);
+}
+FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
+ if(IsMerchantConfirmationCurrent())return TEXT("Review item and price; confirm or go back");
+ if(IsRecentlyInCombatForAmbientAI())return TEXT("Trading unavailable in combat");
+ const int64 Price=GetMerchantTradeQuote();
+ if(Price<=0)return MerchantTradeMode==0?TEXT("No spare sellable copy selected"):TEXT("Item unavailable");
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(MerchantTradeMode==0){
+  if(!Candidate.Credit(Price))return TEXT("Wallet full or invalid");
+ }else{
+  if(InventoryItemCodes.Num()>=10000)return TEXT("Bag full");
+  if(!Candidate.Debit(Price))return TEXT("Insufficient coins");
+ }
+ return MerchantTradeMode==1?GetMerchantStandingText():FString(TEXT("Ready to review trade"));
 }
 bool AMoonfallHeroPawn::BuyMerchantItem() {
  const auto* Resident=FocusedResident.Get();
@@ -7453,10 +7482,11 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if(bResidentMerchantMenu){
-  if(Choice==4){bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
+  if(Choice==4){ClearMerchantConfirmation();bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
   if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
-  if(Choice==3){MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==3){ClearMerchantConfirmation();MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
   if(Choice==0||Choice==1){
+   ClearMerchantConfirmation();ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
    if(MerchantTradeMode==0)SelectMerchantSaleItem(Choice==0?-1:1);
    else if(MerchantTradeMode==1){
     const int32 Count=GetMerchantStockCount();
@@ -7466,6 +7496,22 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   }
   if(Choice!=2)return false;
   const bool bSelling=MerchantTradeMode==0;
+  if(!IsMerchantConfirmationCurrent()){
+   ClearMerchantConfirmation();
+   const int64 Price=GetMerchantTradeQuote();
+   MoonfallMoney::FWallet Candidate{WalletCopper};
+   if(!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+      ||(bSelling?!Candidate.Credit(Price):(InventoryItemCodes.Num()>=10000||!Candidate.Debit(Price)))){
+    ResidentFeedbackMessage=GetMerchantTradeStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
+   }
+   MerchantConfirmMode=MerchantTradeMode;
+   MerchantConfirmCode=bSelling?MerchantSellCode:MerchantTradeMode==1?GetMerchantStockCode():MerchantBuybackCode;
+   MerchantConfirmIndex=bSelling?MerchantSellIndex:MerchantTradeMode==1?MerchantStockIndex:0;
+   MerchantConfirmPrice=Price;MerchantConfirmRevision=EquipmentInventoryRevision;
+   bMerchantConfirmPending=true;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
+   return true;
+  }
+  ClearMerchantConfirmation();
   const bool bTraded=bSelling?SellMerchantItem():BuyMerchantItem();
   ResidentFeedbackMessage=bTraded?(bSelling?TEXT("Item sold; coins saved."):TEXT("Purchased; item saved in bag.")):
     TEXT("Trade unavailable: item, funds, combat, capacity or save.");
@@ -7606,6 +7652,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if(Choice==3&&CanOpenCoinMerchant()){
   bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
+  ClearMerchantConfirmation();
   MerchantTradeMode=0;MerchantStockIndex=0;MerchantStockLevel=Level;
   MerchantStockStanding=GetFactionReputation(Resident->FactionId);
   MerchantStockFaction=Resident->FactionId==FName(TEXT("AshenClans"))?1:

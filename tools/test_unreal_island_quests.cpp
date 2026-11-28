@@ -220,6 +220,14 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    const MoonfallMoney::FTradeIntent Confirmed{0,1001,0,40,1};
+    assert(Confirmed.Matches(Confirmed));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{1,1001,0,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1002,0,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,1,40,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,0,41,1}));
+    assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{0,1001,0,40,2}));
+    assert(!MoonfallMoney::FTradeIntent{}.Matches(MoonfallMoney::FTradeIntent{}));
     assert(MoonfallMoney::StockGroups==4);
     assert(MoonfallMoney::NextRestock(10000,0)==11800);
     assert(!MoonfallMoney::SpecialtyAvailable(11799,11800));
