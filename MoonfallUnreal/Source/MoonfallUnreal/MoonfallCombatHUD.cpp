@@ -33,6 +33,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Math/RotationMatrix.h"
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -51,7 +52,8 @@ void AMoonfallCombatHUD::DrawHUD()
  // modal lets that panel hide the warning from the player.
  const auto DrawLiveMenuHitCue = [this, Hero]() {
  const bool bLiveMenuOpen = Hero->bTalentWebOpen || Hero->bOptionsOpen
-     || Hero->bInventoryOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen;
+     || Hero->bInventoryOpen || Hero->bAtlasOpen || Hero->bResidentContextOpen
+     || Hero->bCharacterStatsOpen || Hero->bSpellBookOpen || Hero->bQuestLogOpen;
  if (bLiveMenuOpen && GetWorld() && FMath::IsFinite(Hero->LastRealDamageAt)) {
   const float Now=GetWorld()->GetTimeSeconds();
   const float Age=Now-Hero->LastRealDamageAt;
