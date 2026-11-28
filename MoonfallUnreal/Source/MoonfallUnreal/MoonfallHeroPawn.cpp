@@ -746,6 +746,30 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  WaterCurrentStrength = 0.f;
  bWaterSwimming = FMath::IsFinite(Health) && Health > 0.f && GetCharacterMovement()
      && GetCharacterMovement()->IsSwimming();
+ // Remember the last grounded shoreline; only arm it on a nearby water entry.
+ if (bPersistentSaveWritesBlocked && IsLocallyControlled() && GetWorld()) {
+  const double Now=GetWorld()->GetTimeSeconds();
+  const FVector Position=GetActorLocation();
+  const auto* Movement=GetCharacterMovement();
+  if (!bWaterSwimming) {
+   WaterRecoveryVolume.Reset();
+   if (IsValid(Movement) && Movement->IsMovingOnGround()
+       && IsValid(GetPhysicsVolume()) && !GetPhysicsVolume()->bWaterVolume
+       && FMath::IsFinite(Health) && Health>0.f && !Position.ContainsNaN() && FMath::IsFinite(Now)
+       && IsValid(GetMovementBase()) && GetMovementBase()->Mobility==EComponentMobility::Static) {
+    WaterRecoveryShore=Position;
+    WaterRecoveryShoreAt=Now;
+   }
+  } else if (!bWasSwimming) {
+   WaterRecoveryVolume.Reset();
+   APhysicsVolume* Volume=GetPhysicsVolume();
+   if (IsValid(Volume) && Volume->bWaterVolume && WaterRecoveryShoreAt>=0.0
+       && FMath::IsFinite(Now) && Now>=WaterRecoveryShoreAt && Now-WaterRecoveryShoreAt<=3.0
+       && !Position.ContainsNaN() && !WaterRecoveryShore.ContainsNaN()
+       && FVector::DistSquared(Position,WaterRecoveryShore)<=FMath::Square(1200.f))
+    WaterRecoveryVolume=Volume;
+  }
+ }
  bWaterSubmerged = false;
  float WaterEyeDepth = 0.f;
  bool bValidWaterSurface = false;
@@ -1201,6 +1225,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("Fishing"), IE_Pressed, this, &AMoonfallHeroPawn::FishingAction);
+ Input->BindAction(TEXT("EmergencySurface"), IE_Pressed, this, &AMoonfallHeroPawn::EmergencySurfaceAction);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1719,6 +1744,70 @@ void AMoonfallHeroPawn::StopJumping()
 {
  bControllerJumpStarted=false;
  Super::StopJumping();
+}
+bool AMoonfallHeroPawn::CanRequestEmergencySurface() const {
+ const auto* Movement=GetCharacterMovement();
+ return bPersistentSaveWritesBlocked && GetWorld() && !GetWorld()->IsPaused()
+     && HasAuthority() && IsLocallyControlled() && !IsActorBeingDestroyed()
+     && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
+     && FMath::IsFinite(Health) && Health>0.f && bWaterSwimming && bWaterSubmerged
+     && IsValid(Movement) && Movement->IsSwimming() && WaterRecoveryVolume.IsValid()
+     && WaterRecoveryVolume.Get()==GetPhysicsVolume() && !WaterRecoveryShore.ContainsNaN()
+     && !GetActorLocation().ContainsNaN()
+     && FVector::DistSquared(GetActorLocation(),WaterRecoveryShore)<=FMath::Square(4000.f)
+     && !bWorldProgressLoadInProgress && !bOptionsOpen && !bInventoryOpen
+     && !bAtlasOpen && !bQuestLogOpen && !bTalentWebOpen && !bSpellBookOpen
+     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()
+     && !IsRecentlyInCombatForAmbientAI();
+}
+bool AMoonfallHeroPawn::TryEmergencySurface() {
+ if (!CanRequestEmergencySurface() || !IsValid(GetCapsuleComponent())) return false;
+ const FVector Origin=GetActorLocation();
+ // Only on an explicit request, conservatively reject living enemies near
+ // either endpoint. This is not an escape from a combat encounter.
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* Enemy=*It;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed() || !FMath::IsFinite(Enemy->Health)
+      || Enemy->Health<=0.f) continue;
+  const FVector P=Enemy->GetActorLocation();
+  if (!P.ContainsNaN() && (FVector::DistSquared(P,Origin)<=FMath::Square(1200.f)
+       || FVector::DistSquared(P,WaterRecoveryShore)<=FMath::Square(1200.f))) return false;
+ }
+ const auto* Capsule=GetCapsuleComponent();
+ const float Half=Capsule->GetScaledCapsuleHalfHeight(), Radius=Capsule->GetScaledCapsuleRadius();
+ if (!FMath::IsFinite(Half) || !FMath::IsFinite(Radius) || Radius<=0.f || Half<Radius) return false;
+ FCollisionQueryParams Query(SCENE_QUERY_STAT(MoonfallEmergencySurface),false,this);
+ FHitResult Floor;
+ const FVector Foot=WaterRecoveryShore-FVector(0,0,Half);
+ if (!GetWorld()->LineTraceSingleByChannel(Floor,Foot+FVector(0,0,50),Foot-FVector(0,0,100),ECC_Visibility,Query)
+     || !Floor.bBlockingHit || !IsValid(Floor.GetComponent()) || Floor.ImpactPoint.ContainsNaN()
+     || Floor.ImpactNormal.ContainsNaN() || Floor.ImpactNormal.Z<0.7f
+     || Floor.GetComponent()->Mobility!=EComponentMobility::Static
+     || Floor.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn)!=ECR_Block) return false;
+ const FVector Candidate=Floor.ImpactPoint+FVector(0,0,Half+3.f);
+ if (Candidate.ContainsNaN() || Candidate.SizeSquared()>=1.0e14f
+     || GetWorld()->OverlapBlockingTestByProfile(Candidate,FQuat::Identity,
+         Capsule->GetCollisionProfileName(),FCollisionShape::MakeCapsule(Radius,Half),Query)) return false;
+ // A collision-free point can still lie in another water volume. Fail
+ // closed if the full capsule bounds overlap any water volume.
+ const FVector Extent(Radius,Radius,Half);
+ const FBox CandidateBounds(Candidate-Extent,Candidate+Extent);
+ for (TActorIterator<APhysicsVolume> It(GetWorld()); It; ++It) {
+  const APhysicsVolume* Volume=*It;
+  if (!IsValid(Volume) || !Volume->bWaterVolume) continue;
+  const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+  if (!Bounds.IsValid || Bounds.Min.ContainsNaN() || Bounds.Max.ContainsNaN()
+      || Bounds.Intersect(CandidateBounds)) return false;
+ }
+ if (!CanRequestEmergencySurface() || !TeleportTo(Candidate,GetActorRotation(),false,false)) return false;
+ if (IsActorBeingDestroyed()) return false;
+ WaterRecoveryVolume.Reset();
+ WaterRecoveryShoreAt=-1.0;
+ WaterVerticalIntent=0;
+ if (auto* Movement=GetCharacterMovement()) Movement->StopMovementImmediately();
+ // The normal native water-state update restores air only after leaving water.
+ return true;
 }
 void AMoonfallHeroPawn::TryJump()
 {
@@ -6085,6 +6174,8 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!GetWorld() || IsActorBeingDestroyed() || bWorldProgressLoadInProgress) return;
  if (!FMath::IsFinite(GetWorld()->GetTimeSeconds())) return;
  DefeatElapsedSeconds = 0.f;
+ WaterRecoveryVolume.Reset();
+ WaterRecoveryShoreAt=-1.0;
  // Presentation state is transient, including forced or failed respawns.
  ImpactCameraOffset = 0.f;
  LastOffensiveImpactAt = -100.f;
@@ -6435,7 +6526,10 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  // D-pad Up is NPC interaction when no menu is active. It must not
  // unexpectedly open talents during travel or combat with no nearby NPC.
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  if (bWaterSwimming) TryEmergencySurface();
+  return;
+ }
  // A conversation must cancel any queued swing before taking input.
  DodgeBuffer.Clear();
  BufferedDodgeDirection = FVector::ZeroVector;
@@ -6616,7 +6710,7 @@ int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if (IsValid(Resident) && bPersistentSaveWritesBlocked && GetWorld()
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
-     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage>=0?3:OceanRecipePage==-2?5:4;
+     && Resident->ResidentId==FName(TEXT("MoonwatchTrader"))) return OceanRecipePage==4?4:OceanRecipePage>=0?3:OceanRecipePage==-2?MoonfallOceanCrafting::RecipeCount+1:5;
  return !bResidentCompanionMenu&&IsValid(Resident)&&!Resident->bAmbientVisitor
      &&Resident->SocialRole==FName(TEXT("Scout"))?4:3;
 }
@@ -7029,21 +7123,41 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    CloseResidentContext();return false;
   }
   if(OceanRecipePage==-2) {
-   if(Choice==4) OceanRecipePage=-1;
-   else if(Choice>=0&&Choice<4) OceanRecipePage=Choice;
+   if(Choice==MoonfallOceanCrafting::RecipeCount) OceanRecipePage=-1;
+   else if(Choice>=0&&Choice<MoonfallOceanCrafting::RecipeCount) OceanRecipePage=Choice;
    else return false;
    ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;
   }
   if(OceanRecipePage>=0) {
    if(Choice==2){CloseResidentContext();return true;}
    if(Choice==1){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
-   if(Choice!=0||OceanRecipePage>3)return false;
+   if(OceanRecipePage==4&&Choice==3) {
+    const bool bEligible=!IsRecentlyInCombatForAmbientAI() && FMath::IsFinite(Health)
+      && FMath::IsFinite(MaxHealth) && Health>0.f && MaxHealth>0.f && Health<MaxHealth;
+    const bool bAte=bEligible&&Preview->ConsumeProvision();
+    ResidentFeedbackMessage=bAte?TEXT("Provision eaten; health restored."):TEXT("Need a provision, missing health and no combat.");
+    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+    if(bAte) {
+     Health=FMath::Min(MaxHealth,Health+MaxHealth*0.30f);
+     OnHealthChanged(Health,MaxHealth);
+    }
+    return bAte;
+   }
+   if(Choice!=0||OceanRecipePage>=MoonfallOceanCrafting::RecipeCount)return false;
    const bool bCrafted=!IsRecentlyInCombatForAmbientAI() && Preview->CraftOceanRecipe(OceanRecipePage);
    ResidentFeedbackMessage=bCrafted?TEXT("Recipe crafted."):TEXT("Need reagents, eligible gear or room; no combat.");
    ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
    return bCrafted;
   }
   if(Choice==3){OceanRecipePage=-2;ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==4) {
+   const int32 Id=Preview->NextRegionalContract();
+   const bool bDelivered=!IsRecentlyInCombatForAmbientAI()&&Preview->DeliverRegionalContract(Id);
+   ResidentFeedbackMessage=bDelivered?FString::Printf(TEXT("Delivered to %s: +1 breath tonic."),UTF8_TO_TCHAR(MoonfallNorth::Zones[Id].Name)):
+     FString(TEXT("Need regional discovery, fish, kelp, mineral and tonic space."));
+   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
+   return bDelivered;
+  }
  }
  if(Choice==3&&GetResidentContextRowCount()==4){
   bResidentTurnInPending=false;bResidentCompanionMenu=true;ResidentContextSelection=0;return true;
