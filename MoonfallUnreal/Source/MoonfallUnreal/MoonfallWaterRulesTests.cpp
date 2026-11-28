@@ -7,6 +7,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
+    TestEqual(TEXT("Guide distance to edge"),GuideEdgeDistance(500.0,160.0),340.0);
+    TestEqual(TEXT("Already breathing"),GuideEdgeDistance(150.0,160.0),-1.0);
+    TestEqual(TEXT("Out of guide range"),GuideEdgeDistance(1201.0,160.0),-1.0);
+    TestEqual(TEXT("Invalid pocket radius"),GuideEdgeDistance(500.0,0.0),-1.0);
+    TestTrue(TEXT("Larger pocket edge may be nearer"),GuideEdgeDistance(600.0,300.0)<GuideEdgeDistance(500.0,160.0));
     TestTrue(TEXT("First pocket query"),RefreshPocketCandidates(1.0,-1.0,0.0));
     TestFalse(TEXT("Stationary eye reuses candidates"),RefreshPocketCandidates(1.05,1.0,0.0));
     TestTrue(TEXT("Moving eye refreshes candidates"),RefreshPocketCandidates(1.01,1.0,100.0));
