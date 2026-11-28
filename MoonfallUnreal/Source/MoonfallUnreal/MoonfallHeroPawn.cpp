@@ -4559,7 +4559,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 bool AMoonfallHeroPawn::CanContinueFishing() const {
  const auto* Movement=GetCharacterMovement();
- return HasAuthority() && GetWorld() && bPersistentSaveWritesBlocked
+ return HasAuthority() && GetWorld() && !GetWorld()->IsPaused() && bPersistentSaveWritesBlocked
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
      && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
      && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
@@ -4639,7 +4639,7 @@ void AMoonfallHeroPawn::StepRegionalWaypoint(int32 Direction) {
 void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
  NearbyFishingSchools.Reset();
  NextFishingSchoolScan=Now+1.f;
- if(!CanContinueFishing()||Fishing.Stage!=MoonfallFishing::EStage::Idle) return;
+ if(!FMath::IsFinite(Now)||!CanContinueFishing()||Fishing.Stage!=MoonfallFishing::EStage::Idle) return;
  const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
  if(!IsValid(Preview)) return;
  const FVector Start=GetPawnViewLocation();
@@ -4652,7 +4652,7 @@ void AMoonfallHeroPawn::RefreshFishingSchools(float Now) {
   for(int32 Id=0;Id<MoonfallFishing::SchoolCount;++Id) {
    if(!Preview->IsFishingSchoolAvailable(Id,ResolveFishingProvince(*It))) continue;
    FVector Target;
-   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||FVector::DistSquared2D(Start,Target)>FMath::Square(MoonfallFishing::CastReach(Preview->GetOceanCatchCount()))) continue;
+   if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)||!MoonfallFishing::InCastRange(FVector::DistSquared2D(Start,Target),MoonfallFishing::CastReach(Preview->GetOceanCatchCount()))) continue;
    FHitResult Hit;
    if(!GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) NearbyFishingSchools.Add(Target);
   }
@@ -4707,7 +4707,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    FVector Target;
    if(!DeepWaterSchoolPoint(Bounds,Id,Now,Target)) continue;
    const double Distance=FVector::DistSquared2D(Start,Target);
-   if(Distance<FMath::Square(100.f)||Distance>FMath::Square(MaxReach)) continue;
+   if(!MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
    const double ClickDistance=RequestedWater?FVector::DistSquared2D(*RequestedWater,Target):0.0;
    if(RequestedWater) {
     if(ClickDistance>BestClickDistance||(ClickDistance==BestClickDistance&&Distance>BestDistance)) continue;
@@ -4735,7 +4735,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    if(FMath::Abs(Target.Z-(Bounds.Max.Z+2.f))>1.f||
        Target.X<Bounds.Min.X+30.f||Target.X>Bounds.Max.X-30.f||
        Target.Y<Bounds.Min.Y+30.f||Target.Y>Bounds.Max.Y-30.f||
-       Distance<FMath::Square(100.f)||Distance>FMath::Square(MaxReach)) continue;
+       !MoonfallFishing::InCastRange(Distance,MaxReach)) continue;
    FHitResult Hit;
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
    if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
@@ -4805,8 +4805,7 @@ bool AMoonfallHeroPawn::TryMouseFishingAction() {
   const FVector Point=Eye+Direction*Along;
   if(Point.ContainsNaN()||Point.X<Bounds.Min.X+30.f||Point.X>Bounds.Max.X-30.f||
       Point.Y<Bounds.Min.Y+30.f||Point.Y>Bounds.Max.Y-30.f||
-      FVector::DistSquared2D(HeroEye,Point)>FMath::Square(Reach)||
-      FVector::DistSquared2D(HeroEye,Point)<FMath::Square(100.f)) continue;
+      !MoonfallFishing::InCastRange(FVector::DistSquared2D(HeroEye,Point),Reach)) continue;
   FHitResult Block;
   if(GetWorld()->LineTraceSingleByChannel(Block,Eye,Point,ECC_Visibility,Query)) continue;
   Nearest=Along; Target=Point; bFound=true;
