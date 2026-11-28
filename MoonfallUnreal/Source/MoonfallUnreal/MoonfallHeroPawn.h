@@ -39,6 +39,7 @@ public:
  UNavigationInvokerComponent* DungeonNavigationInvoker;
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
+ virtual void PossessedBy(AController* NewController) override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
  // Runtime water state; never serialized to character or checkpoint saves.
@@ -605,7 +606,8 @@ private:
  bool bMasteryAirDashUsed=false;
  friend class AMoonfallMasteryOrb;
  bool TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind);
- MoonfallSkillMastery::State SessionMastery{};
+ MoonfallSkillMastery::State* GetSessionMastery() const;
+ void ReconcileMasteryOrbOverlaps();
  bool IsSkillMasteryPreviewEnabled() const;
  void AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action);
  // Raw worn references are for validation and ownership protection only.

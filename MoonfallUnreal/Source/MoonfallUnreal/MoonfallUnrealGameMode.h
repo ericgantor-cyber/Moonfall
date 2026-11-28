@@ -3,6 +3,7 @@
 #include "Containers/ArrayView.h"
 #include "GameFramework/GameModeBase.h"
 #include "TimerManager.h"
+#include "MoonfallSkillMastery.h"
 class AMoonfallArena;
 class AMoonfallWorldNPC;
 class AMoonfallHeroPawn;
@@ -95,6 +96,9 @@ public:
  EMoonfallCompanionStance LocalCompanionStance=EMoonfallCompanionStance::Passive;
 
 private:
+ // World-scoped, single-local-player preview ledger. Never serialized.
+ friend class AMoonfallHeroPawn;
+ MoonfallSkillMastery::State MasterySessionLedger{};
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
  int32 NextFailedDungeonRetry = 0;
