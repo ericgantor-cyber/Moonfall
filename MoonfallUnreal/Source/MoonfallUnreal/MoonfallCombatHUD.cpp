@@ -2963,47 +2963,48 @@ void AMoonfallCombatHUD::DrawHUD()
    }
   }
  }
- // Temporary contextual resource, independent of the three permanent orbs.
+ // Compact breathing panel, independent of the three permanent orbs.
  if (Hero->bWaterSwimming && (Hero->bWaterSubmerged || Hero->Oxygen < 100.f || Hero->WaterTonicRemaining > 0.f) && Canvas->SizeX >= 360 && Canvas->SizeY >= 240) {
   const float Air = FMath::IsFinite(Hero->Oxygen) ? FMath::Clamp(Hero->Oxygen,0.f,100.f) : 0.f;
-  const float W = 252.f;
-  const float X = (Canvas->SizeX-W)*0.5f;
-  const float Y = FMath::Min(Canvas->SizeY*0.69f,Canvas->SizeY-182.f);
-  const FLinearColor AirColor = Air<=20.f ? FLinearColor(1.f,0.25f,0.17f) : FLinearColor(0.35f,0.83f,0.95f);
-  DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y,W,56.f);
-  const int32 BreathSeconds = FMath::CeilToInt(Air / MoonfallWaterRules::EffectiveDrain(
-      Hero->WaterBreathScale));
-  DrawText(Hero->WaterTonicRemaining > 0.f ? FString::Printf(TEXT("WATER BREATHING %ds"),FMath::CeilToInt(Hero->WaterTonicRemaining)) : Hero->bInsideAirPocket ? FString(TEXT("AIR POCKET")) : Air <= 0.f && Hero->bWaterSubmerged ? FString(TEXT("DROWNING")) : FString::Printf(TEXT("BREATH %d:%02d"),BreathSeconds/60,BreathSeconds%60),(Hero->bInsideAirPocket || Hero->WaterTonicRemaining > 0.f) ? FLinearColor(0.40f,0.95f,0.60f) : AirColor,X+8.f,Y+3.f,nullptr,0.9f);
-  DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+8.f,Y+21.f,W-16.f,8.f);
-  DrawRect(AirColor,X+8.f,Y+21.f,(W-16.f)*Air/100.f,8.f);
-  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+33.f,nullptr,0.76f);
+  const float Tonic=FMath::IsFinite(Hero->WaterTonicRemaining)
+      ? FMath::Clamp(Hero->WaterTonicRemaining,0.f,MoonfallWaterRules::TonicDuration):0.f;
+  const bool bProtected=Tonic>0.f;
+  const bool bRefilling=Hero->bInsideAirPocket || !Hero->bWaterSubmerged || bProtected;
+  const bool bCritical=!bRefilling && Air<=20.f;
+  const FLinearColor AirColor=bRefilling?FLinearColor(0.40f,0.95f,0.60f):
+      bCritical?FLinearColor(1.f,0.35f,0.25f):FLinearColor(0.35f,0.83f,0.95f);
+  const float W=300.f,H=92.f;
+  const float X=(Canvas->SizeX-W)*0.5f;
+  const float Y=FMath::Clamp(Canvas->SizeY*0.60f,8.f,Canvas->SizeY-H-20.f);
+  DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.96f),X,Y,W,H);
+  DrawRect(AirColor,X,Y,3.f,H);
+  const int32 BreathSeconds=FMath::CeilToInt(Air/MoonfallWaterRules::EffectiveDrain(Hero->WaterBreathScale));
+  const int32 RefillSeconds=FMath::CeilToInt((100.f-Air)/MoonfallWaterRules::RefillPerSecond);
+  FString Status;
+  if (bProtected) Status=FString::Printf(TEXT("TONIC ACTIVE %ds"),FMath::CeilToInt(Tonic));
+  else if (bRefilling) Status=RefillSeconds>0
+      ? FString::Printf(TEXT("%s | FULL IN %ds"),Hero->bInsideAirPocket?TEXT("AIR POCKET"):TEXT("SURFACE"),RefillSeconds)
+      : FString(TEXT("FULL BREATH"));
+  else if (Air<=0.f) Status=TEXT("DROWNING - RISE NOW");
+  else Status=FString::Printf(TEXT("%s %d:%02d"),bCritical?TEXT("LOW AIR"):TEXT("BREATH"),BreathSeconds/60,BreathSeconds%60);
+  DrawText(Status,AirColor,X+9.f,Y+5.f,nullptr,0.85f);
+  DrawRect(FLinearColor(0.12f,0.18f,0.24f),X+9.f,Y+24.f,W-18.f,10.f);
+  DrawRect(AirColor,X+9.f,Y+24.f,(W-18.f)*Air/100.f,10.f);
+  DrawText(FString::Printf(TEXT("OXYGEN %.0f%%"),Air),FLinearColor::White,X+9.f,Y+38.f,nullptr,0.8f);
+  if (GetWorld()) {
+   const auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   if (IsValid(Preview))
+    DrawText(FString::Printf(TEXT("TONICS %d"),Preview->GetBreathingTonicCharges()),FLinearColor(0.65f,0.85f,0.9f),X+190.f,Y+38.f,nullptr,0.8f);
+  }
+  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+9.f,Y+54.f,nullptr,0.76f);
   const TCHAR* WaterTip=Hero->bInsideAirPocket?TEXT("Air pocket: breathe here"):
-      Air<=20.f?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
-  if (Air>20.f && !Hero->bInsideAirPocket && Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
+      bProtected?TEXT("Breathing protection active"):
+      bCritical?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
+  if (!bCritical && !bRefilling && Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
       && GetWorld() && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
       && !Hero->IsRecentlyInCombatForAmbientAI())
    WaterTip=TEXT("F1 / D-pad Up: shore rescue if safe");
-  DrawText(WaterTip,Air<=20.f?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+8.f,Y+45.f,nullptr,0.65f);
-  if (Hero->WaterCurrentStrength > 0.01f && Hero->WaterTonicRemaining <= 0.f)
-   DrawText(TEXT("CURRENT"),FLinearColor(0.40f,0.88f,0.95f),X+162.f,Y+3.f,nullptr,0.75f);
-  else if (Hero->WaterSwimScale > 1.001f && Hero->WaterTonicRemaining <= 0.f)
-   DrawText(FString::Printf(TEXT("+%.0f%% SWIM"),(Hero->WaterSwimScale-1.f)*100.f),AirColor,X+150.f,Y+3.f,nullptr,0.75f);
-  if (GetWorld()) {
-   const auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
-   if (IsValid(Preview)) {
-    DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.92f),X,Y+58.f,W,116.f);
-    DrawText(FString::Printf(TEXT("G %d/6 | WRECK %d/2 | CAVE %d"),Preview->GetGrottoClaimCount(),Preview->GetWreckDiscoveryCount(),Preview->GetCaveDiscoveryCount()),FLinearColor(0.95f,0.79f,0.42f),X+8.f,Y+62.f,nullptr,0.8f);
-    const int32 Pieces=Preview->GetGrottoSetPieces();
-    DrawText(FString::Printf(TEXT("TIDEBOUND LOAN GEAR  %d / 3"),Pieces),FLinearColor::White,X+8.f,Y+80.f,nullptr,0.76f);
-    DrawText(Pieces>=3 ? TEXT("+10% BREATH | +10% SWIM") : Pieces>=2 ? TEXT("+10% BREATH | 3PC: +SWIM") : TEXT("2PC: BREATH | 3PC: SWIM"),FLinearColor(0.42f,0.86f,0.82f),X+8.f,Y+98.f,nullptr,0.72f);
-    DrawText(FString::Printf(TEXT("BREATH TONICS %d | AUTO AT 10%%"),Preview->GetBreathingTonicCharges()),FLinearColor(0.44f,0.88f,0.91f),X+8.f,Y+116.f,nullptr,0.72f);
-    const int32 Event=Preview->GetOceanActivity();
-    DrawText(FString::Printf(TEXT("%s | SPECIES %d/6"),
-      Event==1?TEXT("MIGRATION"):Event==2?TEXT("HUNTING"):TEXT("CALM"),
-      Preview->GetAquaticSightingCount()),FLinearColor(0.62f,0.88f,0.93f),X+8.f,Y+134.f,nullptr,0.72f);
-    DrawText(FString::Printf(TEXT("GATHER %d/10 | STOCK %d"),Preview->GetOceanGatheringRank(),Preview->GetAvailableOceanMaterials()),FLinearColor::White,X+8.f,Y+152.f,nullptr,0.72f);
-   }
-  }
+  DrawText(WaterTip,bCritical?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+9.f,Y+72.f,nullptr,0.73f);
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
