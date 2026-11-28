@@ -227,6 +227,7 @@ public:
  float GetResidentContextPanelHeight(float ViewportHeight) const;
  float GetResidentContextRowPitch(float PanelHeight) const;
  int32 GetResidentContextVisualRowCount() const;
+ bool NavigateResidentContextHorizontal(int32 Direction);
  FBox2D GetResidentContextActionBounds(int32 Row,float PanelWidth,float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
