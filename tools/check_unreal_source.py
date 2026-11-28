@@ -905,6 +905,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("CanOpenInventorySearch()", body)
             self.assertNotIn("SaveWorldProgress", body)
 
+    def test_crafting_reconciles_filters_without_selecting_unrelated_item(self):
+        hero = self.hero_cpp
+        reconcile = hero.split("void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(IsInventorySelectionVisible())", reconcile)
+        self.assertIn("KeepInventorySelectionVisible();", reconcile)
+        self.assertIn("InventorySelection=INDEX_NONE;", reconcile)
+        self.assertIn("GetInventoryDisplayOrder().Num()-GetInventoryVisibleRows()", reconcile)
+        self.assertIn("InventoryViewStart=FMath::Clamp(InventoryViewStart,0,MaxStart);", reconcile)
+        self.assertNotIn("Visible[0]", reconcile)
+        for method, event in (("UpgradeInventoryItem", "OnEquipmentCrafted"),
+                              ("ReforgeInventoryItemAffix", "OnEquipmentReforged"),
+                              ("AscendInventoryItemRarity", "OnEquipmentAscended")):
+            body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("Salvage -= Cost;"), body.index("ReconcileCraftedInventorySelection();"))
+            self.assertLess(body.index("ReconcileCraftedInventorySelection();"), body.index(event + "("))
+
     def test_worn_crafting_preserves_previous_tier_and_commits_before_notifications(self):
         hero = self.hero_cpp
         for method, event in (("UpgradeInventoryItem", "OnEquipmentCrafted"),
