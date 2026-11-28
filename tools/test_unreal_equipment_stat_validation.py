@@ -31,7 +31,7 @@ class EquipmentStatSafety(unittest.TestCase):
         comparison = hud.split("const FString PowerCompareLine", 1)[1].split("DrawText(PanelWidth < 550.f", 1)[0]
         self.assertIn("SelectedTier-EquippedTier", comparison)
         self.assertIn("SelectedRarity-EquippedRarity", comparison)
-        self.assertIn("CompareTraits[EquippedAffix],CompareTraits[SelectedAffix]", comparison)
+        self.assertIn("InventoryTraitNames[EquippedAffix],InventoryTraitNames[SelectedAffix]", comparison)
         self.assertIn("T%+d Q%+d P%+d", comparison)
         self.assertIn("best eligible finger", comparison)
         self.assertIn("EquippedCode>0", comparison)
