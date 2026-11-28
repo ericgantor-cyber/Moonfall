@@ -600,6 +600,8 @@ public:
  void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
+ friend class AMoonfallMasteryOrb;
+ bool TryCollectMasteryOrb(int32 Region,int32 Index,MoonfallSkillMastery::Orb Kind);
  MoonfallSkillMastery::State SessionMastery{};
  bool IsSkillMasteryPreviewEnabled() const;
  void AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action);
