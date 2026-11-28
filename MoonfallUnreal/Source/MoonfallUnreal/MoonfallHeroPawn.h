@@ -11,12 +11,15 @@
 #include "MoonfallBugBreadcrumbs.h"
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
+#include "MoonfallFishing.h"
 #include "MoonfallSkillMastery.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
+class USceneComponent;
 class UNavigationInvokerComponent;
 class UAnimMontage;
+class USoundBase;
 class AMoonfallEnemy;
 class AMoonfallWorldNPC;
 class AMoonfallCheckpointShrine;
@@ -38,6 +41,82 @@ public:
  virtual void BeginPlay() override;
  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  virtual void Tick(float DeltaSeconds) override;
+ // Runtime water state; never serialized to character or checkpoint saves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float Oxygen = 100.f;
+ // Runtime-derived from validated equipment; shared with the HUD.
+ float WaterBreathScale = 1.f;
+ float WaterTonicRemaining = 0.f;
+ float WaterSwimScale = 1.f;
+ MoonfallFishing::FSession Fishing;
+ FVector FishingOrigin=FVector::ZeroVector;
+ FVector FishingBobber=FVector::ZeroVector;
+ float FishingNoticeUntil=0.f;
+ bool bFishingCaught=false;
+ // Optional authored audio assets. No implicit playback or asset load.
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingCastSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingBiteSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingReelSound=nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingCatchSound=nullptr;
+ UPROPERTY(BlueprintReadOnly, Transient, Category="Moonfall|Fishing") int32 FishingVisualStage=0;
+ void SyncFishingPresentation(bool bCaught=false);
+ int32 FishingSchoolId=-1;
+ int32 FishingProvince=-1;
+ int32 RegionalWaypoint=-1;
+ FVector RegionalWaypointLocation=FVector::ZeroVector;
+ uint32 RegionalWaypointAvailable=0;
+ void RefreshRegionalWaypoints();
+ void SelectRegionalWaypoint(int32 Id);
+ void StepRegionalWaypoint(int32 Direction);
+ bool HasRegionalWaypoint() const;
+ bool bCharacterProfessionsPageOpen=false;
+ int32 ProfessionScroll=0;
+ void StepProfessionScroll(int32 Direction);
+ bool HasWaterProfessionsPage() const;
+ void StepCharacterPage(int32 Direction);
+ TArray<FVector> NearbyFishingSchools;
+ float NextFishingSchoolScan=0.f;
+ void RefreshFishingSchools(float Now);
+ bool CanContinueFishing() const;
+ bool TryFishingAction(const FVector* RequestedWater=nullptr);
+ bool TryMouseFishingAction();
+ void FishingAction() { TryFishingAction(); }
+ void GetWaterTraversalBonuses(float& OutBreath, float& OutSwim) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSwimming = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bWaterSubmerged = false;
+ // Camera depth drives presentation independently of the hero's breathing.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCameraDepth = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterStrokeSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterVerticalSpeed = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterCurrentStrength = 0.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Water")
+ void OnSwimmingStateChanged(bool bSwimming, bool bSubmerged);
+ // Optional presentation pivot for authored underwater effects. Never reparent
+ // the original hero mesh or use this transform for hit detection.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Water")
+ USceneComponent* SwimPoseAnchor=nullptr;
+ void RefreshSwimPose();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ bool bInsideAirPocket = false;
+ // Tap-to-toggle vertical swimming; no sustained key hold required.
+ int32 WaterVerticalIntent = 0;
+ // Preview-only shoreline recovery. The anchor is transient and captured
+ // from a recent grounded position, never from a saved checkpoint.
+ FVector WaterRecoveryShore=FVector::ZeroVector;
+ double WaterRecoveryShoreAt=-1.0;
+ TWeakObjectPtr<class APhysicsVolume> WaterRecoveryVolume;
+ bool CanRequestEmergencySurface() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Water")
+ bool TryEmergencySurface();
+ void EmergencySurfaceAction() { TryEmergencySurface(); }
+ float DrowningExposureSeconds = 0.f;
+ bool bApplyingDrowningDamage = false;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.
  void TryPlaceNewCharacterAtSanctuary();
  bool bStartingSanctuaryPlaced = false;
@@ -94,6 +173,8 @@ public:
  float GetResidentContextRowPitch(float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
+ // -1 merchant, -2 recipe list, 0-2 recipe detail.
+ int32 OceanRecipePage = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") bool bResidentTurnInPending = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentTurnInConfirmUntil = 0.f;
  float ResidentTurnInConfirmAfter = 0.f;
@@ -380,6 +461,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SetAutoLootEnabled(bool bEnabled);
  float AutoLootElapsed = 0.f;
+ bool bAutoLootDispatch = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;

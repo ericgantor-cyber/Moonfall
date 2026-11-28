@@ -67,14 +67,16 @@ assert 'void SelectCharacterPage(int32 Page);' in header
 assert 'void ToggleCharacterRacePage();' in header
 select_page = section(hero,"void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)",
                       "void AMoonfallHeroPawn::ToggleCharacterRacePage()")
-assert 'Page < 0 || Page > 2' in select_page
+assert 'Page < 0 || Page > (HasWaterProfessionsPage()?3:2)' in select_page
+assert 'bCharacterProfessionsPageOpen = Page == 3;' in select_page
 assert 'bCharacterStatsOpen' in select_page and 'bInventoryOpen' in select_page
 assert 'bCharacterRacePageOpen = Page == 1;' in select_page
 assert 'bCharacterRepPageOpen = Page == 2;' in select_page
 assert 'ChooseRace(' not in select_page and 'SaveWorldProgress()' not in select_page
-forward = 'SelectCharacterPage(bCharacterRacePageOpen ? 2 : (bCharacterRepPageOpen ? 0 : 1));'
-reverse = 'SelectCharacterPage(bCharacterRacePageOpen ? 0 : (bCharacterRepPageOpen ? 1 : 2));'
-assert forward in hero and reverse in hero
+step = section(hero,"void AMoonfallHeroPawn::StepCharacterPage(int32 Direction)","void AMoonfallHeroPawn::SelectCharacterPage(int32 Page)")
+assert 'const int32 Count=HasWaterProfessionsPage()?4:3;' in step
+assert 'SelectCharacterPage((Current+(Direction<0?Count-1:1))%Count);' in step
+assert 'StepCharacterPage(1);' in hero and 'StepCharacterPage(-1);' in hero
 stats_action = section(hero,"void AMoonfallHeroPawn::ToggleCharacterStats()",
                        "void AMoonfallHeroPawn::ToggleAtlasChronicleFocus()")
 assert 'if (bCharacterStatsOpen) { ToggleCharacterRacePage(); return; }' in stats_action
@@ -115,7 +117,7 @@ assert 'TEXT("EQUIPPED GEAR")' in hud
 assert 'bCharacterGearPageOpen' not in hud
 assert 'DrawLiveMenuHitCue();' in hud
 stats_gear_ui = section(hud,"const FString CharacterLines[] = {",
-                        'DrawText(TEXT("C / D-pad Left/Right: stats & gear / ancestry / rep")')
+                        'DrawText(PageCount==4?TEXT("C / D-pad Left/Right: switch page")')
 for token in ("Hero->GetMight()", "Hero->GetInsight()", "Hero->GetResolve()",
               "Hero->GetCriticalChance() * 100.f", "Hero->GetHasteBonus() * 100.f",
               "Hero->GetSetPieceCount(1)", "Hero->GetSetPieceCount(2)",
@@ -156,15 +158,16 @@ assert 'ActionName="ChronicleFocus",Key=Tab' in inputs
 
 
 # All three visible tabs use independent hit targets and no gameplay effect.
-assert 'const float PageTabWidth = (PanelWidth - 60.f) / 3.f;' in hud
+assert 'const float PageTabWidth = PageCount==3?(PanelWidth - 60.f) / 3.f:(PanelWidth-68.f)/4.f;' in hud
+assert 'const int32 PageCount=Hero->HasWaterProfessionsPage()?4:3;' in hud
 assert 'const float PageTabTop = Top + 77.f;' in hud
-assert 'const float TabW=(PanelW-60.f)/3.f;' in hero
+assert 'const float TabW=TabCount==3?(PanelW-60.f)/3.f:(PanelW-68.f)/4.f;' in hero
 assert 'const float TabY=PanelT+77.f;' in hero
 mouse = section(hero, "void AMoonfallHeroPawn::ResidentContextMouseClick()",
                 "if (!bResidentContextOpen) { RightHandAction(); return; }")
 assert "if (bCharacterStatsOpen) {" in mouse
 assert 'SelectCharacterPage(Tab);' in mouse
-assert 'for (int32 Tab=0;Tab<3;++Tab)' in mouse
+assert 'for (int32 Tab=0;Tab<TabCount;++Tab)' in mouse
 assert 'if (HitTestInventorySortButton())' in mouse
 assert mouse.index("SelectCharacterPage(Tab);") < mouse.index("if (HitTestInventorySortButton())")
 assert "ToggleCharacterRacePage();" not in mouse
