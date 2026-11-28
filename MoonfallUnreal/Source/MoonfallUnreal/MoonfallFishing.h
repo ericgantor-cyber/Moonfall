@@ -10,6 +10,13 @@ namespace MoonfallFishing
         return std::isfinite(DistanceSquared)&&std::isfinite(Reach)&&Reach>=100.f
             && DistanceSquared>=100.0*100.0&&DistanceSquared<=double(Reach)*Reach;
     }
+    inline bool OnCastSurface(double X,double Y,double Z,double MinX,double MinY,double MaxX,double MaxY,double SurfaceZ)
+    {
+        return std::isfinite(X)&&std::isfinite(Y)&&std::isfinite(Z)
+            &&std::isfinite(MinX)&&std::isfinite(MinY)&&std::isfinite(MaxX)&&std::isfinite(MaxY)&&std::isfinite(SurfaceZ)
+            &&X>=MinX+30.0&&X<=MaxX-30.0&&Y>=MinY+30.0&&Y<=MaxY-30.0
+            &&std::abs(Z-(SurfaceZ+2.0))<=1.0;
+    }
     constexpr double BiteSeconds(int Catches) { return 10.0+(Rank(Catches)-1)*0.5; }
     constexpr double CastWait(double Roll,int Catches) {
         const double Bounded=Roll>=0.0&&Roll<=1.0?Roll:0.5;
