@@ -1567,16 +1567,22 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  for (int32 Index = 0; Index < Count; ++Index) if(MatchesInventoryFilter(Index))Order.Add(Index);
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
- if(InventorySortMode!=0)Order.Sort([this](int32 A, int32 B) {
-  const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
-  const auto DecodedA=MoonfallEquipmentLayout::DecodeFullItem(CodeA);
-  const auto DecodedB=MoonfallEquipmentLayout::DecodeFullItem(CodeB);
-  const int32 SlotA=MoonfallEquipmentLayout::FullInventorySortSlot(DecodedA,MoonfallEquipmentLayout::ActiveSlotCount);
-  const int32 SlotB=MoonfallEquipmentLayout::FullInventorySortSlot(DecodedB,MoonfallEquipmentLayout::ActiveSlotCount);
-  const int32 RarityA=DecodedA.IsValid()?DecodedA.Rarity:-1;
-  const int32 RarityB=DecodedB.IsValid()?DecodedB.Rarity:-1;
-  const int32 TierA=DecodedA.IsValid()?DecodedA.Tier:-1;
-  const int32 TierB=DecodedB.IsValid()?DecodedB.Tier:-1;
+ if(InventorySortMode!=0&&Order.Num()>1){
+  struct FSortKey {int32 Slot=0,Rarity=-1,Tier=-1;};
+  TArray<FSortKey> Keys;
+  Keys.SetNum(Count);
+  for(const int32 Index:Order){
+   const auto Decoded=MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[Index]);
+   FSortKey& Key=Keys[Index];
+   Key.Slot=MoonfallEquipmentLayout::FullInventorySortSlot(Decoded,MoonfallEquipmentLayout::ActiveSlotCount);
+   if(Decoded.IsValid()){Key.Rarity=Decoded.Rarity;Key.Tier=Decoded.Tier;}
+  }
+  Order.Sort([this,&Keys](int32 A, int32 B) {
+  const FSortKey& KA=Keys[A];
+  const FSortKey& KB=Keys[B];
+  const int32 SlotA=KA.Slot,SlotB=KB.Slot;
+  const int32 RarityA=KA.Rarity,RarityB=KB.Rarity;
+  const int32 TierA=KA.Tier,TierB=KB.Tier;
   if (InventorySortMode == 1) {
    if (RarityA != RarityB) return RarityA > RarityB;
    if (TierA != TierB) return TierA > TierB;
@@ -1587,7 +1593,8 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
    if (TierA != TierB) return TierA > TierB;
   }
   return A < B;
- });
+  });
+ }
  CachedInventoryOrder=Order;
  CachedInventoryOrderSource=InventoryItemCodes;
  CachedInventoryOrderRevision=EquipmentInventoryRevision;
