@@ -238,6 +238,8 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Fresh equipment save has nine slots"), Original->EquippedSlotCodes.Num(), 9);
  TestEqual(TEXT("Fresh merchant stock has four faction groups"),Original->MerchantRestockUtc.Num(),4);
  for(const int64 Deadline:Original->MerchantRestockUtc)TestEqual(TEXT("Fresh specialty is ready"),Deadline,int64(0));
+ TestEqual(TEXT("Default bag capacity"),Original->BagCapacity,100);
+ Original->BagCapacity=350;
  Original->WalletCopper=123456;
  Original->MerchantRestockUtc={0,1800000000LL,1800001800LL,0};
  TestEqual(TEXT("Fresh buyback history is empty"),Original->MerchantBuybackRecords.Num(),0);
@@ -257,6 +259,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   if (!TestNotNull(TEXT("Deserialize equipment record from memory"), Restored)) return false;
   TestEqual(TEXT("Schema version preserved"), Restored->Version, Version);
   TestEqual(TEXT("Wallet copper round trips"),Restored->WalletCopper,Original->WalletCopper);
+  TestEqual(TEXT("Bag capacity round trips"),Restored->BagCapacity,Original->BagCapacity);
   TestTrue(TEXT("Faction restock timestamps round trip"),Restored->MerchantRestockUtc==Original->MerchantRestockUtc);
   const auto* Buyback=Restored->MerchantBuybackRecords.Find(FName(TEXT("Anvilkeeper")));
   if(!TestTrue(TEXT("Named merchant history round trips"),Buyback&&Buyback->Entries.Num()==1))return false;

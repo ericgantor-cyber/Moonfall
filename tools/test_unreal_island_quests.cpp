@@ -225,6 +225,32 @@ int main() {
     assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins)==0);
     assert(MoonfallMoney::BoundedRewardCredit(-1,0)==0);
     assert(MoonfallMoney::BoundedRewardCredit(100,-1)==0);
+    for(int Capacity=0;Capacity<=1000;++Capacity){
+      const bool Valid=Capacity>=100&&Capacity<=500&&Capacity%50==0;
+      assert(MoonfallMoney::ValidBagCapacity(Capacity)==Valid);
+      assert(!MoonfallMoney::BagHasRoom(Capacity,Capacity));
+      assert(MoonfallMoney::BagHasRoom(Capacity-1,Capacity)==Valid);
+      assert(!MoonfallMoney::BagHasRoom(10000,Capacity));
+      assert((MoonfallMoney::BagUpgradePrice(Capacity)>0)==(Valid&&Capacity<500));
+    }
+    for(int Count=-1;Count<=1001;++Count)assert(MoonfallMoney::VaultHasRoom(Count)==(Count>=0&&Count<1000));
+    assert(MoonfallMoney::VaultPageSelection(0,0,1)==0);
+    assert(MoonfallMoney::VaultPageSelection(0,1000,1)==25);
+    assert(MoonfallMoney::VaultPageSelection(990,1000,1)==999);
+    assert(MoonfallMoney::VaultPageSelection(5,1000,-1)==0);
+    assert(MoonfallMoney::VaultPageSelection(999,1000,-1)==974);
+    assert(MoonfallMoney::VaultPageSelection(-20,1000,0)==0);
+    assert(MoonfallMoney::VaultPageSelection(5000,1000,0)==999);
+    for(int Count=1;Count<=1000;++Count){
+      for(int Index=0;Index<Count;++Index){
+        const int Next=MoonfallMoney::VaultPageSelection(Index,Count,1);
+        const int Prev=MoonfallMoney::VaultPageSelection(Index,Count,-1);
+        assert(Next>=Index&&Next<Count&&Next-Index<=25);
+        assert(Prev>=0&&Prev<=Index&&Index-Prev<=25);
+      }
+    }
+    assert(MoonfallMoney::BagUpgradePrice(100)==1000);
+    assert(MoonfallMoney::BagUpgradePrice(450)==11500);
     assert(MoonfallMoney::ContractReward(1,1)==100);
     assert(MoonfallMoney::ContractReward(30,100)==1175);
     assert(MoonfallMoney::ContractReward(0,1)==0&&MoonfallMoney::ContractReward(31,1)==0);

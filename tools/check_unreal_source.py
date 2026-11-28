@@ -14,6 +14,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_vault_transfer_ownership_and_rollback(self):
+        guard=self.hero_cpp.split("bool AMoonfallHeroPawn::CanTransferVaultItem()",1)[1].split("\n}",1)[0]
+        for required in ("HasBagRoom()", "VaultHasRoom", "CanRemoveFullCopy", "IsRecentlyInCombatForAmbientAI()"):
+            self.assertIn(required,guard)
+        transfer=self.hero_cpp.split("bool AMoonfallHeroPawn::ChooseVaultAction(",1)[1].split("\n}",1)[0]
+        self.assertLess(transfer.index("IsVaultConfirmationCurrent()"),transfer.index("Destination.Add(Code)"))
+        self.assertLess(transfer.index("VaultConfirmAfter"),transfer.index("Destination.Add(Code)"))
+        self.assertIn("Destination.RemoveAt(Added);Source.Insert(Code,Index);",transfer)
+        self.assertIn("Save->VaultItemCodes=VaultItemCodes;",self.hero_cpp)
+        self.assertIn("VaultItemCodes=Save->VaultItemCodes;",self.hero_cpp)
+        self.assertIn("Save->VaultItemCodes.Num()>MoonfallMoney::VaultMax",self.hero_cpp)
+        self.assertIn('TEXT("Storage vault")',self.hud)
+        self.assertIn("if(bResidentVaultMenu)return 7;",self.hero_cpp)
+        self.assertIn('TEXT("Previous 25 items")',self.hud)
+        self.assertIn('TEXT("Next 25 items")',self.hud)
+        page=transfer.split("if(Choice==5||Choice==6)",1)[1].split("return true;",1)[0]
+        self.assertLess(page.index("ClearMerchantConfirmation();"),page.index("VaultPageSelection("))
+
     def test_merchant_transactions_require_live_confirm_and_atomic_save(self):
         sell = self.hero_cpp.split("bool AMoonfallHeroPawn::SellMerchantItem()",1)[1].split("\n}",1)[0]
         buy = self.hero_cpp.split("bool AMoonfallHeroPawn::BuyMerchantItem()",1)[1].split("\n}",1)[0]
@@ -615,7 +633,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
-        self.assertIn("visible %d-%d / %d", self.hud)
+        self.assertIn('TEXT("%s | %d-%d/%d | %d S")', self.hud)
+        self.assertIn("const int32 Count = DisplayOrder.Num();", self.hud)
+        self.assertIn("PageEnd, Count, Hero->Salvage", self.hud)
         self.assertIn("if (Count > PerPage)", self.hud)
         self.assertIn("const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);", self.hud)
         self.assertIn("const float ThumbY = TrackY + (TrackHeight - ThumbHeight) * PageStart / MaxStart;", self.hud)
@@ -714,7 +734,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SelectedRow >= InventoryViewStart + Rows", selection)
         self.assertIn("InventoryViewStart = SelectedRow - Rows + 1;", selection)
         self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
-        self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows()", self.hero_cpp)
         self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertNotIn("InventoryItemCodes.Sort(", selection)
         self.assertNotIn("EquipInventoryItem(", selection)
@@ -814,7 +834,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return A < B;", sort)
         self.assertIn("CachedInventoryOrderRevision==EquipmentInventoryRevision", sort)
         self.assertIn("CachedInventoryOrderMode==InventorySortMode", sort)
-        self.assertIn("CachedInventoryOrder.Num()==Count", sort)
+        self.assertIn("CachedInventoryFilter==InventoryRarityFilter", sort)
+        self.assertIn("if(MatchesInventoryFilter(Index))Order.Add(Index)",sort)
         self.assertIn("CachedInventoryOrderSource==InventoryItemCodes", sort)
         self.assertLess(sort.index("return CachedInventoryOrder;"), sort.index("Order.Sort("))
         self.assertLess(sort.index("Order.Sort("), sort.index("CachedInventoryOrder=Order;"))
@@ -825,7 +846,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("mutable TArray<int32> CachedInventoryOrderSource;", self.hero_h)
         for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, sort)
-        self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
+        self.assertIn("const int32 DisplaySelection = Visible.Find(InventorySelection);", selection)
+        self.assertEqual(selection.count("GetInventoryDisplayOrder()"), 1)
         self.assertIn("const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();", self.hud)
         self.assertIn("const int32 Index = DisplayOrder[DisplayPosition];", self.hud)
         self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", self.hud)
@@ -837,9 +859,102 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (HitTestInventorySortButton())", left)
         self.assertIn("InventorySortMode = (InventorySortMode + 1) % 3;", left)
         self.assertLess(left.index("if (HitTestInventorySortButton())"), left.index("HitTestInventoryRow()"))
-        self.assertIn("if (HitTestInventorySortButton()) return;", right)
+        self.assertIn("if (HitTestInventorySortButton()) {CycleInventoryRarityFilter();return;}", right)
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
+
+    def test_inventory_text_search_is_transient_and_modal(self):
+        hero = self.hero_cpp
+        match = hero.split("bool AMoonfallHeroPawn::MatchesInventoryFilter(", 1)[1].split("\n}", 1)[0]
+        order = hero.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder()", 1)[1].split("\n}", 1)[0]
+        opening = hero.split("void AMoonfallHeroPawn::OpenInventorySearch()", 1)[1].split("\n}", 1)[0]
+        closing = hero.split("void AMoonfallHeroPawn::CloseInventorySearch()", 1)[1].split("\n}", 1)[0]
+        setter = hero.split("void AMoonfallHeroPawn::SetInventorySearchText(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("InventorySearchText.ParseIntoArrayWS(ParsedInventorySearchTerms)", match)
+        self.assertIn("ParsedInventorySearchText!=InventorySearchText", match)
+        self.assertIn("ParsedInventorySearchText=InventorySearchText;", match)
+        self.assertIn("ESearchCase::IgnoreCase", match)
+        self.assertIn("CachedInventorySearchText==InventorySearchText", order)
+        self.assertIn("CachedInventorySearchText=InventorySearchText;", order)
+        self.assertIn("FInputModeUIOnly Mode;", opening)
+        self.assertIn("Commit==ETextCommit::OnEnter", opening)
+        self.assertIn("Commit==ETextCommit::OnCleared", opening)
+        self.assertIn("WeakEditor.Pin()", opening)
+        for label in ("Apply", "Clear", "Cancel"):
+            self.assertIn(f'TEXT("{label}")', opening)
+        self.assertIn("Hero->SetInventorySearchText(FString());", opening)
+        self.assertIn("Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase)", match)
+        self.assertIn('Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier)', match)
+        self.assertLess(closing.index("InventorySearchOverlay.Reset()"), closing.index("RemoveViewportWidgetContent"))
+        self.assertIn("FInputModeGameOnly()", closing)
+        self.assertIn("Text.Left(64).TrimStartAndEnd()", setter)
+        self.assertIn("KeepInventorySelectionVisible();", setter)
+        self.assertNotIn("SaveWorldProgress", setter)
+        self.assertIn("if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}", hero)
+        self.assertIn("F9/L3: SEARCH", self.hud)
+        route = hero.split("void AMoonfallHeroPawn::ControllerSprintOrSearch()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(bInventoryOpen)", route)
+        self.assertIn("if(HasRingNavigationFocus())return;", route)
+        self.assertIn("OpenInventorySearch();", route)
+        self.assertLess(route.index("OpenInventorySearch();"), route.index("BeginSprint();"))
+        self.assertIn("Mode.SetWidgetToFocus(FirstPreset)", opening)
+        for preset in ("Ring", "Weapon", "Armor"):
+            self.assertIn(f'ApplyPreset(TEXT("{preset}"))', opening)
+        for rarity, value in (("All", -1), ("Common", 0), ("Uncommon", 1), ("Rare", 2),
+                              ("Epic", 3), ("Emerald", 4), ("Legendary", 5)):
+            self.assertIn(f'RarityButton(TEXT("{rarity}"),{value})', opening)
+        direct = hero.split("void AMoonfallHeroPawn::SetInventoryRarityFilter(", 1)[1].split("\n}", 1)[0]
+        reset = hero.split("void AMoonfallHeroPawn::ResetInventoryFilters()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Rarity< -1||Rarity>5", direct)
+        self.assertIn("InventoryRarityFilter=Rarity;", direct)
+        self.assertIn("InventoryRarityFilter=-1;", reset)
+        self.assertIn("InventorySearchText.Reset();", reset)
+        for body in (direct, reset):
+            self.assertIn("KeepInventorySelectionVisible();", body)
+            self.assertIn("CanOpenInventorySearch()", body)
+            self.assertNotIn("SaveWorldProgress", body)
+
+    def test_no_implicit_reselection_after_inventory_transaction(self):
+        hero = self.hero_cpp
+        opening = hero.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
+        click = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        sort = click.split("if (HitTestInventorySortButton())", 1)[1].split("return;", 1)[0]
+        up = hero.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("ReconcileCraftedInventorySelection();", opening)
+        self.assertNotIn("InventorySelection = FMath::Clamp", opening)
+        self.assertIn("ReconcileCraftedInventorySelection();", sort)
+        self.assertIn("CurrentRow==0||DisplayOrder.IsEmpty()", up)
+        self.assertNotIn("CurrentRow<=0&&CanFocusRingNavigation()", up)
+
+    def test_committed_bag_removal_preserves_selection_identity(self):
+        hero = self.hero_cpp
+        helper = hero.split("void AMoonfallHeroPawn::ReconcileRemovedInventorySelection(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(RemovedIndex!=INDEX_NONE)", helper)
+        self.assertIn("if(InventorySelection==RemovedIndex)InventorySelection=INDEX_NONE;", helper)
+        self.assertIn("else if(InventorySelection>RemovedIndex)--InventorySelection;", helper)
+        self.assertIn("ReconcileCraftedInventorySelection();", helper)
+        for method, call in (("SellMerchantItem", "ReconcileRemovedInventorySelection(Index);"),
+                             ("ChooseVaultAction", "ReconcileRemovedInventorySelection(bVaultWithdraw?INDEX_NONE:Index);"),
+                             ("TradeCompanionGear", "ReconcileRemovedInventorySelection(Index);"),
+                             ("BuyMerchantItem", "ReconcileCraftedInventorySelection();")):
+            body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("SaveWorldProgress()"), body.index(call))
+
+    def test_crafting_reconciles_filters_without_selecting_unrelated_item(self):
+        hero = self.hero_cpp
+        reconcile = hero.split("void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(IsInventorySelectionVisible())", reconcile)
+        self.assertIn("KeepInventorySelectionVisible();", reconcile)
+        self.assertIn("InventorySelection=INDEX_NONE;", reconcile)
+        self.assertIn("GetInventoryDisplayOrder().Num()-GetInventoryVisibleRows()", reconcile)
+        self.assertIn("InventoryViewStart=FMath::Clamp(InventoryViewStart,0,MaxStart);", reconcile)
+        self.assertNotIn("Visible[0]", reconcile)
+        for method, event in (("UpgradeInventoryItem", "OnEquipmentCrafted"),
+                              ("ReforgeInventoryItemAffix", "OnEquipmentReforged"),
+                              ("AscendInventoryItemRarity", "OnEquipmentAscended")):
+            body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("Salvage -= Cost;"), body.index("ReconcileCraftedInventorySelection();"))
+            self.assertLess(body.index("ReconcileCraftedInventorySelection();"), body.index(event + "("))
 
     def test_worn_crafting_preserves_previous_tier_and_commits_before_notifications(self):
         hero = self.hero_cpp
@@ -1284,6 +1399,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         helper = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetInventoryVisibleRows()", 1)[0]
         self.assertIn("if (PanelWidth < 550.f) return false;", helper)
+        self.assertIn("!IsInventorySelectionVisible()", helper)
         self.assertIn("const float EquipY = Top + 87.f;", helper)
         self.assertIn("MouseX <= EquipX + 172.f", helper)
         self.assertIn("MouseY <= EquipY + 30.f", helper)
@@ -1397,7 +1513,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", award.split("if (!SaveWorldProgress())", 1)[0])
         self.assertEqual(award.count("InventoryItemCodes.RemoveAt("), 1)
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", award.split("if (!SaveWorldProgress())", 1)[1].split("return;", 1)[0])
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", award)
+        self.assertIn("ReconcileCraftedInventorySelection();", award)
+        self.assertLess(award.index("if (!SaveWorldProgress())"), award.index("ReconcileCraftedInventorySelection();"))
         # A failed disk write must not consume ground loot. The rollback is
         # explicitly inside the failed-save branch, never on successful pickup.
         self.assertIn("const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);", collect)
@@ -1464,8 +1581,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!bInventoryOpen) {", self.hero_cpp)
         self.assertIn("bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("bSpellBookOpen = false;", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
@@ -1821,6 +1938,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
+        self.assertIn("ReconcileRemovedInventorySelection(InventoryIndex);", salvage)
         self.assertIn("Worn[Slot] = GetRawEquipmentSlotCode(Slot);", salvage)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", salvage)
         self.assertIn("MoonfallEquipmentLayout::CanRemoveFullCopy(Code,Worn,", salvage)
@@ -1904,6 +2022,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertIn("if (InventoryItemCodes.Num() >= 10000) return;", award)
+        self.assertIn("if (!HasBagRoom()) return;", award)
+        self.assertLess(award.index("if (!HasBagRoom()) return;"),award.index("RollEquipmentCode(bEliteEnemy, bBossEnemy)"))
         self.assertIn("if (!ValidMoonfallItemCode(ItemCode)) return;", award)
         self.assertLess(award.index("if (InventoryItemCodes.Num() >= 10000) return;"),
                         award.index("RollEquipmentCode(bEliteEnemy, bBossEnemy)"))
@@ -2772,7 +2892,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
-        self.assertIn('ActionName="Sprint",Key=Gamepad_LeftThumbstick', inputs)
+        self.assertIn('ActionName="ControllerSprintOrSearch",Key=Gamepad_LeftThumbstick', inputs)
+        self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Released', self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::BeginSprint()", self.hero_cpp)

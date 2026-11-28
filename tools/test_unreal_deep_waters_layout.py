@@ -80,7 +80,9 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("FInputModeGameOnly()", pointer)
         self.assertIn("bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen", pointer)
         self.assertIn("EStage::Reeling) ReleaseFishingPointer()", source)
-        self.assertIn("EndPlayReason) {\n ReleaseFishingPointer();", source)
+        end = source.split("void AMoonfallHeroPawn::EndPlay(", 1)[1].split("\n}", 1)[0]
+        self.assertLess(end.index("CloseInventorySearch();"), end.index("ReleaseFishingPointer();"))
+        self.assertLess(end.index("ReleaseFishingPointer();"), end.index("Super::EndPlay(EndPlayReason);"))
         # Modal entry must release fishing input before the menu owns the cursor.
         for method, marker in (
             ("ToggleAtlas", "bAtlasOpen = !bAtlasOpen"),

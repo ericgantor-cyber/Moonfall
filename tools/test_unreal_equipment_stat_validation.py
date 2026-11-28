@@ -188,7 +188,7 @@ class EquipmentStatSafety(unittest.TestCase):
 
     def test_ring_navigation_focus_consumes_existing_menu_actions(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn("CurrentRow<=0&&CanFocusRingNavigation()", self.source)
+        self.assertIn("(CurrentRow==0||DisplayOrder.IsEmpty())&&CanFocusRingNavigation()", self.source)
         self.assertIn("RingNavigationIndex=0;", self.source)
         self.assertIn("if(HasRingNavigationFocus()){if(RingNavigationSwapSource==INDEX_NONE)UnequipRing(RingNavigationIndex);return;}", self.source)
         self.assertIn("if(HasRingNavigationFocus()){ClearRingNavigationFocus();return;}", self.source)
@@ -207,7 +207,7 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("if(bValid&&Source!=RingNavigationIndex)MoveEquippedRing(Source,RingNavigationIndex);", swap)
         self.assertIn("return; // Never fall through", swap)
         self.assertIn("Index==DragSource||Index==SwapSource", hud)
-        self.assertIn("if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);", self.source)
+        self.assertIn("if(CanEditEquippedRings()&&IsInventorySelectionVisible())EquipInventoryRing(InventorySelection,RingNavigationIndex);", self.source)
         self.assertIn("if(Index==FocusedRing)DrawSelectionRail", hud)
         self.assertIn("A/ENTER equip | UP pick up | X/DEL remove", hud)
         self.assertIn("A/ENTER confirm | UP cancel", hud)
@@ -255,7 +255,10 @@ class EquipmentStatSafety(unittest.TestCase):
         self.assertIn("!HasVisibleInventoryPointerSurface(Controller)", row)
         self.assertIn("bSpellBookOpen || bTalentWebOpen || bAtlasOpen", row)
         self.assertIn("MouseX >= Left + PanelWidth - 16.f", row)
-        self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("GetInventoryDisplayOrder()"))
+        self.assertEqual(row.count("GetInventoryDisplayOrder()"), 1)
+        self.assertLess(row.index("!FMath::IsFinite(MouseY)"), row.index("GetInventoryDisplayOrder()"))
+        self.assertLess(row.index("if (DisplayPosition < Start || DisplayPosition >= End)"), row.index("Order[DisplayPosition]"))
+        self.assertLess(row.index("Order.IsValidIndex(DisplayPosition)"), row.index("Order[DisplayPosition]"))
 
     def test_controller_buttons_cancel_inventory_pointer_gestures(self):
         for name in ("ControllerConfirm", "ControllerBack", "ControllerLootOrSalvage",

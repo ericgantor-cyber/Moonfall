@@ -38,6 +38,14 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"
@@ -708,6 +716,7 @@ void AMoonfallHeroPawn::RefreshSwimPose()
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ if(InventorySearchOverlay.IsValid()&&(!CanOpenInventorySearch()||InventorySearchController.Get()!=Controller))CloseInventorySearch();
  // Wall-clock interval, independent of simulation dilation and clamped timers.
  // Menus and defeat never pollute the last gameplay sample.
  if (IsLocallyControlled()) {
@@ -1018,6 +1027,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
+ if(PendingVaultCode!=0&&!IsVaultConfirmationCurrent())ClearMerchantConfirmation();
+ if(PendingBagUpgradeCapacity!=0&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||PendingBagUpgradeCapacity!=BagCapacity
+     ||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()))ClearMerchantConfirmation();
  // Combat or changed equipment invalidates a pending trade even if the menu stays open.
  if(bMerchantConfirmPending&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
      ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmRevision!=EquipmentInventoryRevision
@@ -1248,6 +1260,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
+ Input->BindAction(TEXT("ControllerSprintOrSearch"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerSprintOrSearch);
+ Input->BindAction(TEXT("ControllerSprintOrSearch"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
  Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
  Input->BindAction(TEXT("ControllerRightStick"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightStickPress);
@@ -1260,6 +1274,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("QuestLog"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleQuestLog);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("InventorySearch"), IE_Pressed, this, &AMoonfallHeroPawn::OpenInventorySearch);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
@@ -1282,6 +1297,244 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+bool AMoonfallHeroPawn::CanOpenInventorySearch() const {
+ return IsLocallyControlled()&&FMath::IsFinite(Health)&&Health>0.f&&bInventoryOpen
+   &&!bCharacterStatsOpen&&!bSpellBookOpen&&!bOptionsOpen&&!bAtlasOpen&&!bTalentWebOpen
+   &&!bResidentContextOpen&&!FocusedResident.IsValid()&&!IsActorBeingDestroyed();
+}
+void AMoonfallHeroPawn::SetInventorySearchText(const FString& Text) {
+ if(!CanOpenInventorySearch())return;
+ FString Next=Text.Left(64).TrimStartAndEnd();
+ if(Next==InventorySearchText)return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventorySearchText=MoveTemp(Next);
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::ControllerSprintOrSearch() {
+ if(bInventoryOpen){
+  if(HasRingNavigationFocus())return;
+  TGuardValue<bool> Entry(bInventorySearchControllerEntry,true);
+  OpenInventorySearch();
+  return;
+ }
+ BeginSprint();
+}
+void AMoonfallHeroPawn::OpenInventorySearch() {
+ if(!CanOpenInventorySearch()||InventorySearchOverlay.IsValid()||!GetWorld())return;
+ auto* PC=Cast<APlayerController>(Controller);
+ auto* Viewport=GetWorld()->GetGameViewport();
+ if(!IsValid(PC)||!IsValid(Viewport))return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ const TWeakObjectPtr<AMoonfallHeroPawn> WeakThis(this);
+ const TSharedRef<SEditableTextBox> Editor=SNew(SEditableTextBox)
+  .Text(FText::FromString(InventorySearchText))
+  .HintText(FText::FromString(TEXT("e.g. rare ring T5")))
+  .SelectAllTextWhenFocused(true)
+  .OnTextCommitted_Lambda([WeakThis](const FText& Text,ETextCommit::Type Commit){
+   if(auto* Hero=WeakThis.Get()){
+    if(!Hero->InventorySearchOverlay.IsValid())return;
+    // Moving focus to a button must not close the dialog before its click.
+    if(Commit==ETextCommit::OnEnter){
+     Hero->SetInventorySearchText(Text.ToString());
+     Hero->CloseInventorySearch();
+    }else if(Commit==ETextCommit::OnCleared)Hero->CloseInventorySearch();
+   }
+  });
+ const TWeakPtr<SEditableTextBox> WeakEditor(Editor);
+ TSharedPtr<SButton> FirstPreset;
+ const auto ApplyPreset=[WeakThis](const TCHAR* Query){
+  if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+   Hero->SetInventorySearchText(FString(Query));
+   Hero->CloseInventorySearch();
+  }
+  return FReply::Handled();
+ };
+ const auto RarityButton=[WeakThis](const TCHAR* Label,int32 Rarity)->TSharedRef<SButton>{
+  return SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(2.f,6.f))
+   .Text(FText::FromString(Label))
+   .OnClicked_Lambda([WeakThis,Rarity](){
+    if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+     Hero->SetInventoryRarityFilter(Rarity);
+     Hero->CloseInventorySearch();
+    }
+    return FReply::Handled();
+   });
+ };
+ InventorySearchOverlay=SNew(SOverlay)
+  +SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
+  [
+   SNew(SBox).WidthOverride(288.f)
+   [
+    SNew(SBorder).Padding(FMargin(12.f))
+    [
+     SNew(SVerticalBox)
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,0.f,0.f,8.f)
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Search equipment")))]
+     +SVerticalBox::Slot().AutoHeight()
+     [Editor]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SAssignNew(FirstPreset,SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Ring"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Ring"));})]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Weapon"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Weapon"));})]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Armor"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Armor"));})]
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,6.f,0.f,2.f)
+     [SNew(STextBlock).Text(FText::FromString(FString::Printf(TEXT("Quality: %s"),*GetInventoryFilterLabel())))]
+     +SVerticalBox::Slot().AutoHeight()
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("All"),-1)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Common"),0)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Uncommon"),1)]
+     ]
+     +SVerticalBox::Slot().AutoHeight()
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Rare"),2)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Epic"),3)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Emerald"),4)]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(1.f)[RarityButton(TEXT("Legendary"),5)]
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,4.f,0.f,0.f)
+     [
+      SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,6.f))
+      .Text(FText::FromString(TEXT("Reset all filters")))
+      .OnClicked_Lambda([WeakThis](){
+       if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+        Hero->ResetInventoryFilters();
+        Hero->CloseInventorySearch();
+       }
+       return FReply::Handled();
+      })
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(0.f,0.f,4.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Apply")))
+       .OnClicked_Lambda([WeakThis,WeakEditor](){
+        if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+         if(const auto Box=WeakEditor.Pin())Hero->SetInventorySearchText(Box->GetText().ToString());
+         Hero->CloseInventorySearch();
+        }
+        return FReply::Handled();
+       })
+      ]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Clear")))
+       .OnClicked_Lambda([WeakThis](){
+        if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+         Hero->SetInventorySearchText(FString());
+         Hero->CloseInventorySearch();
+        }
+        return FReply::Handled();
+       })
+      ]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(4.f,0.f,0.f,0.f)
+      [
+       SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(4.f,12.f))
+       .Text(FText::FromString(TEXT("Cancel")))
+       .OnClicked_Lambda([WeakThis](){
+        if(auto* Hero=WeakThis.Get())Hero->CloseInventorySearch();
+        return FReply::Handled();
+       })
+      ]
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Tab / D-pad: focus | Enter / A: select")))]
+    ]
+   ]
+  ];
+ InventorySearchViewport=Viewport;
+ InventorySearchController=PC;
+ Viewport->AddViewportWidgetContent(InventorySearchOverlay.ToSharedRef(),100);
+ FInputModeUIOnly Mode;
+ if(bInventorySearchControllerEntry&&FirstPreset.IsValid())Mode.SetWidgetToFocus(FirstPreset);
+ else Mode.SetWidgetToFocus(Editor);
+ PC->SetInputMode(Mode);
+ PC->bShowMouseCursor=true;
+}
+void AMoonfallHeroPawn::CloseInventorySearch() {
+ if(!InventorySearchOverlay.IsValid())return;
+ const TSharedPtr<SWidget> Overlay=InventorySearchOverlay;
+ InventorySearchOverlay.Reset();
+ auto* Viewport=InventorySearchViewport.Get();
+ auto* PC=InventorySearchController.Get();
+ InventorySearchViewport.Reset();InventorySearchController.Reset();
+ if(IsValid(Viewport))Viewport->RemoveViewportWidgetContent(Overlay.ToSharedRef());
+ if(IsValid(PC)&&PC->GetPawn()==this){
+  PC->SetInputMode(FInputModeGameOnly());
+  PC->bShowMouseCursor=bInventoryOpen||bOptionsOpen||bAtlasOpen||bTalentWebOpen||bResidentContextOpen;
+ }
+}
+bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
+ if(!InventoryItemCodes.IsValidIndex(Index))return false;
+ if(InventoryRarityFilter==-1&&InventorySearchText.IsEmpty())return true;
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[Index]);
+ if(!Item.IsValid()||(InventoryRarityFilter!=-1&&Item.Rarity!=InventoryRarityFilter))return false;
+ if(InventorySearchText.IsEmpty())return true;
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Search slots must match equipment layout");
+ if(Item.Slot<0||Item.Slot>=UE_ARRAY_COUNT(Slots)||Item.Rarity<0||Item.Rarity>=UE_ARRAY_COUNT(Rarities)||Item.Trait<0||Item.Trait>=UE_ARRAY_COUNT(Traits))return false;
+ const TCHAR* Slot=MoonfallEquipmentLayout::IsRingSlot(Item.Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Item.Slot];
+ const FString Label=FString::Printf(TEXT("%s %s %s T%d tier %d"),Slot,Rarities[Item.Rarity],Traits[Item.Trait],Item.Tier,Item.Tier);
+ if(ParsedInventorySearchText!=InventorySearchText){
+  ParsedInventorySearchTerms.Reset();
+  InventorySearchText.ParseIntoArrayWS(ParsedInventorySearchTerms);
+  ParsedInventorySearchText=InventorySearchText;
+ }
+ for(const FString& Term:ParsedInventorySearchTerms){
+  bool bRarityTerm=false;
+  for(const TCHAR* Rarity:Rarities)if(Term.Equals(Rarity,ESearchCase::IgnoreCase)){bRarityTerm=true;break;}
+  if(bRarityTerm){if(!Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase))return false;continue;}
+  const FString TierToken=Term.Mid(1);
+  if(Term.StartsWith(TEXT("T"),ESearchCase::IgnoreCase)&&!TierToken.IsEmpty()&&TierToken.IsNumeric()){
+   if(!Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier),ESearchCase::IgnoreCase))return false;
+   continue;
+  }
+  if(!Label.Contains(Term,ESearchCase::IgnoreCase))return false;
+ }
+ return true;
+}
+bool AMoonfallHeroPawn::IsInventorySelectionVisible() const {
+ return MatchesInventoryFilter(InventorySelection);
+}
+FString AMoonfallHeroPawn::GetInventoryFilterLabel() const {
+ static const TCHAR* Labels[]={TEXT("All"),TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ return Labels[FMath::Clamp(InventoryRarityFilter+1,0,6)];
+}
+void AMoonfallHeroPawn::SetInventoryRarityFilter(int32 Rarity) {
+ if(!CanOpenInventorySearch()||Rarity< -1||Rarity>5||Rarity==InventoryRarityFilter)return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventoryRarityFilter=Rarity;
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::ResetInventoryFilters() {
+ if(!CanOpenInventorySearch())return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventoryRarityFilter=-1;
+ InventorySearchText.Reset();
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::CycleInventoryRarityFilter() {
+ SetInventoryRarityFilter((FMath::Clamp(InventoryRarityFilter,-1,5)+2)%7-1);
+}
 TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
 {
  TArray<int32> Order;
@@ -1289,16 +1542,16 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // Reuse the same sorted order for HUD rendering, hit testing and keyboard
  // selection. Keep an exact source snapshot as a guard against direct C++
  // inventory edits that bypass the normal revisioned mutation paths.
- if(InventorySortMode!=0&&CachedInventoryOrderRevision==EquipmentInventoryRevision
-    &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryOrder.Num()==Count
-    &&CachedInventoryOrderSource==InventoryItemCodes)
+ if((InventorySortMode!=0||InventoryRarityFilter!=-1||!InventorySearchText.IsEmpty())&&CachedInventoryOrderRevision==EquipmentInventoryRevision
+    &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryFilter==InventoryRarityFilter
+    &&CachedInventorySearchText==InventorySearchText&&CachedInventoryOrderSource==InventoryItemCodes)
   return CachedInventoryOrder;
  Order.Reserve(Count);
- for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
- if (InventorySortMode == 0) return Order;
+ for (int32 Index = 0; Index < Count; ++Index) if(MatchesInventoryFilter(Index))Order.Add(Index);
+ if (InventorySortMode == 0&&InventoryRarityFilter==-1&&InventorySearchText.IsEmpty()) return Order;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
- Order.Sort([this](int32 A, int32 B) {
+ if(InventorySortMode!=0)Order.Sort([this](int32 A, int32 B) {
   const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
   const auto DecodedA=MoonfallEquipmentLayout::DecodeFullItem(CodeA);
   const auto DecodedB=MoonfallEquipmentLayout::DecodeFullItem(CodeB);
@@ -1323,6 +1576,8 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  CachedInventoryOrderSource=InventoryItemCodes;
  CachedInventoryOrderRevision=EquipmentInventoryRevision;
  CachedInventoryOrderMode=InventorySortMode;
+ CachedInventoryFilter=InventoryRarityFilter;
+ CachedInventorySearchText=InventorySearchText;
  return Order;
 }
 
@@ -1348,7 +1603,7 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   return false;
  }
  const int32 Rows = GetInventoryVisibleRows();
- const int32 Count = InventoryItemCodes.Num();
+ const int32 Count = GetInventoryDisplayOrder().Num();
  // A bag may shrink while dragging after a salvage or item transfer.
  // Cancel the drag rather than keeping a stale scrollbar gesture alive.
  if (Count <= Rows) {
@@ -1428,11 +1683,23 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
         MouseY >= SortY && MouseY <= SortY + 28.f;
 }
 
+bool AMoonfallHeroPawn::HitTestInventorySearchButton() const {
+ if(!CanOpenInventorySearch()||!HasVisibleInventoryPointerSurface(Controller))return false;
+ const auto* PC=Cast<APlayerController>(Controller);
+ int32 W=0,H=0;float X=0.f,Y=0.f;
+ PC->GetViewportSize(W,H);
+ if(!PC->GetMousePosition(X,Y)||!FMath::IsFinite(X)||!FMath::IsFinite(Y))return false;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(W)-24.f,float(W)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(H)-24.f));
+ const float Left=float(W)-PanelWidth-12.f,Top=(float(H)-PanelHeight)*0.5f;
+ return X>=Left+PanelWidth-112.f&&X<=Left+PanelWidth-14.f&&Y>=Top+44.f&&Y<=Top+59.f;
+}
+
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
 {
  if (!HasVisibleInventoryPointerSurface(Controller) || bSpellBookOpen || bTalentWebOpen || bAtlasOpen || bResidentContextOpen
      || !FMath::IsFinite(Health) || Health < 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
-     || !InventoryItemCodes.IsValidIndex(InventorySelection)) return false;
+     || !IsInventorySelectionVisible()) return false;
  const APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC || !PC->bShowMouseCursor) return false;
  int32 Width = 0, Height = 0;
@@ -1519,7 +1786,7 @@ void AMoonfallHeroPawn::ConfirmRingNavigationAction()
   if(bValid&&Source!=RingNavigationIndex)MoveEquippedRing(Source,RingNavigationIndex);
   return; // Never fall through to equipping a bag item after a canceled swap.
  }
- if(CanEditEquippedRings())EquipInventoryRing(InventorySelection,RingNavigationIndex);
+ if(CanEditEquippedRings()&&IsInventorySelectionVisible())EquipInventoryRing(InventorySelection,RingNavigationIndex);
 }
 
 int32 AMoonfallHeroPawn::HitTestInventoryRingStrip() const
@@ -1559,13 +1826,37 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
  return FMath::Clamp(FMath::FloorToInt((PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / 25.f), 2, 20);
 }
 
+void AMoonfallHeroPawn::ReconcileRemovedInventorySelection(int32 RemovedIndex)
+{
+ // Only call after a committed removal. Never retarget a removed selection.
+ if(RemovedIndex!=INDEX_NONE){
+  if(InventorySelection==RemovedIndex)InventorySelection=INDEX_NONE;
+  else if(InventorySelection>RemovedIndex)--InventorySelection;
+ }
+ ReconcileCraftedInventorySelection();
+}
+
+void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()
+{
+ // Crafting may change the selected item's rarity, trait or tier. Never
+ // silently select another item when the crafted item leaves the filter.
+ if(IsInventorySelectionVisible()){
+  KeepInventorySelectionVisible();
+ }else{
+  InventorySelection=INDEX_NONE;
+  const int32 MaxStart=FMath::Max(0,GetInventoryDisplayOrder().Num()-GetInventoryVisibleRows());
+  InventoryViewStart=FMath::Clamp(InventoryViewStart,0,MaxStart);
+ }
+}
+
 void AMoonfallHeroPawn::KeepInventorySelectionVisible()
 {
- const int32 Count = InventoryItemCodes.Num();
- InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, Count - 1));
+ const TArray<int32> Visible=GetInventoryDisplayOrder();
+ const int32 Count=Visible.Num();
+ if(!Visible.Contains(InventorySelection))InventorySelection=Count>0?Visible[0]:INDEX_NONE;
  const int32 Rows = GetInventoryVisibleRows();
  const int32 MaxStart = FMath::Max(0, Count - Rows);
- const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);
+ const int32 DisplaySelection = Visible.Find(InventorySelection);
  const int32 SelectedRow = DisplaySelection == INDEX_NONE ? 0 : DisplaySelection;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
  if (SelectedRow < InventoryViewStart)
@@ -1594,7 +1885,8 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const float Left = float(Width) - PanelWidth - 12.f;
  const float Top = (float(Height) - PanelHeight) * 0.5f;
  const int32 Rows = GetInventoryVisibleRows();
- const int32 Count = InventoryItemCodes.Num();
+ const TArray<int32> Order = GetInventoryDisplayOrder();
+ const int32 Count = Order.Num();
  const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
  const int32 End = FMath::Min(Count, Start + Rows);
  const float Spacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / Rows);
@@ -1605,7 +1897,6 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
  const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
  const int32 DisplayPosition = Start + RelativeRow;
  if (DisplayPosition < Start || DisplayPosition >= End) return INDEX_NONE;
- const TArray<int32> Order = GetInventoryDisplayOrder();
  return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
    && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
    ? Order[DisplayPosition] : INDEX_NONE;
@@ -1648,7 +1939,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(-1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) + 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
-  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
+  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
@@ -1670,7 +1961,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (bAtlasOpen) { if (bQuestLogOpen) { StepQuestLog(1); return; } AtlasZoom = FMath::Clamp((FMath::IsFinite(AtlasZoom) ? AtlasZoom : 1.f) - 0.2f, 0.8f, 1.8f); return; }
  if (FMath::IsFinite(Health) && Health >= 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
   if (bSpellBookOpen) return;
-  const int32 MaxStart = FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows());
+  const int32 MaxStart = FMath::Max(0, GetInventoryDisplayOrder().Num() - GetInventoryVisibleRows());
   InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
   InventoryViewStart = FMath::Min(MaxStart, InventoryViewStart + 1);
   return;
@@ -3070,6 +3361,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bTalentRespecArmed = false;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  CloseInventorySearch();
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
@@ -3295,6 +3587,7 @@ void AMoonfallHeroPawn::ResetQuestTracking() {
  ManualQuestMask={};
 }
 void AMoonfallHeroPawn::ToggleAtlasChronicleFocus() {
+ if(bInventoryOpen&&!bCharacterStatsOpen&&!bSpellBookOpen){CycleInventoryRarityFilter();return;}
  // Tab / R3 belongs to the Atlas reader; talent branches use their own controls.
  if (bTalentWebOpen) return;
  // Tab remains the Atlas Chronicle shortcut and NEVER changes C pages.
@@ -3387,10 +3680,10 @@ void AMoonfallHeroPawn::ToggleInventory() {
   SwordBuffer.Clear(); // Clear before the inventory becomes interactive.
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
-  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
-  KeepInventorySelectionVisible();
+  ReconcileCraftedInventorySelection();
  }
  bInventoryOpen = !bInventoryOpen;
+ if(!bInventoryOpen)CloseInventorySearch();
  bInventoryScrollbarDragging = false;
  ClearRingNavigationFocus();
  ClearRingPointerDrag();
@@ -3406,10 +3699,10 @@ void AMoonfallHeroPawn::ToggleInventory() {
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || bSpellBookOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
- EquipInventoryItem(InventorySelection);
+ if(IsInventorySelectionVisible())EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && !bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() {
  if(HasRingNavigationFocus()){if(RingNavigationSwapSource==INDEX_NONE)UnequipRing(RingNavigationIndex);return;}
@@ -3445,7 +3738,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  Salvage = SafeBalance + FMath::Min(SalvageReward, MaxSalvage - SafeBalance);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  MarkEquipmentInventoryDirty();
- InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ ReconcileRemovedInventorySelection(InventoryIndex);
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
@@ -3492,6 +3785,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  if (bUpgradingEquipped && Slot == 1 && PreviousEquippedTier != Tier + 1)
   OnHealthChanged(Health, MaxHealth);
@@ -3543,6 +3837,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootAffix = NewAffix;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentReforged(NewCode, Cost);
  return true;
@@ -3551,7 +3846,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
@@ -3592,6 +3887,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
+ ReconcileCraftedInventorySelection();
  LastLootRarity = Rarity + 1;
  if (IsValid(this) && !IsActorBeingDestroyed()) OnEquipmentAscended(NewCode, Cost);
  return true;
@@ -3600,7 +3896,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) AscendInventoryItemRarity(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
@@ -3643,13 +3939,13 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
  if (bTalentWebOpen) return;
- if (!bCharacterStatsOpen && !bSpellBookOpen) UpgradeInventoryItem(InventorySelection);
+ if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
@@ -3752,6 +4048,7 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
 void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ CloseInventorySearch();
  ReleaseFishingPointer();
  // Normal teardown removes only this pawn's own recovery snapshot.
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
@@ -3891,7 +4188,7 @@ void AMoonfallHeroPawn::OptionsUp() {
   }
   const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
   const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
-  if(CurrentRow<=0&&CanFocusRingNavigation()){
+  if((CurrentRow==0||DisplayOrder.IsEmpty())&&CanFocusRingNavigation()){
    ClearRingPointerDrag();
    RingNavigationIndex=0;
    return;
@@ -4330,6 +4627,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // Scripted rewards must honor the same persistent inventory capacity as
  // ground pickups. Do not roll or mutate last-loot UI when the bag is full.
  if (InventoryItemCodes.Num() >= 10000) return;
+ if (!HasBagRoom()) return;
  const int32 OldLootAffix = LastLootAffix;
  const int32 OldLootSlot = LastLootSlot;
  const int32 OldLootRarity = LastLootRarity;
@@ -4342,7 +4640,6 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // The paginated inventory supports growth beyond the former 30-slot limit.
  const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
  MarkEquipmentInventoryDirty();
- InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
   MarkEquipmentInventoryDirty();
@@ -4354,6 +4651,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
   LastLootUpgrade = OldLootUpgrade;
   return;
  }
+ ReconcileCraftedInventorySelection();
  SecondsSinceLastWorldSave = 0.f;
  // Rewards are inventory choices only. Never auto-equip scripted drops;
  // the player chooses when to change weapon, armor, or accessory.
@@ -4411,6 +4709,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 Dun
  // SaveGameToSlot is synchronous here; a failed save must leave pickup and
  // all last-loot UI values untouched, even when this code already exists.
  if (InventoryItemCodes.Num() >= 10000) return false;
+ if (!HasBagRoom()) return false;
  const int32 OldLootAffix = LastLootAffix;
  const int32 OldLootSlot = LastLootSlot;
  const int32 OldLootRarity = LastLootRarity;
@@ -5970,6 +6269,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ if(!MoonfallMoney::ValidBagCapacity(BagCapacity))return false;
+ if(VaultItemCodes.Num()>MoonfallMoney::VaultMax)return false;
+ for(const int32 Code:VaultItemCodes)if(!ValidMoonfallItemCode(Code))return false;
+ Save->VaultItemCodes=VaultItemCodes;
+ Save->BagCapacity=BagCapacity;
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
@@ -6074,6 +6378,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // first 10,000 inventory entries (or skipping a large quest-state map)
  // would silently discard the remainder on the next two-second autosave.
  // Keep the original slot intact rather than saving truncated progress.
+ if(!MoonfallMoney::ValidBagCapacity(Save->BagCapacity)||Save->VaultItemCodes.Num()>MoonfallMoney::VaultMax){bPersistentSaveWritesBlocked=true;return false;}
+ for(const int32 Code:Save->VaultItemCodes)if(!ValidMoonfallItemCode(Code)){bPersistentSaveWritesBlocked=true;return false;}
  if (Save->InventoryItemCodes.Num() > 10000
      || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > MoonfallQuestJournal::MaxStoredRecords)) {
   bPersistentSaveWritesBlocked = true;
@@ -6370,6 +6676,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
  MaxStamina = static_cast<float>(LoadedStaminaCap);
+ VaultItemCodes=Save->VaultItemCodes;
+ VaultSelection=0;bResidentVaultMenu=false;bVaultWithdraw=false;
+ BagCapacity=Save->BagCapacity;
  InventoryItemCodes.Reset();
  // Cap the number of inspected entries, not just accepted items: an oversized
  // corrupted save with invalid codes must not cause an unbounded load loop.
@@ -6775,7 +7084,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  // can invalidate the NPC pointer without closing the active input modal.
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  OceanRecipePage = -1;
- bResidentMerchantMenu=false;
+ bResidentMerchantMenu=false;bResidentVaultMenu=false;bVaultWithdraw=false;VaultSelection=0;
  MerchantSellIndex=0;MerchantSellCode=0;
  MerchantTradeMode=0;MerchantStockIndex=0;MerchantBuybackIndex=0;
  ClearMerchantConfirmation();
@@ -6844,7 +7153,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
   if (!HasVisibleInventoryPointerSurface(Controller)) return;
   if (HandleSpellBookPointer() || bSpellBookOpen) return;
-  if (HitTestInventorySortButton()) return;
+  if (HitTestInventorySortButton()) {CycleInventoryRarityFilter();return;}
   if (HitTestInventoryEquipButton()) return;
   const int32 RingIndex=HitTestInventoryRingStrip();
   if(RingIndex!=INDEX_NONE)return; // Worn-slot clicks never remove gear implicitly.
@@ -7050,7 +7359,7 @@ bool AMoonfallHeroPawn::SellMerchantItem() {
   MarkEquipmentInventoryDirty();
   return false;
  }
- InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ ReconcileRemovedInventorySelection(Index);
  MerchantBuybackIndex=0;
  SelectMerchantSaleItem(0);
  return true;
@@ -7126,6 +7435,8 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
 }
 void AMoonfallHeroPawn::ClearMerchantConfirmation() {
+ PendingBagUpgradeCapacity=0;BagUpgradeConfirmAfter=0.0;
+ PendingVaultCode=0;PendingVaultIndex=-1;PendingVaultRevision=0;PendingVaultLoadout=0;VaultConfirmAfter=0.0;
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
  MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
 }
@@ -7147,7 +7458,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeStatusText() const {
  if(MerchantTradeMode==0){
   if(!Candidate.Credit(Price))return TEXT("Wallet full or invalid");
  }else{
-  if(InventoryItemCodes.Num()>=10000)return TEXT("Bag full");
+  if(!HasBagRoom())return TEXT("Bag full");
   if(!Candidate.Debit(Price))return TEXT("Insufficient coins");
  }
  return MerchantTradeMode==1?GetMerchantStandingText():FString(TEXT("Ready to review trade"));
@@ -7158,7 +7469,7 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
     ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress
-    ||InventoryItemCodes.Num()>=10000||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
+    ||!HasBagRoom()||(MerchantTradeMode!=1&&MerchantTradeMode!=2)) return false;
  const int32 Code=MerchantTradeMode==1?GetMerchantStockCode():GetMerchantBuybackCode();
  if(!ValidMoonfallItemCode(Code)||!MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip))return false;
  MoonfallMoney::FWallet Candidate{WalletCopper};
@@ -7195,11 +7506,106 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
   return false;
  }
  if(bBuyback)MerchantBuybackIndex=FMath::Clamp(MerchantBuybackIndex,0,FMath::Max(0,GetMerchantBuybackHistory().Count-1));
- InventorySelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ ReconcileCraftedInventorySelection();
+ return true;
+}
+FString AMoonfallHeroPawn::GetBagUpgradeText() const {
+ const int64 Price=MoonfallMoney::BagUpgradePrice(BagCapacity);
+ if(Price<=0)return TEXT("Bag capacity: MAX");
+ const MoonfallMoney::FWallet Quote{Price};
+ return FString::Printf(TEXT("%s +50 slots | %lldg %llds %lldc"),
+  PendingBagUpgradeCapacity==BagCapacity?TEXT("Confirm"):TEXT("Buy"),
+  static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
+}
+bool AMoonfallHeroPawn::ConfirmBagUpgrade() {
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress){
+  ClearMerchantConfirmation();return false;
+ }
+ const int64 Price=MoonfallMoney::BagUpgradePrice(BagCapacity);
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Debit(Price)){
+  ClearMerchantConfirmation();ResidentFeedbackMessage=Price<=0?TEXT("Bag capacity is at maximum."):TEXT("Insufficient coins for bag upgrade.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
+ }
+ if(PendingBagUpgradeCapacity!=BagCapacity){
+  ClearMerchantConfirmation();PendingBagUpgradeCapacity=BagCapacity;BagUpgradeConfirmAfter=FPlatformTime::Seconds()+0.35;
+  ResidentFeedbackMessage=TEXT("Review bag upgrade; select again to confirm.");
+  ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return true;
+ }
+ if(FPlatformTime::Seconds()<BagUpgradeConfirmAfter)return false;
+ ClearMerchantConfirmation();
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int32 PreviousCapacity=BagCapacity;const int64 PreviousWallet=WalletCopper;
+ BagCapacity+=MoonfallMoney::BagStep;WalletCopper=Candidate.Copper;
+ const bool bSaved=SaveWorldProgress();
+ if(!bSaved){BagCapacity=PreviousCapacity;WalletCopper=PreviousWallet;}
+ ResidentFeedbackMessage=bSaved?FString::Printf(TEXT("Bag expanded to %d slots."),BagCapacity):FString(TEXT("Bag upgrade save failed; coins restored."));
+ ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return bSaved;
+}
+bool AMoonfallHeroPawn::CanTransferVaultItem() const {
+ const auto* Resident=FocusedResident.Get();
+ if(!bResidentVaultMenu||!bResidentMerchantMenu||!CanOpenCoinMerchant()||!IsValid(Resident)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
+    ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress)return false;
+ const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
+ if(!Source.IsValidIndex(VaultSelection)||!ValidMoonfallItemCode(Source[VaultSelection]))return false;
+ if(bVaultWithdraw)return HasBagRoom();
+ if(!MoonfallMoney::VaultHasRoom(VaultItemCodes.Num()))return false;
+ MoonfallEquipmentLayout::FFullLoadout Worn{};
+ for(int32 Slot=0;Slot<MoonfallEquipmentLayout::ActiveSlotCount;++Slot)Worn[Slot]=GetRawEquipmentSlotCode(Slot);
+ return MoonfallEquipmentLayout::CanRemoveFullCopy(Source[VaultSelection],Worn,MoonfallEquipmentLayout::ActiveSlotCount,InventoryItemCodes);
+}
+bool AMoonfallHeroPawn::IsVaultConfirmationCurrent() const {
+ const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
+ return PendingVaultCode>0&&PendingVaultIndex==VaultSelection&&PendingVaultRevision==EquipmentInventoryRevision
+    &&PendingVaultLoadout==GetEquipmentLoadoutFingerprint()&&Source.IsValidIndex(VaultSelection)
+    &&Source[VaultSelection]==PendingVaultCode&&CanTransferVaultItem();
+}
+FString AMoonfallHeroPawn::GetVaultSelectionText() const {
+ const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
+ if(!Source.IsValidIndex(VaultSelection))return TEXT("No items to transfer");
+ const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Source[VaultSelection]);
+ if(!Item.IsValid())return TEXT("Invalid item");
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ return FString::Printf(TEXT("%d/%d %s T%d %s %s"),VaultSelection+1,Source.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
+}
+bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
+ const auto* Resident=FocusedResident.Get();
+ if(!CanOpenCoinMerchant()||!IsValid(Resident)||!Resident->CanHeroInteract(this)||!bResidentMerchantMenu||!bResidentVaultMenu){CloseResidentContext();return false;}
+ if(Choice==4){ClearMerchantConfirmation();bResidentVaultMenu=false;ResidentContextSelection=0;return true;}
+ if(Choice==3){ClearMerchantConfirmation();bVaultWithdraw=!bVaultWithdraw;VaultSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+ auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
+ auto& Destination=bVaultWithdraw?InventoryItemCodes:VaultItemCodes;
+ if(Choice==0||Choice==1){ClearMerchantConfirmation();const int32 Count=Source.Num();VaultSelection=Count>0?(FMath::Clamp(VaultSelection,0,Count-1)+(Choice==0?-1:1)+Count)%Count:0;return true;}
+ if(Choice==5||Choice==6){
+  ClearMerchantConfirmation();
+  VaultSelection=MoonfallMoney::VaultPageSelection(VaultSelection,Source.Num(),Choice==5?-1:1);
+  return true;
+ }
+ if(Choice!=2)return false;
+ if(!CanTransferVaultItem()){ClearMerchantConfirmation();ResidentFeedbackMessage=TEXT("Transfer unavailable: worn item, full storage or combat.");ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
+ if(!IsVaultConfirmationCurrent()){ClearMerchantConfirmation();PendingVaultCode=Source[VaultSelection];PendingVaultIndex=VaultSelection;PendingVaultRevision=EquipmentInventoryRevision;PendingVaultLoadout=GetEquipmentLoadoutFingerprint();VaultConfirmAfter=FPlatformTime::Seconds()+0.35;return true;}
+ if(FPlatformTime::Seconds()<VaultConfirmAfter)return false;
+ const int32 Index=VaultSelection,Code=Source[Index];
+ ClearMerchantConfirmation();
+ TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
+ const int32 Added=Destination.Add(Code);Source.RemoveAt(Index);
+ MarkEquipmentInventoryDirty();
+ if(!SaveWorldProgress()){Destination.RemoveAt(Added);Source.Insert(Code,Index);MarkEquipmentInventoryDirty();ResidentFeedbackMessage=TEXT("Storage save failed; item restored.");ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
+ VaultSelection=FMath::Clamp(VaultSelection,0,FMath::Max(0,Source.Num()-1));
+ ReconcileRemovedInventorySelection(bVaultWithdraw?INDEX_NONE:Index);
+ ResidentFeedbackMessage=bVaultWithdraw?TEXT("Item withdrawn and saved."):TEXT("Item stored and saved.");
+ ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;
  return true;
 }
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
- if(bResidentMerchantMenu)return 5;
+ if(bResidentVaultMenu)return 7;
+ if(bResidentMerchantMenu)return 7;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -7449,9 +7855,10 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    }
    return;
   }
+  if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
-   KeepInventorySelectionVisible();
+   ReconcileCraftedInventorySelection();
    return;
   }
   if (HitTestInventoryEquipButton()) {
@@ -7528,7 +7935,11 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   CloseResidentContext();
   return false;
  }
+ if(bResidentVaultMenu)return ChooseVaultAction(Choice);
  if(bResidentMerchantMenu){
+  if(Choice==6){if(!CanOpenCoinMerchant())return false;ClearMerchantConfirmation();bResidentVaultMenu=true;bVaultWithdraw=false;VaultSelection=0;ResidentContextSelection=0;return true;}
+  if(Choice==5)return ConfirmBagUpgrade();
+  if(PendingBagUpgradeCapacity!=0)ClearMerchantConfirmation();
   if(Choice==4){ClearMerchantConfirmation();bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
   if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
   if(Choice==3){ClearMerchantConfirmation();MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
@@ -7550,7 +7961,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
    const int64 Price=GetMerchantTradeQuote();
    MoonfallMoney::FWallet Candidate{WalletCopper};
    if(!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
-      ||(bSelling?!Candidate.Credit(Price):(InventoryItemCodes.Num()>=10000||!Candidate.Debit(Price)))){
+      ||(bSelling?!Candidate.Credit(Price):(!HasBagRoom()||!Candidate.Debit(Price)))){
     ResidentFeedbackMessage=GetMerchantTradeStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
    }
    MerchantConfirmMode=MerchantTradeMode;
@@ -7704,7 +8115,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   }
  }
  if(Choice==3&&CanOpenCoinMerchant()){
-  bResidentTurnInPending=false;bResidentMerchantMenu=true;MerchantSellIndex=0;
+  bResidentTurnInPending=false;bResidentMerchantMenu=true;bResidentVaultMenu=false;MerchantSellIndex=0;
   ClearMerchantConfirmation();
   MerchantTradeMode=0;MerchantStockIndex=0;MerchantStockLevel=Level;MerchantBuybackIndex=0;
   MerchantStockStanding=GetFactionReputation(Resident->FactionId);
@@ -7904,7 +8315,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
    if(Score>BestScore){Index=I;BestScore=Score;}
   }
   if(Index==INDEX_NONE)return false;
- }else if(Old==0||InventoryItemCodes.Num()>=10000)return false;
+ }else if(Old==0||!HasBagRoom())return false;
  const TArray<int32> PreviousBag=InventoryItemCodes;
  FMoonfallCompanionGearRecord Next=Previous;
  const int32 NewCode=bReturn?0:InventoryItemCodes[Index];
@@ -7921,7 +8332,7 @@ bool AMoonfallHeroPawn::TradeCompanionGear(AMoonfallWorldNPC* Resident,int32 Slo
   else CompanionGear.Add(Id,Previous);
   return false;
  }
- InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+ ReconcileRemovedInventorySelection(Index);
  return true;
 }
 bool AMoonfallHeroPawn::CommitCompanionParty(const FMoonfallCompanionPartyRecord& Next){
