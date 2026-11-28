@@ -7,6 +7,16 @@ class EquipmentStatSafety(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = SOURCE.read_text(encoding="utf-8")
+    def test_comparison_displays_signed_tier_and_quality_deltas(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        comparison = hud.split("const FString PowerCompareLine", 1)[1].split("DrawText(PanelWidth < 550.f", 1)[0]
+        self.assertIn("SelectedTier-EquippedTier", comparison)
+        self.assertIn("SelectedRarity-EquippedRarity", comparison)
+        self.assertIn("CompareTraits[EquippedAffix],CompareTraits[SelectedAffix]", comparison)
+        self.assertIn("T%+d Q%+d P%+d", comparison)
+        self.assertIn("best eligible finger", comparison)
+        self.assertIn("EquippedCode>0", comparison)
+
     def test_advisor_handles_filtered_or_missing_selection(self):
         hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         advisor = hud.split("const uint64 AdvisorLoadoutHash", 1)[1].split("DrawText(AdvisorLine,", 1)[0]

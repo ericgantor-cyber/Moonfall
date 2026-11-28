@@ -2801,11 +2801,18 @@ void AMoonfallCombatHUD::DrawHUD()
     const FString PowerCompareLine = !bValidSelection ? CompareLine
       : bFlexibleRingCandidate
         ? FString::Printf(TEXT("Compare: %s | best eligible finger | %+d gear power"),CompareWord,PowerDelta)
-        : CompareLine+FString::Printf(TEXT("  |  %+d gear power"),PowerDelta);
+        : EquippedCode>0
+          ? FString::Printf(TEXT("%s | Tier %+d | Quality %+d | Power %+d | %s -> %s"),
+              CompareWord,SelectedTier-EquippedTier,SelectedRarity-EquippedRarity,PowerDelta,
+              CompareTraits[EquippedAffix],CompareTraits[SelectedAffix])
+          : CompareLine+FString::Printf(TEXT("  |  %+d gear power"),PowerDelta);
     const FString CompactPowerCompareLine = !bValidSelection ? FString(TEXT("INVALID GEAR"))
       : bFlexibleRingCandidate
         ? FString::Printf(TEXT("%s | BEST FINGER | %+d power"),CompareWord,PowerDelta)
-        : FString::Printf(TEXT("%s | %+d power"),CompareWord,PowerDelta);
+        : EquippedCode>0
+          ? FString::Printf(TEXT("%s | T%+d Q%+d P%+d"),CompareWord,
+              SelectedTier-EquippedTier,SelectedRarity-EquippedRarity,PowerDelta)
+          : FString::Printf(TEXT("%s | %+d power"),CompareWord,PowerDelta);
     DrawText(PanelWidth < 550.f ? CompactPowerCompareLine : PowerCompareLine,
       bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
         : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
