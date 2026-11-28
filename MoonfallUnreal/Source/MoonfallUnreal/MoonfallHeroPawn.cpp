@@ -1559,13 +1559,12 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // Reuse the same sorted order for HUD rendering, hit testing and keyboard
  // selection. Keep an exact source snapshot as a guard against direct C++
  // inventory edits that bypass the normal revisioned mutation paths.
- if((InventorySortMode!=0||InventoryRarityFilter!=-1||!InventorySearchText.IsEmpty())&&CachedInventoryOrderRevision==EquipmentInventoryRevision
+ if(CachedInventoryOrderRevision==EquipmentInventoryRevision
     &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryFilter==InventoryRarityFilter
     &&CachedInventorySearchText==InventorySearchText&&CachedInventoryOrderSource==InventoryItemCodes)
   return CachedInventoryOrder;
  Order.Reserve(Count);
  for (int32 Index = 0; Index < Count; ++Index) if(MatchesInventoryFilter(Index))Order.Add(Index);
- if (InventorySortMode == 0&&InventoryRarityFilter==-1&&InventorySearchText.IsEmpty()) return Order;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
  if(InventorySortMode!=0)Order.Sort([this](int32 A, int32 B) {
