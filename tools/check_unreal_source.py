@@ -869,6 +869,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CachedInventorySearchText=InventorySearchText;", order)
         self.assertIn("FInputModeUIOnly Mode;", opening)
         self.assertIn("Commit==ETextCommit::OnEnter", opening)
+        self.assertIn("Commit==ETextCommit::OnCleared", opening)
+        self.assertIn("WeakEditor.Pin()", opening)
+        for label in ("Apply", "Clear", "Cancel"):
+            self.assertIn(f'TEXT("{label}")', opening)
+        self.assertIn("Hero->SetInventorySearchText(FString());", opening)
+        self.assertIn("Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase)", match)
+        self.assertIn('Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier)', match)
         self.assertLess(closing.index("InventorySearchOverlay.Reset()"), closing.index("RemoveViewportWidgetContent"))
         self.assertIn("FInputModeGameOnly()", closing)
         self.assertIn("Text.Left(64).TrimStartAndEnd()", setter)
