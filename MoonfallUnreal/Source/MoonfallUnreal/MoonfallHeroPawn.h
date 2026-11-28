@@ -54,6 +54,8 @@ public:
  bool IsFishingWaterValid(bool bCheckSight) const;
  float FishingNoticeUntil=0.f;
  bool bFishingCaught=false;
+ MoonfallFishing::EEndNotice FishingEndNotice=MoonfallFishing::EEndNotice::None;
+ void CancelFishingWithFeedback();
  // Optional authored audio assets. No implicit playback or asset load.
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingCastSound=nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Fishing") USoundBase* FishingBiteSound=nullptr;
