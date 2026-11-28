@@ -766,7 +766,8 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[4]=TEXT("Back");
     Names[5]=Hero->GetBagUpgradeText();
     Names[6]=TEXT("Storage vault");
-    if(Mode==0){Names[7]=TEXT("Previous 25 bag items");Names[8]=TEXT("Next 25 bag items");}
+    if(Mode==0){Names[0]=TEXT("Prev item");Names[1]=TEXT("Next item");Names[7]=TEXT("Previous 25 bag items");Names[8]=TEXT("Next 25 bag items");
+     if(W<420.f){Names[7]=TEXT("Prev 25");Names[8]=TEXT("Next 25");}}
     if(Hero->bResidentVaultMenu){
      Names[0]=TEXT("Previous item");Names[1]=TEXT("Next item");
      Names[2]=Hero->CanTransferVaultItem()?FString::Printf(TEXT("%s%s"),Hero->IsVaultConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Hero->bVaultWithdraw?TEXT("Withdraw"):TEXT("Deposit")):Hero->GetVaultTransferStatusText();
@@ -862,18 +863,19 @@ void AMoonfallCombatHUD::DrawHUD()
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
    const float Pitch=Hero->GetResidentContextRowPitch(H);
    for (int32 Row = 0; Row < Hero->GetResidentContextRowCount(); ++Row) {
-    const float Y = T + 122.f + Row * Pitch;
-    const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
-      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + Pitch-10.f;
+    const FBox2D Bounds=Hero->GetResidentContextActionBounds(Row,W,H);
+    const float X=L+Bounds.Min.X,Y=T+Bounds.Min.Y;
+    const float ActionW=Bounds.Max.X-Bounds.Min.X,ActionH=Bounds.Max.Y-Bounds.Min.Y;
+    const bool bHover=bCursorInMenu&&Bounds.IsInsideOrOn(FVector2D(CursorX-L,CursorY-T));
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
-        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, Pitch-10.f);
+        : FLinearColor(0.10f,0.10f,0.18f,0.94f), X, Y, ActionW, ActionH);
     if (Row == Hero->ResidentContextSelection)
-     DrawSelectionRail(L+14.f,Y,Pitch-10.f);
-    DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
+     DrawSelectionRail(X,Y,ActionH);
+    DrawHoverFrame(X,Y,ActionW,ActionH);
     DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
-        L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
+        X + 11.f, Y + 4.f, nullptr, ActionW<225.f?0.62f:Pitch<40.f?0.75f:1.f);
    }
    const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
@@ -914,7 +916,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextVisualRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -953,7 +955,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (W>=480.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
     DrawText(RewardLabel, FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.65f:0.76f);
    }
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   if(H>=337.f+53.f*(Hero->GetResidentContextVisualRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    DrawLiveMenuHitCue();
