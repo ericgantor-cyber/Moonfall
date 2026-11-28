@@ -50,6 +50,8 @@ public:
  MoonfallFishing::FSession Fishing;
  FVector FishingOrigin=FVector::ZeroVector;
  FVector FishingBobber=FVector::ZeroVector;
+ TWeakObjectPtr<class APhysicsVolume> FishingWaterVolume;
+ bool IsFishingWaterValid(bool bCheckSight) const;
  float FishingNoticeUntil=0.f;
  bool bFishingCaught=false;
  // Optional authored audio assets. No implicit playback or asset load.
