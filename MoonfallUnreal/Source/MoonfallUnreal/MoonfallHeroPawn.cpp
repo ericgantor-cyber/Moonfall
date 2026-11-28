@@ -73,6 +73,7 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
+#include "Engine/OverlapResult.h"
 #include "CollisionShape.h"
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
@@ -797,14 +798,34 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  bInsideAirPocket = false;
  if (bWaterSwimming && bWaterSubmerged && GetCapsuleComponent()) {
-  // Only query existing local capsule overlaps; no per-frame world actor scan.
-  TArray<AActor*> Pockets;
-  GetCapsuleComponent()->GetOverlappingActors(Pockets, AMoonfallAirPocket::StaticClass());
-  for (AActor* Actor : Pockets) {
-   const AMoonfallAirPocket* Pocket = Cast<AMoonfallAirPocket>(Actor);
-   if (IsValid(Pocket) && Pocket->ContainsEye(GetPawnViewLocation())) {
-    bInsideAirPocket = true;
-    break;
+  const FVector Eye=GetPawnViewLocation();
+  if (!Eye.ContainsNaN()) {
+   // Fast path: reuse cached capsule overlaps.
+   TArray<AActor*> Pockets;
+   GetCapsuleComponent()->GetOverlappingActors(Pockets, AMoonfallAirPocket::StaticClass());
+   for (AActor* Actor : Pockets) {
+    const auto* Pocket=Cast<AMoonfallAirPocket>(Actor);
+    if (IsValid(Pocket) && Pocket->ContainsEye(Eye)) {
+     bInsideAirPocket=true;
+     break;
+    }
+   }
+   // The eye can enter a pocket before the capsule overlap cache updates.
+   // Query only a tiny local sphere; no world actor iterator or extra tick.
+   if (!bInsideAirPocket && GetWorld()) {
+    TArray<FOverlapResult> Hits;
+    FCollisionObjectQueryParams Objects;
+    Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAirPocketEye),false,this);
+    GetWorld()->OverlapMultiByObjectType(Hits,Eye,FQuat::Identity,Objects,
+        FCollisionShape::MakeSphere(1.f),Params);
+    for (const FOverlapResult& Hit : Hits) {
+     const auto* Pocket=Cast<AMoonfallAirPocket>(Hit.GetActor());
+     if (IsValid(Pocket) && Pocket->ContainsEye(Eye)) {
+      bInsideAirPocket=true;
+      break;
+     }
+    }
    }
   }
  }
