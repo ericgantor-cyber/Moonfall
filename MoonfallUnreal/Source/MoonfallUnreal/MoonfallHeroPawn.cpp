@@ -7436,7 +7436,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
 }
 void AMoonfallHeroPawn::ClearMerchantConfirmation() {
  PendingBagUpgradeCapacity=0;BagUpgradeConfirmAfter=0.0;
- PendingVaultCode=0;PendingVaultIndex=-1;PendingVaultRevision=0;PendingVaultLoadout=0;VaultConfirmAfter=0.0;
+ PendingVaultCode=0;PendingVaultIndex=-1;PendingVaultRevision=0;PendingVaultLoadout=0;VaultConfirmAfter=0.0;bPendingVaultWithdraw=false;
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
  MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
 }
@@ -7547,7 +7547,7 @@ bool AMoonfallHeroPawn::ConfirmBagUpgrade() {
 }
 bool AMoonfallHeroPawn::CanTransferVaultItem() const {
  const auto* Resident=FocusedResident.Get();
- if(!bResidentVaultMenu||!bResidentMerchantMenu||!CanOpenCoinMerchant()||!IsValid(Resident)
+ if(!bResidentVaultMenu||!bResidentMerchantMenu||!CanOpenCoinMerchant()||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
     ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress)return false;
  const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
@@ -7560,9 +7560,21 @@ bool AMoonfallHeroPawn::CanTransferVaultItem() const {
 }
 bool AMoonfallHeroPawn::IsVaultConfirmationCurrent() const {
  const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
- return PendingVaultCode>0&&PendingVaultIndex==VaultSelection&&PendingVaultRevision==EquipmentInventoryRevision
+ return PendingVaultCode>0&&bPendingVaultWithdraw==bVaultWithdraw&&PendingVaultIndex==VaultSelection&&PendingVaultRevision==EquipmentInventoryRevision
     &&PendingVaultLoadout==GetEquipmentLoadoutFingerprint()&&Source.IsValidIndex(VaultSelection)
     &&Source[VaultSelection]==PendingVaultCode&&CanTransferVaultItem();
+}
+FString AMoonfallHeroPawn::GetVaultTransferStatusText() const {
+ if(!CanOpenCoinMerchant()||!bResidentVaultMenu)return TEXT("Storage unavailable");
+ if(!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI())return TEXT("Storage unavailable in combat");
+ const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
+ if(!Source.IsValidIndex(VaultSelection))return TEXT("No item selected");
+ if(!ValidMoonfallItemCode(Source[VaultSelection]))return TEXT("Invalid item");
+ if(bVaultWithdraw&&!HasBagRoom())return TEXT("Bag full");
+ if(!bVaultWithdraw&&!MoonfallMoney::VaultHasRoom(VaultItemCodes.Num()))return TEXT("Vault full");
+ if(!CanTransferVaultItem())return TEXT("Item protected or transfer unavailable");
+ if(IsVaultConfirmationCurrent())return TEXT("Review item, then confirm transfer");
+ return bVaultWithdraw?TEXT("Ready to withdraw"):TEXT("Ready to deposit");
 }
 FString AMoonfallHeroPawn::GetVaultSelectionText() const {
  const auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
@@ -7581,15 +7593,16 @@ bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
  if(Choice==3){ClearMerchantConfirmation();bVaultWithdraw=!bVaultWithdraw;VaultSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
  auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
  auto& Destination=bVaultWithdraw?InventoryItemCodes:VaultItemCodes;
- if(Choice==0||Choice==1){ClearMerchantConfirmation();const int32 Count=Source.Num();VaultSelection=Count>0?(FMath::Clamp(VaultSelection,0,Count-1)+(Choice==0?-1:1)+Count)%Count:0;return true;}
+ if(Choice==0||Choice==1){ClearMerchantConfirmation();ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;const int32 Count=Source.Num();VaultSelection=Count>0?(FMath::Clamp(VaultSelection,0,Count-1)+(Choice==0?-1:1)+Count)%Count:0;return true;}
  if(Choice==5||Choice==6){
   ClearMerchantConfirmation();
+  ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
   VaultSelection=MoonfallMoney::VaultPageSelection(VaultSelection,Source.Num(),Choice==5?-1:1);
   return true;
  }
  if(Choice!=2)return false;
- if(!CanTransferVaultItem()){ClearMerchantConfirmation();ResidentFeedbackMessage=TEXT("Transfer unavailable: worn item, full storage or combat.");ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
- if(!IsVaultConfirmationCurrent()){ClearMerchantConfirmation();PendingVaultCode=Source[VaultSelection];PendingVaultIndex=VaultSelection;PendingVaultRevision=EquipmentInventoryRevision;PendingVaultLoadout=GetEquipmentLoadoutFingerprint();VaultConfirmAfter=FPlatformTime::Seconds()+0.35;return true;}
+ if(!CanTransferVaultItem()){ClearMerchantConfirmation();ResidentFeedbackMessage=GetVaultTransferStatusText();ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
+ if(!IsVaultConfirmationCurrent()){ClearMerchantConfirmation();PendingVaultCode=Source[VaultSelection];bPendingVaultWithdraw=bVaultWithdraw;PendingVaultIndex=VaultSelection;PendingVaultRevision=EquipmentInventoryRevision;PendingVaultLoadout=GetEquipmentLoadoutFingerprint();VaultConfirmAfter=FPlatformTime::Seconds()+0.35;return true;}
  if(FPlatformTime::Seconds()<VaultConfirmAfter)return false;
  const int32 Index=VaultSelection,Code=Source[Index];
  ClearMerchantConfirmation();
