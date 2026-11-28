@@ -220,6 +220,16 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    MoonfallMoney::FBuybackHistory History;
+    assert(!History.Push(0,50)&&!History.Push(1,-1));
+    for(int I=1;I<=15;++I)assert(History.Push(I,I*10));
+    assert(History.Count==12&&History.Get(0).Code==15&&History.Get(11).Code==4);
+    assert(History.Browse(0,-1)==11&&History.Browse(11,1)==0);
+    assert(!History.Remove(12)&&History.Remove(4)&&History.Get(4).Code==10);
+    assert(History.Push(15,150)&&History.Get(0).Code==History.Get(1).Code);
+    assert(History.Remove(0)&&History.Get(0).Code==15);
+    while(History.Count)assert(History.Remove(0));
+    assert(History.Get(0).Code==0&&History.Browse(0,1)==0);
     const MoonfallMoney::FTradeIntent Confirmed{0,1001,0,40,1};
     assert(Confirmed.Matches(Confirmed));
     assert(!Confirmed.Matches(MoonfallMoney::FTradeIntent{1,1001,0,40,1}));
