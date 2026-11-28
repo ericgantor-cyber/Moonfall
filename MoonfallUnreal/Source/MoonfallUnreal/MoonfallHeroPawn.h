@@ -108,6 +108,7 @@ public:
  bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
+ bool CanSteerSwimming() const;
  // Preview-only shoreline recovery. The anchor is transient and captured
  // from a recent grounded position, never from a saved checkpoint.
  FVector WaterRecoveryShore=FVector::ZeroVector;
