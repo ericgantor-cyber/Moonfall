@@ -16,9 +16,11 @@ AMoonfallAirPocket::AMoonfallAirPocket()
 
 bool AMoonfallAirPocket::ContainsEye(const FVector& EyeLocation) const
 {
-    if (!IsValid(BreathingZone) || EyeLocation.ContainsNaN()) return false;
+    if (IsActorBeingDestroyed() || !GetActorEnableCollision() || !IsValid(BreathingZone)
+        || !BreathingZone->IsQueryCollisionEnabled() || EyeLocation.ContainsNaN()) return false;
     const FVector Center = BreathingZone->GetComponentLocation();
     const float Radius = BreathingZone->GetScaledSphereRadius();
+    const double DistanceSquared=FVector::DistSquared(EyeLocation, Center);
     return !Center.ContainsNaN() && FMath::IsFinite(Radius) && Radius > 0.f
-        && FVector::DistSquared(EyeLocation, Center) <= FMath::Square(Radius);
+        && FMath::IsFinite(DistanceSquared) && DistanceSquared <= FMath::Square(double(Radius));
 }
