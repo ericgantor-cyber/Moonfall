@@ -114,6 +114,16 @@ namespace MoonfallMoney {
  // until they fit. The original 10,000-entry serialization ceiling remains.
  constexpr int BagStart=100,BagMax=500,BagStep=50,VaultMax=1000;
  constexpr bool VaultHasRoom(int Count) {return Count>=0&&Count<VaultMax;}
+ // Page browsing is clamped, never wraps across the entire storage bank.
+ constexpr int VaultPageSize=25;
+ constexpr int VaultPageSelection(int Index,int Count,int Direction) {
+  if(Count<=0)return 0;
+  const int Last=Count-1;
+  const int Current=Index<0?0:Index>Last?Last:Index;
+  if(Direction<0)return Current<VaultPageSize?0:Current-VaultPageSize;
+  if(Direction>0)return Last-Current<VaultPageSize?Last:Current+VaultPageSize;
+  return Current;
+ }
  constexpr bool ValidBagCapacity(int Capacity) {
   return Capacity>=BagStart&&Capacity<=BagMax&&(Capacity-BagStart)%BagStep==0;
  }
