@@ -2453,15 +2453,20 @@ void AMoonfallCombatHUD::DrawHUD()
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%s | %d salvage | visible %d-%d / %d"),
-    *Hero->GetInventoryFilterLabel(), Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
-    PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
+  DrawText(FString::Printf(TEXT("%s | %d-%d/%d | %d S"),
+    *Hero->GetInventoryFilterLabel(), Count == 0 ? 0 : PageStart + 1,
+    PageEnd, Count, Hero->Salvage), FLinearColor(0.75f,0.72f,0.91f),
+    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.48f : 0.68f);
+  const float SearchX=Left+PanelWidth-112.f,SearchY=Top+44.f;
+  DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f),SearchX,SearchY,98.f,15.f);
+  DrawHoverFrame(SearchX,SearchY,98.f,15.f);
+  DrawText(Hero->InventorySearchText.IsEmpty()?FString(TEXT("F9: SEARCH")):FString::Printf(TEXT("F9: %s"),*Hero->InventorySearchText.Left(12)),
+    FLinearColor::White,SearchX+4.f,SearchY+2.f,nullptr,0.55f);
   DrawText(FString::Printf(TEXT("Bag %d/%d | %s"), Hero->InventoryItemCodes.Num(),Hero->BagCapacity,*Hero->GetWalletText()),
     FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
     nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)
-   DrawText(Hero->InventoryRarityFilter==-1?TEXT("No equipment yet."):TEXT("No matching equipment. RMB sort to change filter."), FLinearColor::White,
+   DrawText(Hero->InventoryRarityFilter==-1&&Hero->InventorySearchText.IsEmpty()?TEXT("No equipment yet."):TEXT("No matches. F9 search / RMB filter."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
   const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
