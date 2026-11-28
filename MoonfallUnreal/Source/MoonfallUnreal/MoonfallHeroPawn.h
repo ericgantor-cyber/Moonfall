@@ -189,6 +189,13 @@ public:
  int64 GetMerchantSaleQuote() const;
  FString GetMerchantSaleItemText() const;
  bool SellMerchantItem();
+ int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackCode=0;
+ int64 MerchantBuybackPrice=0;
+ int32 GetMerchantStockCode() const;
+ int64 GetMerchantTradeQuote() const;
+ FString GetMerchantTradeItemText() const;
+ FString GetMerchantTradeQuoteText() const;
+ bool BuyMerchantItem();
  bool bResidentCompanionTalents=false;
  bool bResidentCompanionTraining=false;
  bool bResidentCompanionGear=false;
