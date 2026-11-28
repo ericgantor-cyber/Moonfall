@@ -37,8 +37,21 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertNotIn("Oxygen =", rescue)
         self.assertIn('ActionName="EmergencySurface",Key=F1', bindings)
         self.assertIn('if (bWaterSwimming) TryEmergencySurface();', source)
-        self.assertIn("shore rescue if safe", hud)
-        self.assertIn("LOW AIR: rise or find an air pocket", hud)
+        self.assertNotIn("LOW AIR: rise or find an air pocket", hud)
+        self.assertNotIn("Space / A: rise | Q / B: dive", hud)
+
+    def test_surface_swimming_without_survival(self):
+        root = Path(__file__).resolve().parents[1] / "MoonfallUnreal/Source/MoonfallUnreal"
+        hero = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        tick = hero.split("void AMoonfallHeroPawn::Tick",1)[1].split("RefreshFishingSchools",1)[0]
+        self.assertIn("AddMovementInput(FVector::UpVector,1.f)",tick)
+        self.assertIn("Oxygen=MoonfallWaterRules::MaxAir",tick)
+        self.assertIn("DiscoverRegionalWater(Province)",tick)
+        for token in ("AdvanceDrowning(", "AdvanceAir(", "ConsumeBreathingTonic(", "DiscoverWreck(", "DiscoverCave("):
+            self.assertNotIn(token,tick)
+        self.assertNotIn("WaterVerticalIntent == -1",hero)
+        self.assertNotIn("DROWNING | CLOSE MENU",hud)
 
     def test_mouse_fishing_interaction(self):
         root = Path(__file__).resolve().parents[1]
