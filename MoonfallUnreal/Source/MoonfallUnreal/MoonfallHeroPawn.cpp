@@ -3328,6 +3328,7 @@ void AMoonfallHeroPawn::ToggleAtlas() {
  AtlasPanY = FMath::Clamp(FMath::IsFinite(AtlasPanY) ? AtlasPanY : -2500.f, -12000.f, 12000.f);
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (!bAtlasOpen) {
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
   SwordBuffer.Clear();
@@ -3378,6 +3379,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health < 0.f) return;
  if (!bInventoryOpen) {
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -3674,6 +3676,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   return;
  }
  if (!bOptionsOpen) {
+  if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -5614,6 +5617,7 @@ void AMoonfallHeroPawn::ToggleTalentWeb() {
      || bAtlasOpen || bResidentContextOpen || FocusedResident.IsValid())return;
  // Validate first, then leave the character sheet using its normal cleanup.
  if (bInventoryOpen) { ToggleInventory(); if (bInventoryOpen) return; }
+ if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
  StopJumping();
  if (GetCharacterMovement())GetCharacterMovement()->StopMovementImmediately();
  EndSprint();
@@ -6815,6 +6819,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
   return;
  }
  // A conversation must cancel any queued swing before taking input.
+ if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
  DodgeBuffer.Clear();
  BufferedDodgeDirection = FVector::ZeroVector;
  SwordBuffer.Clear();
@@ -6876,6 +6881,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    if (Resident->CanHeroInteract(this)) {
     // Right-click dialogue must cancel queued sword attacks immediately,
     // just like the controller/D-pad dialogue entry path.
+    if(Fishing.Stage!=MoonfallFishing::EStage::Idle)CancelFishingWithFeedback();
     DodgeBuffer.Clear();
     BufferedDodgeDirection = FVector::ZeroVector;
     SwordBuffer.Clear();
