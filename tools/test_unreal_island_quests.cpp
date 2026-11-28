@@ -209,6 +209,11 @@ int main() {
     assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
     assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));
     assert(!InCastRange(std::numeric_limits<double>::quiet_NaN(),850.f));
+    assert(OnCastSurface(50,50,2,0,0,100,100,0));
+    assert(!OnCastSurface(20,50,2,0,0,100,100,0));
+    assert(!OnCastSurface(50,50,4,0,0,100,100,0));
+    assert(!OnCastSurface(50,50,2,0,0,40,40,0));
+    assert(!OnCastSurface(50,50,2,0,0,100,100,std::numeric_limits<double>::quiet_NaN()));
     FSession BoundaryCast;
     assert(BoundaryCast.Start(5,2));
     assert(!BoundaryCast.Hook(6.999));
