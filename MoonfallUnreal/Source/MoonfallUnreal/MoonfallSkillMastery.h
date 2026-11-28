@@ -70,6 +70,14 @@ constexpr bool HasUnlock(const State& S,Unlock U) {
  }
  return false;
 }
+// Bounded preview movement bonuses; never compound across jumps.
+constexpr int JumpBonusBps(const State& S) {
+ const int R=RankFor(S,Skill::Agility);
+ return R<1?0:R>=5?2500:R>=3?1800:R>=2?1200:600;
+}
+constexpr bool CanAirDash(const State& S,bool Falling,bool UsedThisFall,bool SafeMovement) {
+ return Falling&&!UsedThisFall&&SafeMovement&&HasUnlock(S,Unlock::AirDash);
+}
 constexpr int Reward(Action A) {
  switch(A){
   case Action::MeleeVictory:return 12;
