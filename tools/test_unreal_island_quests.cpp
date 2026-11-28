@@ -220,6 +220,15 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::StockGroups==4);
+    assert(MoonfallMoney::NextRestock(10000,0)==11800);
+    assert(!MoonfallMoney::SpecialtyAvailable(11799,11800));
+    assert(MoonfallMoney::SpecialtyAvailable(11800,11800));
+    assert(!MoonfallMoney::SpecialtyAvailable(9999,11800));
+    assert(!MoonfallMoney::SpecialtyAvailable(0,0));
+    assert(!MoonfallMoney::SpecialtyAvailable(10000,-1));
+    assert(MoonfallMoney::NextRestock(MoonfallMoney::MaxUtc,0)==0);
+    for(int Step=0;Step<1800;++Step)assert(!MoonfallMoney::SpecialtyAvailable(10000+Step,11800));
     assert(MoonfallMoney::SpecialtySlot(1)==0&&MoonfallMoney::SpecialtySlot(2)==1&&MoonfallMoney::SpecialtySlot(3)==8);
     assert(MoonfallMoney::SpecialtyRarity(25,40)==2&&MoonfallMoney::SpecialtyRarity(24,40)==1);
     assert(MoonfallMoney::SpecialtyRarity(25,39)==1&&MoonfallMoney::SpecialtyRarity(1,100)==0);
