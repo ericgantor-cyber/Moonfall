@@ -27,6 +27,8 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UNiagaraSystem;
 class UNiagaraComponent;
+class SWidget;
+class UGameViewportClient;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -596,6 +598,15 @@ public:
  // Transient display mode: original order, rarity, then equipment slot.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
  int32 InventoryRarityFilter=-1;
+ FString InventorySearchText;
+ void OpenInventorySearch();
+ void CloseInventorySearch();
+ void SetInventorySearchText(const FString& Text);
+ bool CanOpenInventorySearch() const;
+ bool HitTestInventorySearchButton() const;
+ TSharedPtr<SWidget> InventorySearchOverlay;
+ TWeakObjectPtr<UGameViewportClient> InventorySearchViewport;
+ TWeakObjectPtr<APlayerController> InventorySearchController;
  bool MatchesInventoryFilter(int32 Index) const;
  bool IsInventorySelectionVisible() const;
  void CycleInventoryRarityFilter();
@@ -702,6 +713,7 @@ private:
  mutable uint32 CachedInventoryOrderRevision=0;
  mutable int32 CachedInventoryOrderMode=-1;
  mutable int32 CachedInventoryFilter=-2;
+ mutable FString CachedInventorySearchText;
  mutable TArray<int32> CachedInventoryOrder;
  mutable TArray<int32> CachedInventoryOrderSource;
  mutable uint32 CachedValidatedInventoryRevision=0;
