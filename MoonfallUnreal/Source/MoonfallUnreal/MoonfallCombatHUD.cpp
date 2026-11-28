@@ -930,6 +930,9 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
+   else if(Hero->bResidentMerchantMenu&&Hero->MerchantTradeMode==1) {
+    DrawText(Hero->GetMerchantStandingText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,0.72f);
+   }
    else if (bQuestRewardVisible) {
     FString RewardLabel=FString::Printf(TEXT("%d salvage | +%d XP"),ContractCost,QuestReward.RewardXP);
     if (Hero->Level==100) RewardLabel=FString::Printf(TEXT("%d salvage | MAX LEVEL"),ContractCost);
