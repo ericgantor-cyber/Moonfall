@@ -70,6 +70,15 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertLess(mouse.index("Fishing.Stage==MoonfallFishing::EStage::Idle"), mouse.index("TryFishingAction()"))
         self.assertNotIn("TActorIterator", mouse)
         self.assertNotIn("TryFishingAction(&", mouse)
+        pointer = source.split("void AMoonfallHeroPawn::FishingAction()", 1)[1].split("void AMoonfallHeroPawn::SyncFishingPresentation", 1)[0]
+        self.assertIn("FInputModeGameAndUI", pointer)
+        self.assertIn("SetHideCursorDuringCapture(false)", pointer)
+        self.assertIn("PC->bShowMouseCursor=true", pointer)
+        self.assertIn("FishingPointerOwner.Reset()", pointer)
+        self.assertIn("FInputModeGameOnly()", pointer)
+        self.assertIn("bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen", pointer)
+        self.assertIn("EStage::Reeling) ReleaseFishingPointer()", source)
+        self.assertIn("EndPlayReason) {\n ReleaseFishingPointer();", source)
         right = source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("int32 AMoonfallHeroPawn::GetRingPointerDragCode()", 1)[0]
         self.assertLess(right.index("Cast<AMoonfallWorldNPC>"), right.index("TryMouseFishingAction()"))
         self.assertLess(right.index("TryMouseFishingAction()"), right.index("CastRight();"))
