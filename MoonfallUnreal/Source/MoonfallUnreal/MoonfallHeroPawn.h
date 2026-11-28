@@ -15,6 +15,7 @@
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
+class USceneComponent;
 class UNavigationInvokerComponent;
 class UAnimMontage;
 class USoundBase;
@@ -94,6 +95,11 @@ public:
  float WaterCurrentStrength = 0.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Water")
  void OnSwimmingStateChanged(bool bSwimming, bool bSubmerged);
+ // Optional presentation pivot for authored underwater effects. Never reparent
+ // the original hero mesh or use this transform for hit detection.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Water")
+ USceneComponent* SwimPoseAnchor=nullptr;
+ void RefreshSwimPose();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.

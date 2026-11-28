@@ -11,6 +11,12 @@ namespace MoonfallWaterRules
     constexpr float DrowningHealthFraction = 0.20f;
     constexpr float TonicDuration = 120.f;
     constexpr float TonicThreshold = 10.f;
+    // Presentation-only pitch; no effect on collision, movement or combat.
+    inline float SwimPosePitch(bool bSwimming,bool bSubmerged,bool bReducedMotion,float VerticalSpeed)
+    {
+        if(!bSwimming||!bSubmerged||bReducedMotion||!FMath::IsFinite(VerticalSpeed)) return 0.f;
+        return FMath::Clamp(-10.f+FMath::Clamp(VerticalSpeed/250.f,-1.f,1.f)*20.f,-25.f,10.f);
+    }
     inline bool ShouldUseTonic(float Air, float Remaining, bool bNeedsBreath, bool bPaused)
     {
         return bNeedsBreath && !bPaused && FMath::IsFinite(Air)
