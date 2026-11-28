@@ -90,6 +90,7 @@ public:
  UPROPERTY() float MaxHealth = 100.f;
  UPROPERTY() TArray<int32> InventoryItemCodes;
  UPROPERTY() int32 BagCapacity=100;
+ UPROPERTY() TArray<int32> VaultItemCodes;
  UPROPERTY() int32 EquippedWeaponCode = 0;
  UPROPERTY() int32 EquippedArmorCode = 0;
  UPROPERTY() int32 EquippedAccessoryCode = 0;
