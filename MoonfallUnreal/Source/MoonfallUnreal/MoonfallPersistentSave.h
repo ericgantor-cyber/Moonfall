@@ -40,6 +40,13 @@ public:
  // V16 restores the recruited follower by stable resident ID, never by actor pointer.
  // V17 stores all nine equipment IDs with legacy mirrors for slots 0–2.
  UPROPERTY() int32 Version = 17;
+ // Staged mastery record. No live writer uses these fields until the
+ // global save version and downgrade protection are coordinated.
+ UPROPERTY() int32 SkillMasteryVersion = 0;
+ UPROPERTY() TArray<int32> SkillMasteryXP;
+ // Two nonnegative 32-bit words per region; preserves every bit without
+ // implementation-defined unsigned-to-signed 64-bit conversions.
+ UPROPERTY() TArray<int64> SkillMasteryOrbWords;
  UPROPERTY() FMoonfallCompanionPartyRecord CompanionParty;
  UPROPERTY() TMap<FName,FMoonfallCompanionGearRecord> CompanionGear;
  UPROPERTY() TMap<FName,int32> CompanionProfiles;
