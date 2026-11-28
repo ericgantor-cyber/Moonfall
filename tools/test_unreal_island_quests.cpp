@@ -389,6 +389,22 @@ int main() {
     assert(MoonfallRegionalAtlas::Step(2,1,5)==-1);
     assert(MoonfallRegionalAtlas::Step(-1,-1,5)==2);
     assert(MoonfallRegionalAtlas::Step(-1,1,0)==-1);
+    // Every discovery mask must traverse exactly its available provinces,
+    // in both directions, before returning to the clear-waypoint slot.
+    for(unsigned Mask=0;Mask<(1u<<MoonfallNorth::ZoneCount);++Mask) {
+      for(int Direction : {-1,1}) {
+        int Current=-1;
+        for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
+          const int Expected=Direction==1?I:MoonfallNorth::ZoneCount-1-I;
+          if(!(Mask&(1u<<Expected))) continue;
+          Current=MoonfallRegionalAtlas::Step(Current,Direction,Mask);
+          assert(Current==Expected);
+        }
+        assert(MoonfallRegionalAtlas::Step(Current,Direction,Mask)==-1);
+      }
+    }
+    assert(MoonfallRegionalAtlas::Step(-1,0,~0u)==-1);
+    assert(MoonfallRegionalAtlas::Step(999,1,1u)==0);
     assert(MoonfallProfessionUI::Rows(280)==3);
     assert(MoonfallProfessionUI::Rows(860)==25);
     assert(MoonfallProfessionUI::Start(99,3)==22);
