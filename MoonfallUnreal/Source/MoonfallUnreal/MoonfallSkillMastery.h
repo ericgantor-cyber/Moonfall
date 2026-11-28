@@ -145,22 +145,30 @@ inline bool TryAward(const State& Current,Action A,bool Confirmed,State& Out,Cha
 }
 struct Placement {int Region,Index,X,Y;Orb Kind;};
 inline constexpr int MainlandRegions=6;
-inline constexpr int WorldRouteCount=28;
-// Stable identities: six mainland regions and Firstlight (region 6).
-// Region 7 and indices >=4 are reserved for future authored content.
+inline constexpr int RouteRegions=7;
+inline constexpr int RouteOrbsPerRegion=12;
+inline constexpr int OrbsPerTrail=4;
+inline constexpr int TrailsPerRegion=RouteOrbsPerRegion/OrbsPerTrail;
+inline constexpr int WorldRouteCount=RouteRegions*RouteOrbsPerRegion;
+inline constexpr int RouteCompletionAgilityXP=80;
+inline constexpr int RouteCompletionOtherXP=20;
+// Preserve the original 28 entries and region/index pairs exactly.
+// Additional positions are appended, never shift saved collectible identities.
 constexpr Placement RoutePlacement(int I) {
  if(I<0||I>=WorldRouteCount)return {-1,-1,0,0,Orb::Agility};
- if(I>=24){
-  constexpr int Xs[]={-550,550,-900,900};
-  constexpr int Ys[]={2650,2650,2800,3850};
-  const int J=I-24;
-  return {6,J,Xs[J],Ys[J],J==3?Orb::Hidden:Orb::Agility};
+ const int Group=I/(RouteRegions*OrbsPerTrail);
+ const int Region=(I%(RouteRegions*OrbsPerTrail))/OrbsPerTrail;
+ const int Local=I%OrbsPerTrail,Index=Group*OrbsPerTrail+Local;
+ const Orb Kind=Local==3?Orb::Hidden:Orb::Agility;
+ if(Region==6){
+  constexpr int Xs[]={-550,550,-900,900,-650,650,-650,650,-400,400,-400,400};
+  constexpr int Ys[]={2650,2650,2800,3850,3200,3200,4300,4300,2950,2950,3750,3750};
+  return {Region,Index,Xs[Index],Ys[Index],Kind};
  }
- const int Region=I/4,Index=I%4;
  const int Center=(Region*5-12)*1350-675;
- constexpr int XOffsets[]={-2000,-850,850,2000};
- constexpr int YOffsets[]={-2600,-2225,-2225,-2675};
- return {Region,Index,Center+XOffsets[Index],YOffsets[Index],Index==3?Orb::Hidden:Orb::Agility};
+ constexpr int XOffsets[]={-2000,-850,850,2000,-2800,-1350,1350,2800,-2400,-400,400,2400};
+ constexpr int YOffsets[]={-2600,-2225,-2225,-2675,-2300,-2750,-2750,-2300,-2750,-2350,-2650,-2750};
+ return {Region,Index,Center+XOffsets[Index],YOffsets[Index],Kind};
 }
 constexpr bool ValidOrbID(int Region,int Index) {
  return Region>=0&&Region<RegionCount&&Index>=0&&Index<OrbsPerRegion;
@@ -168,6 +176,26 @@ constexpr bool ValidOrbID(int Region,int Index) {
 constexpr bool IsCollected(const State& S,int Region,int Index) {
  return ValidOrbID(Region,Index)&&
   (S.Collected[static_cast<std::size_t>(Region)]&(std::uint64_t{1}<<Index))!=0;
+}
+constexpr bool IsRouteID(int Region,int Index){
+ return Region>=0&&Region<RouteRegions&&Index>=0&&Index<RouteOrbsPerRegion;
+}
+constexpr int RegionOrbCount(const State& S,int Region){
+ if(!Valid(S)||Region<0||Region>=RouteRegions)return -1;
+ int Count=0;
+ for(int Index=0;Index<RouteOrbsPerRegion;++Index)if(IsCollected(S,Region,Index))++Count;
+ return Count;
+}
+constexpr bool TrailCompleted(const State& S,int Region,int Trail){
+ if(!Valid(S)||Region<0||Region>=RouteRegions||Trail<0||Trail>=TrailsPerRegion)return false;
+ const auto Mask=std::uint64_t{0xf}<<(Trail*OrbsPerTrail);
+ return (S.Collected[static_cast<std::size_t>(Region)]&Mask)==Mask;
+}
+constexpr int CompletedTrails(const State& S,int Region){
+ if(!Valid(S)||Region<0||Region>=RouteRegions)return -1;
+ int Count=0;
+ for(int Trail=0;Trail<TrailsPerRegion;++Trail)if(TrailCompleted(S,Region,Trail))++Count;
+ return Count;
 }
 // Each region/index pair is a unique authored collectible ID, regardless
 // of its type. The caller must validate the authored type and contact.
@@ -179,6 +207,20 @@ inline bool TryCollect(const State& Current,int Region,int Index,Orb Kind,bool C
  if(Kind==Orb::Agility){
   auto& XP=Next.XP[static_cast<std::size_t>(Skill::Agility)];XP=SaturatingXP(XP,60);
  }else for(auto& XP:Next.XP)XP=SaturatingXP(XP,25);
+ Out=Next;return true;
+}
+// A completed four-orb trail earns its one-time bonus in the same transaction.
+// Completion is derived from the persisted orb mask; no new save fields.
+inline bool TryCollectWithTrailReward(const State& Current,int Region,int Index,Orb Kind,bool Confirmed,State& Out){
+ if(IsRouteID(Region,Index)&&Kind!=(Index%OrbsPerTrail==3?Orb::Hidden:Orb::Agility))return false;
+ State Next{};
+ if(!TryCollect(Current,Region,Index,Kind,Confirmed,Next))return false;
+ if(IsRouteID(Region,Index)&&TrailCompleted(Next,Region,Index/OrbsPerTrail)){
+  for(int K=0;K<SkillCount;++K){
+   auto& XP=Next.XP[static_cast<std::size_t>(K)];
+   XP=SaturatingXP(XP,K==static_cast<int>(Skill::Agility)?RouteCompletionAgilityXP:RouteCompletionOtherXP);
+  }
+ }
  Out=Next;return true;
 }
 }

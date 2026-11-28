@@ -75,7 +75,7 @@ int main(){
  int Hidden=0;
  for(int I=0;I<M::WorldRouteCount;++I){
   const auto P=M::RoutePlacement(I);
-  assert(M::ValidOrbID(P.Region,P.Index)&&P.Index<4);
+  assert(M::ValidOrbID(P.Region,P.Index)&&P.Index<M::RouteOrbsPerRegion);
   if(P.Kind==M::Orb::Hidden)++Hidden;
   for(int J=0;J<I;++J){
    const auto Q=M::RoutePlacement(J);
@@ -84,7 +84,8 @@ int main(){
   }
   if(P.Region<6)assert(P.Y>=-2950&&P.Y<=-2050);
  }
- assert(Hidden==7);
+ assert(Hidden==21);
+ assert(M::WorldRouteCount==84);
  assert(!M::ValidOrbID(M::RoutePlacement(-1).Region,0));
  assert(!M::ValidOrbID(M::RoutePlacement(M::WorldRouteCount).Region,0));
  M::State Travel{};
@@ -129,5 +130,25 @@ int main(){
  }
  Rewards.XP[0]=-1;
  assert(M::PassiveBonusBps(Rewards,M::Skill::Strength)==0);
+ // Stable old indices, three trails per region and exactly-once rewards.
+ assert(M::RoutePlacement(0).Region==0&&M::RoutePlacement(0).Index==0&&M::RoutePlacement(0).X==-18875);
+ assert(M::RoutePlacement(27).Region==6&&M::RoutePlacement(27).Index==3);
+ assert(M::RoutePlacement(28).Region==0&&M::RoutePlacement(28).Index==4);
+ M::State Trail{};
+ assert(!M::TryCollectWithTrailReward(Trail,0,0,M::Orb::Hidden,true,Trail));
+ for(int I=0;I<4;++I){
+  assert(M::TryCollectWithTrailReward(Trail,0,I,I==3?M::Orb::Hidden:M::Orb::Agility,true,Trail));
+  assert(M::RegionOrbCount(Trail,0)==I+1);
+  assert(M::CompletedTrails(Trail,0)==(I==3?1:0));
+ }
+ assert(M::XPFor(Trail,M::Skill::Agility)==285);
+ assert(M::XPFor(Trail,M::Skill::Swordsmanship)==45);
+ assert(!M::TryCollectWithTrailReward(Trail,0,3,M::Orb::Hidden,true,Trail));
+ assert(M::XPFor(Trail,M::Skill::Agility)==285);
+ assert(M::RegionOrbCount(Trail,7)==-1);
+ M::State Full{};
+ Full.XP.fill(M::MaxXP-1);
+ for(int I=0;I<4;++I)assert(M::TryCollectWithTrailReward(Full,6,I,I==3?M::Orb::Hidden:M::Orb::Agility,true,Full));
+ for(int XP:Full.XP)assert(XP==M::MaxXP);
  return 0;
 }
