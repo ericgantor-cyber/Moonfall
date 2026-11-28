@@ -53,14 +53,17 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("RequestedWater->Z-(Bounds.Max.Z+2.f)", cast)
         self.assertIn("RequestedWater->X<Bounds.Min.X+30.f", cast)
         self.assertIn("RequestedWater->Y<Bounds.Min.Y+30.f", cast)
-        self.assertIn("Distance>FMath::Square(MaxReach)", cast)
+        self.assertIn("!MoonfallFishing::InCastRange(Distance,MaxReach)", cast)
+        rules = (module / "MoonfallFishing.h").read_text(encoding="utf-8")
+        self.assertIn("DistanceSquared>=100.0*100.0", rules)
+        self.assertIn("DistanceSquared<=double(Reach)*Reach", rules)
         self.assertIn("ClickDistance>BestClickDistance", cast)
         self.assertIn("BestClickDistance=ClickDistance", cast)
         self.assertLess(cast.index("RequestedWater->Z-(Bounds.Max.Z+2.f)"), cast.index("Preview->IsFishingSchoolAvailable"))
         mouse = source.split("bool AMoonfallHeroPawn::TryMouseFishingAction()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         for token in ("CanContinueFishing()", "DeprojectMousePositionToWorld", "FishingBobber",
                       "FMath::Square(85.f)", "LineTraceSingleByChannel", "bWaterVolume",
-                      "FMath::Square(Reach)", "TryFishingAction(&Target)"):
+                      "MoonfallFishing::InCastRange(FVector::DistSquared2D(HeroEye,Point),Reach)", "TryFishingAction(&Target)"):
             self.assertIn(token, mouse)
         right = source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("int32 AMoonfallHeroPawn::GetRingPointerDragCode()", 1)[0]
         self.assertLess(right.index("Cast<AMoonfallWorldNPC>"), right.index("TryMouseFishingAction()"))
@@ -70,6 +73,9 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("RMB / X: Cast", hud)
         self.assertIn("RMB / X: Hook", hud)
         self.assertNotIn("F / X: Cast", hud)
+        self.assertIn("auto-loot", hud)
+        self.assertIn("Preview->CatchOceanFish(FishingSchoolId,FishingProvince)", source)
+        self.assertNotIn("CatchOceanFish", pickup)
 
     def test_regional_water_layout(self):
         from deep_waters_layout import regional_water_plan
