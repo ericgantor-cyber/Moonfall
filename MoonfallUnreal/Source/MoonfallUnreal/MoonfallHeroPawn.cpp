@@ -876,22 +876,15 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
- const bool bCanSteerWater=bWaterSwimming && bValidWaterSurface && IsLocallyControlled()
-     && GetWorld() && !GetWorld()->IsPaused() && !bWorldProgressLoadInProgress
-     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
-     && !bCharacterStatsOpen && !bSpellBookOpen && !bQuestLogOpen
-     && !bResidentContextOpen && !FocusedResident.IsValid();
+ const bool bCanSteerWater=bWaterSwimming && bValidWaterSurface && CanSteerSwimming();
  WaterVerticalIntent=MoonfallWaterRules::ResolveVerticalIntent(WaterVerticalIntent,bCanSteerWater,WaterEyeDepth);
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
  // Gentle horizontal flow only in the dedicated preview. Native movement
  // retains collision, acceleration limits and full player steering authority.
- if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
-     && IsLocallyControlled() && GetWorld() && !GetWorld()->IsPaused()
+ if (bCanSteerWater && bPersistentSaveWritesBlocked
      && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
-     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")
-     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
-     && !bCharacterStatsOpen && !bResidentContextOpen && !FocusedResident.IsValid()) {
+     && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")) {
   const FVector Flow=MoonfallWaterCurrent::Input(WaterRelativePosition,WaterVerticalIntent>0,bInsideAirPocket);
   WaterCurrentStrength=float(Flow.Size());
   if (WaterCurrentStrength>0.f)
@@ -1833,6 +1826,16 @@ bool AMoonfallHeroPawn::TryEmergencySurface() {
  // The normal native water-state update restores air only after leaving water.
  return true;
 }
+bool AMoonfallHeroPawn::CanSteerSwimming() const
+{
+ const auto* Movement=GetCharacterMovement();
+ return IsValid(Movement) && Movement->IsSwimming() && IsLocallyControlled()
+     && !IsActorBeingDestroyed() && FMath::IsFinite(Health) && Health>0.f
+     && GetWorld() && !GetWorld()->IsPaused() && !bWorldProgressLoadInProgress
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bCharacterStatsOpen && !bSpellBookOpen && !bQuestLogOpen
+     && !bResidentContextOpen && !FocusedResident.IsValid();
+}
 void AMoonfallHeroPawn::TryJump()
 {
  if (bTalentWebOpen) return;
@@ -1850,7 +1853,7 @@ void AMoonfallHeroPawn::TryJump()
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  WaterVerticalIntent = WaterVerticalIntent == 1 ? 0 : 1;
+  WaterVerticalIntent = CanSteerSwimming() && WaterVerticalIntent!=1 ? 1 : 0;
   return;
  }
  Jump();
@@ -2699,7 +2702,8 @@ void AMoonfallHeroPawn::Dodge()
  if (bResolvingCombatAction) return;
  if (!FMath::IsFinite(Health)) return;
  if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  if (!bDispatchingBufferedDodge) WaterVerticalIntent = WaterVerticalIntent == -1 ? 0 : -1;
+  if (!CanSteerSwimming()) WaterVerticalIntent=0;
+  else if (!bDispatchingBufferedDodge) WaterVerticalIntent = WaterVerticalIntent == -1 ? 0 : -1;
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
   return;
@@ -6332,6 +6336,7 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  WaterTonicRemaining = 0.f;
  bWaterSwimming = false;
  bWaterSubmerged = false;
+ WaterBreathingDepth=0.f;
  RefreshSwimPose();
  bInsideAirPocket = false;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
