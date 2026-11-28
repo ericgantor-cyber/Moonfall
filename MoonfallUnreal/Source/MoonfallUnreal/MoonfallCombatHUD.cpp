@@ -2973,7 +2973,9 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bCritical=!bRefilling && Air<=20.f;
   const FLinearColor AirColor=bRefilling?FLinearColor(0.40f,0.95f,0.60f):
       bCritical?FLinearColor(1.f,0.35f,0.25f):FLinearColor(0.35f,0.83f,0.95f);
-  const float W=300.f,H=110.f;
+  FVector GuideDirection; float GuideDistance=0.f;
+  const bool bGuide=Hero->GetAirPocketGuide(GuideDirection,GuideDistance);
+  const float W=300.f,H=bGuide?126.f:110.f;
   const float X=(Canvas->SizeX-W)*0.5f;
   const float Y=FMath::Clamp(Canvas->SizeY*0.60f,8.f,Canvas->SizeY-H-20.f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.96f),X,Y,W,H);
@@ -3007,6 +3009,19 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!bCritical && !bRefilling && Hero->CanRequestEmergencySurface())
    WaterTip=TEXT("F1 / D-pad Up: shore rescue if safe");
   DrawText(WaterTip,bCritical?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+9.f,Y+88.f,nullptr,0.73f);
+  if (bGuide) {
+   const FRotator Yaw(0.f,Hero->GetControlRotation().Yaw,0.f);
+   if (!Yaw.ContainsNaN()) {
+    const FVector Forward=FRotationMatrix(Yaw).GetUnitAxis(EAxis::X);
+    const FVector Right=FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y);
+    const double F=FVector::DotProduct(GuideDirection,Forward), R=FVector::DotProduct(GuideDirection,Right);
+    const TCHAR* Direction=FMath::Abs(GuideDirection.Z)>FMath::Max(FMath::Abs(F),FMath::Abs(R))
+        ? (GuideDirection.Z>0?TEXT("ABOVE"):TEXT("BELOW"))
+        : FMath::Abs(F)>=FMath::Abs(R)?(F>=0?TEXT("AHEAD"):TEXT("BEHIND")):(R>=0?TEXT("RIGHT"):TEXT("LEFT"));
+    DrawText(FString::Printf(TEXT("AIR POCKET %s | %.1fm"),Direction,GuideDistance),
+        FLinearColor(0.45f,0.95f,0.75f),X+9.f,Y+104.f,nullptr,0.75f);
+   }
+  }
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.

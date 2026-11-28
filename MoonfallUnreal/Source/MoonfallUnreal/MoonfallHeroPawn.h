@@ -109,6 +109,11 @@ public:
  TArray<TWeakObjectPtr<class AMoonfallAirPocket>> NearbyAirPocketCandidates;
  FVector LastAirPocketQueryEye=FVector::ZeroVector;
  double LastAirPocketQueryTime=-1.0;
+ // Advisory only; never grants breathing or moves the hero.
+ TWeakObjectPtr<class AMoonfallAirPocket> GuidedAirPocket;
+ double LastAirGuideTime=-1.0;
+ void RefreshAirPocketGuide();
+ bool GetAirPocketGuide(FVector& Direction,float& DistanceMeters) const;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
  bool CanSteerSwimming() const;

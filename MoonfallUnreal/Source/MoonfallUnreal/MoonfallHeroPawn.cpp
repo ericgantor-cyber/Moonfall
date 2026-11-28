@@ -851,6 +851,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    WaterVerticalSpeed = float(Velocity.Z);
   }
  }
+ RefreshAirPocketGuide();
  RefreshSwimPose();
  if (bWasSwimming != bWaterSwimming || bWasSubmerged != bWaterSubmerged) {
   OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
@@ -1839,6 +1840,65 @@ bool AMoonfallHeroPawn::TryEmergencySurface() {
  // The normal native water-state update restores air only after leaving water.
  return true;
 }
+void AMoonfallHeroPawn::RefreshAirPocketGuide()
+{
+ if (!bWaterSubmerged || bInsideAirPocket || !CanSteerSwimming()) {
+  GuidedAirPocket.Reset(); LastAirGuideTime=-1.0; return;
+ }
+ auto* World=GetWorld();
+ if (!IsValid(World)) return;
+ const double Now=World->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) { GuidedAirPocket.Reset(); LastAirGuideTime=-1.0; return; }
+ if (LastAirGuideTime>=0.0 && Now>=LastAirGuideTime && Now-LastAirGuideTime<0.5) return;
+ LastAirGuideTime=Now;
+ GuidedAirPocket.Reset();
+ const auto* Volume=GetPhysicsVolume();
+ const FVector Eye=GetPawnViewLocation();
+ if (!IsValid(Volume) || !Volume->bWaterVolume || Eye.ContainsNaN()) return;
+ const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+ if (!Bounds.IsValid || !Bounds.IsInsideOrOn(Eye)) return;
+ TArray<FOverlapResult> Hits;
+ FCollisionObjectQueryParams Objects;
+ Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAirGuide),false,this);
+ World->OverlapMultiByObjectType(Hits,Eye,FQuat::Identity,Objects,FCollisionShape::MakeSphere(1200.f),Params);
+ double BestSq=FMath::Square(1200.0);
+ FVector BestCenter=FVector::ZeroVector;
+ for (const FOverlapResult& Hit:Hits) {
+  auto* Pocket=Cast<AMoonfallAirPocket>(Hit.GetActor());
+  FVector Center; float Radius=0.f;
+  if (!IsValid(Pocket) || !Pocket->GetBreathingSphere(Center,Radius) || !Bounds.IsInsideOrOn(Center)) continue;
+  const double DistanceSq=FVector::DistSquared(Eye,Center);
+  if (FMath::IsFinite(DistanceSq) && DistanceSq<BestSq) {
+   BestSq=DistanceSq; BestCenter=Center; GuidedAirPocket=Pocket;
+  }
+ }
+ if (auto* Pocket=GuidedAirPocket.Get()) {
+  Params.AddIgnoredActor(Pocket);
+  FHitResult Hit;
+  if (World->LineTraceSingleByChannel(Hit,Eye,BestCenter,ECC_Visibility,Params)) GuidedAirPocket.Reset();
+ }
+}
+
+bool AMoonfallHeroPawn::GetAirPocketGuide(FVector& Direction,float& DistanceMeters) const
+{
+ Direction=FVector::ZeroVector; DistanceMeters=0.f;
+ const auto* Pocket=GuidedAirPocket.Get();
+ const auto* Volume=GetPhysicsVolume();
+ FVector Center; float Radius=0.f;
+ if (!bWaterSubmerged || bInsideAirPocket || !CanSteerSwimming() || !IsValid(Pocket)
+     || !IsValid(Volume) || !Volume->bWaterVolume || !Pocket->GetBreathingSphere(Center,Radius)) return false;
+ const FBox Bounds=Volume->GetComponentsBoundingBox(true);
+ const FVector Eye=GetPawnViewLocation();
+ if (!Bounds.IsValid || Eye.ContainsNaN() || !Bounds.IsInsideOrOn(Eye) || !Bounds.IsInsideOrOn(Center)) return false;
+ const FVector Delta=Center-Eye;
+ const double Distance=Delta.Size();
+ if (!FMath::IsFinite(Distance) || Distance<=Radius || Distance>1200.0) return false;
+ Direction=Delta/Distance;
+ DistanceMeters=float((Distance-Radius)/100.0);
+ return true;
+}
+
 bool AMoonfallHeroPawn::CanSteerSwimming() const
 {
  const auto* Movement=GetCharacterMovement();
@@ -6354,6 +6414,8 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  bInsideAirPocket = false;
  NearbyAirPocketCandidates.Reset();
  LastAirPocketQueryTime=-1.0;
+ GuidedAirPocket.Reset();
+ LastAirGuideTime=-1.0;
  // Respawn begins a fresh sword sequence; never inherit a pre-death swing,
  // combo target or cooldown from the defeated character.
  DodgeBuffer.Clear();

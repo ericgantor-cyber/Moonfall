@@ -14,5 +14,6 @@ public:
     AMoonfallAirPocket();
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Water")
     USphereComponent* BreathingZone;
+    bool GetBreathingSphere(FVector& Center,float& Radius) const;
     bool ContainsEye(const FVector& EyeLocation) const;
 };

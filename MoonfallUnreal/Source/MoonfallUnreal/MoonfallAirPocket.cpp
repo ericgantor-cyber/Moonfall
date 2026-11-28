@@ -14,13 +14,20 @@ AMoonfallAirPocket::AMoonfallAirPocket()
     BreathingZone->SetGenerateOverlapEvents(true);
 }
 
+bool AMoonfallAirPocket::GetBreathingSphere(FVector& Center,float& Radius) const
+{
+    Center=FVector::ZeroVector; Radius=0.f;
+    if (IsActorBeingDestroyed() || !GetActorEnableCollision() || !IsValid(BreathingZone)
+        || !BreathingZone->IsQueryCollisionEnabled()) return false;
+    Center=BreathingZone->GetComponentLocation();
+    Radius=BreathingZone->GetScaledSphereRadius();
+    return !Center.ContainsNaN() && FMath::IsFinite(Radius) && Radius>0.f;
+}
+
 bool AMoonfallAirPocket::ContainsEye(const FVector& EyeLocation) const
 {
-    if (IsActorBeingDestroyed() || !GetActorEnableCollision() || !IsValid(BreathingZone)
-        || !BreathingZone->IsQueryCollisionEnabled() || EyeLocation.ContainsNaN()) return false;
-    const FVector Center = BreathingZone->GetComponentLocation();
-    const float Radius = BreathingZone->GetScaledSphereRadius();
-    const double DistanceSquared=FVector::DistSquared(EyeLocation, Center);
-    return !Center.ContainsNaN() && FMath::IsFinite(Radius) && Radius > 0.f
-        && FMath::IsFinite(DistanceSquared) && DistanceSquared <= FMath::Square(double(Radius));
+    FVector Center; float Radius=0.f;
+    if (EyeLocation.ContainsNaN() || !GetBreathingSphere(Center,Radius)) return false;
+    const double DistanceSquared=FVector::DistSquared(EyeLocation,Center);
+    return FMath::IsFinite(DistanceSquared) && DistanceSquared<=FMath::Square(double(Radius));
 }
