@@ -5974,8 +5974,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
   for(int32 I=0;I<Pair.Value.Count;++I){
    const auto Entry=Pair.Value.Get(I);
    const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Entry.Code);
-   if(!ValidMoonfallItemCode(Entry.Code)||Entry.Price<=0||Entry.Price!=MoonfallMoney::GearSalePrice(Item.Tier,Item.Rarity,Item.Trait))return false;
-   FMoonfallBuybackEntry SavedEntry;SavedEntry.Code=Entry.Code;SavedEntry.Price=Entry.Price;
+   if(!ValidMoonfallItemCode(Entry.Code)||!MoonfallMoney::ValidHistoricalSale(Entry.PriceVersion,Item.Tier,Item.Rarity,Item.Trait,Entry.Price))return false;
+   FMoonfallBuybackEntry SavedEntry;SavedEntry.Code=Entry.Code;SavedEntry.Price=Entry.Price;SavedEntry.PriceVersion=Entry.PriceVersion;
    Record.Entries.Add(SavedEntry);
   }
   Save->MerchantBuybackRecords.Add(Pair.Key,MoveTemp(Record));
@@ -6032,7 +6032,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   for(int32 I=Pair.Value.Entries.Num()-1;I>=0;--I){
    const auto& Entry=Pair.Value.Entries[I];
    const auto Item=MoonfallEquipmentLayout::DecodeFullItem(Entry.Code);
-   if(!ValidMoonfallItemCode(Entry.Code)||Entry.Price!=MoonfallMoney::GearSalePrice(Item.Tier,Item.Rarity,Item.Trait)||!History.Push(Entry.Code,Entry.Price)){
+   if(!ValidMoonfallItemCode(Entry.Code)||!MoonfallMoney::ValidHistoricalSale(Entry.PriceVersion,Item.Tier,Item.Rarity,Item.Trait,Entry.Price)||!History.Push(Entry.Code,Entry.Price,Entry.PriceVersion)){
     bPersistentSaveWritesBlocked=true;return false;
    }
   }
