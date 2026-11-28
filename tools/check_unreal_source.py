@@ -905,6 +905,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("CanOpenInventorySearch()", body)
             self.assertNotIn("SaveWorldProgress", body)
 
+    def test_committed_bag_removal_preserves_selection_identity(self):
+        hero = self.hero_cpp
+        helper = hero.split("void AMoonfallHeroPawn::ReconcileRemovedInventorySelection(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(RemovedIndex!=INDEX_NONE)", helper)
+        self.assertIn("if(InventorySelection==RemovedIndex)InventorySelection=INDEX_NONE;", helper)
+        self.assertIn("else if(InventorySelection>RemovedIndex)--InventorySelection;", helper)
+        self.assertIn("ReconcileCraftedInventorySelection();", helper)
+        for method, call in (("SellMerchantItem", "ReconcileRemovedInventorySelection(Index);"),
+                             ("ChooseVaultAction", "ReconcileRemovedInventorySelection(bVaultWithdraw?INDEX_NONE:Index);"),
+                             ("TradeCompanionGear", "ReconcileRemovedInventorySelection(Index);"),
+                             ("BuyMerchantItem", "ReconcileCraftedInventorySelection();")):
+            body = hero.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1].split("\n}", 1)[0]
+            self.assertLess(body.index("SaveWorldProgress()"), body.index(call))
+
     def test_crafting_reconciles_filters_without_selecting_unrelated_item(self):
         hero = self.hero_cpp
         reconcile = hero.split("void AMoonfallHeroPawn::ReconcileCraftedInventorySelection()", 1)[1].split("\n}", 1)[0]
@@ -1545,8 +1559,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!bInventoryOpen) {", self.hero_cpp)
         self.assertIn("bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("bSpellBookOpen = false;", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen && !bSpellBookOpen) if(IsInventorySelectionVisible())ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
@@ -1902,8 +1916,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
-        self.assertIn("if (InventorySelection > InventoryIndex) --InventorySelection;", salvage)
-        self.assertIn("KeepInventorySelectionVisible();", salvage)
+        self.assertIn("ReconcileRemovedInventorySelection(InventoryIndex);", salvage)
         self.assertIn("Worn[Slot] = GetRawEquipmentSlotCode(Slot);", salvage)
         self.assertIn("Slot < MoonfallEquipmentLayout::ActiveSlotCount", salvage)
         self.assertIn("MoonfallEquipmentLayout::CanRemoveFullCopy(Code,Worn,", salvage)
