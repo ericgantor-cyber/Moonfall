@@ -764,6 +764,16 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[2]=FString::Printf(TEXT("%s%s | %s"),Hero->IsMerchantConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
     Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
     Names[4]=TEXT("Back");
+    Names[5]=Hero->GetBagUpgradeText();
+    Names[6]=TEXT("Storage vault");
+    if(Mode==0){Names[0]=TEXT("Prev item");Names[1]=TEXT("Next item");Names[7]=TEXT("Previous 25 bag items");Names[8]=TEXT("Next 25 bag items");
+     if(W<420.f){Names[7]=TEXT("Prev 25");Names[8]=TEXT("Next 25");}}
+    if(Hero->bResidentVaultMenu){
+     Names[0]=TEXT("Previous item");Names[1]=TEXT("Next item");
+     Names[2]=Hero->CanTransferVaultItem()?FString::Printf(TEXT("%s%s"),Hero->IsVaultConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Hero->bVaultWithdraw?TEXT("Withdraw"):TEXT("Deposit")):Hero->GetVaultTransferStatusText();
+     Names[3]=Hero->bVaultWithdraw?TEXT("Browse bag"):TEXT("Browse vault");Names[4]=TEXT("Back to merchant");
+     Names[5]=TEXT("Previous 25 items");Names[6]=TEXT("Next 25 items");
+    }
    }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
@@ -853,18 +863,19 @@ void AMoonfallCombatHUD::DrawHUD()
     bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
    const float Pitch=Hero->GetResidentContextRowPitch(H);
    for (int32 Row = 0; Row < Hero->GetResidentContextRowCount(); ++Row) {
-    const float Y = T + 122.f + Row * Pitch;
-    const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
-      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + Pitch-10.f;
+    const FBox2D Bounds=Hero->GetResidentContextActionBounds(Row,W,H);
+    const float X=L+Bounds.Min.X,Y=T+Bounds.Min.Y;
+    const float ActionW=Bounds.Max.X-Bounds.Min.X,ActionH=Bounds.Max.Y-Bounds.Min.Y;
+    const bool bHover=bCursorInMenu&&Bounds.IsInsideOrOn(FVector2D(CursorX-L,CursorY-T));
     DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
-        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, Pitch-10.f);
+        : FLinearColor(0.10f,0.10f,0.18f,0.94f), X, Y, ActionW, ActionH);
     if (Row == Hero->ResidentContextSelection)
-     DrawSelectionRail(L+14.f,Y,Pitch-10.f);
-    DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
+     DrawSelectionRail(X,Y,ActionH);
+    DrawHoverFrame(X,Y,ActionW,ActionH);
     DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
-        L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
+        X + 11.f, Y + 4.f, nullptr, ActionW<225.f?0.62f:Pitch<40.f?0.75f:1.f);
    }
    const FString ContractStatus = bNoContract ? TEXT("None")
      : Quest == 0 ? TEXT("Available")
@@ -876,7 +887,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
-   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantTradeItemText();
+   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->bResidentVaultMenu?Hero->GetVaultSelectionText():Hero->GetMerchantTradeItemText();
    if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
    if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
@@ -905,7 +916,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextVisualRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
@@ -930,7 +941,10 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
-   else if(Hero->bResidentMerchantMenu) {
+   else if(Hero->bResidentVaultMenu){
+     DrawText(FString::Printf(TEXT("Bag %d/%d | Vault %d/%d"),Hero->InventoryItemCodes.Num(),Hero->BagCapacity,Hero->VaultItemCodes.Num(),MoonfallMoney::VaultMax),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
+    }
+    else if(Hero->bResidentMerchantMenu) {
     DrawText(Hero->GetMerchantTradeStatusText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
    }
    else if (bQuestRewardVisible) {
@@ -941,7 +955,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (W>=480.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
     DrawText(RewardLabel, FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.65f:0.76f);
    }
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+   if(H>=337.f+53.f*(Hero->GetResidentContextVisualRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
    DrawLiveMenuHitCue();
@@ -2386,10 +2400,11 @@ void AMoonfallCombatHUD::DrawHUD()
           Hero->InventorySortMode == 1 ? TEXT("SORT: QLTY") : TEXT("SORT: SLOT"))
        : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
           Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
-     FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+     FLinearColor::White, SortX + 7.f, SortY + 3.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+   DrawText(TEXT("RMB: FILTER"),FLinearColor(0.75f,0.82f,0.94f),SortX+7.f,SortY+18.f,nullptr,0.44f);
   // Match HitTestInventoryEquipButton exactly: wide panels only.
   // Row clicks remain selection-only; this is a separate explicit action.
-  if (PanelWidth >= 550.f && Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) {
+  if (PanelWidth >= 550.f && Hero->IsInventorySelectionVisible()) {
    const float EquipX = Left + PanelWidth - 186.f;
    const float EquipY = Top + 87.f;
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
@@ -2419,7 +2434,8 @@ void AMoonfallCombatHUD::DrawHUD()
        X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
        Slot == 0 ? 0.55f : 0.68f);
   }
-  const int32 Count = Hero->InventoryItemCodes.Num();
+  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
+  const int32 Count = DisplayOrder.Num();
   const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
   // Identical rings are fungible codes, not individually tracked bag instances.
   // Report aggregate copies instead of marking every duplicate as equipped.
@@ -2436,21 +2452,25 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
-  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
-  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
+  const int32 Selected = Hero->IsInventorySelectionVisible()?Hero->InventorySelection:INDEX_NONE;
   const int32 HoveredIndex = Hero->HitTestInventoryRow();
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
-    Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
-    PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
-  DrawText(FString::Printf(TEXT("Wallet: %s"), *Hero->GetWalletText()),
+  DrawText(FString::Printf(TEXT("%s | %d-%d/%d | %d S"),
+    *Hero->GetInventoryFilterLabel(), Count == 0 ? 0 : PageStart + 1,
+    PageEnd, Count, Hero->Salvage), FLinearColor(0.75f,0.72f,0.91f),
+    Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.48f : 0.68f);
+  const float SearchX=Left+PanelWidth-112.f,SearchY=Top+44.f;
+  DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f),SearchX,SearchY,98.f,15.f);
+  DrawHoverFrame(SearchX,SearchY,98.f,15.f);
+  DrawText(Hero->InventorySearchText.IsEmpty()?FString(TEXT("F9/L3: SEARCH")):FString::Printf(TEXT("F9: %s"),*Hero->InventorySearchText.Left(10)),
+    FLinearColor::White,SearchX+4.f,SearchY+2.f,nullptr,0.55f);
+  DrawText(FString::Printf(TEXT("Bag %d/%d | %s"), Hero->InventoryItemCodes.Num(),Hero->BagCapacity,*Hero->GetWalletText()),
     FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
     nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)
-   DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
+   DrawText(Hero->InventoryRarityFilter==-1&&Hero->InventorySearchText.IsEmpty()?TEXT("No equipment yet."):TEXT("No matches. F9 search / RMB filter."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
   const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {

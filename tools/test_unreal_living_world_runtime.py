@@ -419,9 +419,22 @@ int main(){
             "void AMoonfallHeroPawn::TalkToNearestNPC()",1)[0]
         panel=hud.split("// Native Canvas resident menu.",1)[1].split("if (Hero->bAtlasOpen)",1)[0]
         for shared in ("GetResidentContextRowCount()","GetResidentContextPanelHeight(",
-                       "GetResidentContextRowPitch(","122.f + Row * Pitch","Pitch-10.f"):
+                       "GetResidentContextActionBounds(","Bounds.IsInsideOrOn("):
             self.assertIn(shared,mouse)
             self.assertIn(shared,panel)
+        bounds=hero.split("FBox2D AMoonfallHeroPawn::GetResidentContextActionBounds(",1)[1].split("\n}",1)[0]
+        self.assertIn("GetResidentContextRowPitch(PanelHeight)",bounds)
+        self.assertIn("Row<2?0:Row>=7?6:Row-1",bounds)
+        self.assertIn("PanelWidth-34.f",bounds)
+        self.assertIn("122.f+VisualRow*Pitch",bounds)
+        self.assertIn("Y+Pitch-10.f",bounds)
+        nav=hero.split("bool AMoonfallHeroPawn::NavigateResidentContextHorizontal(",1)[1].split("\n}",1)[0]
+        self.assertIn("ResidentContextSelection==1||ResidentContextSelection==8",nav)
+        self.assertIn("ResidentContextSelection==0||ResidentContextSelection==7",nav)
+        self.assertIn("!bResidentMerchantMenu||bResidentVaultMenu||MerchantTradeMode!=0",nav)
+        self.assertNotIn("ChooseResidentContextAction",nav)
+        self.assertIn("NavigateResidentContextHorizontal(-1);return;",hero)
+        self.assertIn("NavigateResidentContextHorizontal(1);return;",hero)
         self.assertIn("ChooseResidentContextAction(Row)",mouse)
         self.assertIn("HasResidentContextPointerSurface(Width,Height)",mouse)
         self.assertIn("Hero->HasResidentContextPointerSurface(Canvas->SizeX,Canvas->SizeY)",panel)
@@ -544,7 +557,7 @@ int main(){
         self.assertIn("bool bResidentCompanionTalents=false",header)
         self.assertIn("if(bResidentCompanionTalents)return 5;",hero)
         self.assertIn("Mode->GetLocalCompanion()==Resident?9:3;",hero)
-        self.assertIn("345.f+53.f*(GetResidentContextRowCount()-3)",hero)
+        self.assertIn("345.f+53.f*(GetResidentContextVisualRowCount()-3)",hero)
         self.assertIn("if(Choice==4){bResidentCompanionTalents=true;ResidentContextSelection=0;return true;}",choose)
         self.assertIn("if(Choice==3){bResidentCompanionTalents=false;bResidentCompanionTraining=false;ResidentContextSelection=0;return true;}",choose)
         self.assertIn("if(Choice<0||Choice>2)return false;",choose)
@@ -668,7 +681,7 @@ int main(){
         trade=hero.split("bool AMoonfallHeroPawn::TradeCompanionGear(",1)[1].split(
             "uint32 AMoonfallHeroPawn::GetCompanionProfile(",1)[0]
         for guard in ("HasAuthority()","CanHeroInteract(this)","IsRecentlyInCombatForAmbientAI()",
-                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","InventoryItemCodes.Num()>=10000"):
+                      "Mode->GetLocalCompanion()!=Resident","Code==Worn[Slot]","!HasBagRoom()"):
             self.assertIn(guard,trade)
         self.assertIn("InventoryItemCodes.RemoveAt(Index)",trade)
         self.assertIn("InventoryItemCodes.Add(Old)",trade)

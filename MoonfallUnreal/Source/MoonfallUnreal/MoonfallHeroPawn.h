@@ -27,6 +27,8 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UNiagaraSystem;
 class UNiagaraComponent;
+class SWidget;
+class UGameViewportClient;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -210,6 +212,8 @@ public:
  bool bMerchantConfirmPending=false;
  int32 MerchantConfirmMode=-1,MerchantConfirmCode=0,MerchantConfirmIndex=-1;
  int64 MerchantConfirmPrice=0;
+ int64 MerchantConfirmWallet=-1;
+ FName MerchantConfirmResident=NAME_None;
  uint32 MerchantConfirmRevision=0;
  double MerchantConfirmAfter=0.0;
  uint64 MerchantConfirmLoadout=0;
@@ -222,6 +226,9 @@ public:
  int32 GetResidentContextRowCount() const;
  float GetResidentContextPanelHeight(float ViewportHeight) const;
  float GetResidentContextRowPitch(float PanelHeight) const;
+ int32 GetResidentContextVisualRowCount() const;
+ bool NavigateResidentContextHorizontal(int32 Direction);
+ FBox2D GetResidentContextActionBounds(int32 Row,float PanelWidth,float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  // -1 merchant, -2 recipe list, 0-2 recipe detail.
@@ -526,6 +533,26 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootSlot = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootUpgrade = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 BagCapacity=MoonfallMoney::BagStart;
+ bool HasBagRoom() const {return MoonfallMoney::BagHasRoom(InventoryItemCodes.Num(),BagCapacity);}
+ int32 PendingBagUpgradeCapacity=0;
+ double BagUpgradeConfirmAfter=0.0;
+ int64 PendingBagUpgradeWallet=-1;
+ FString GetBagUpgradeText() const;
+ bool IsBagUpgradeConfirmationCurrent() const;
+ bool ConfirmBagUpgrade();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> VaultItemCodes;
+ bool bResidentVaultMenu=false,bVaultWithdraw=false;
+ int32 VaultSelection=0,PendingVaultCode=0,PendingVaultIndex=-1;
+ uint32 PendingVaultRevision=0;
+ uint64 PendingVaultLoadout=0;
+ double VaultConfirmAfter=0.0;
+ bool bPendingVaultWithdraw=false;
+ bool CanTransferVaultItem() const;
+ FString GetVaultTransferStatusText() const;
+ bool IsVaultConfirmationCurrent() const;
+ FString GetVaultSelectionText() const;
+ bool ChooseVaultAction(int32 Choice);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
  // Transient atlas navigation, never written into save data.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
@@ -579,6 +606,24 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
  // Transient display mode: original order, rarity, then equipment slot.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
+ int32 InventoryRarityFilter=-1;
+ FString InventorySearchText;
+ void OpenInventorySearch();
+ void ControllerSprintOrSearch();
+ bool bInventorySearchControllerEntry=false;
+ void CloseInventorySearch();
+ void SetInventorySearchText(const FString& Text);
+ bool CanOpenInventorySearch() const;
+ bool HitTestInventorySearchButton() const;
+ TSharedPtr<SWidget> InventorySearchOverlay;
+ TWeakObjectPtr<UGameViewportClient> InventorySearchViewport;
+ TWeakObjectPtr<APlayerController> InventorySearchController;
+ bool MatchesInventoryFilter(int32 Index) const;
+ bool IsInventorySelectionVisible() const;
+ void CycleInventoryRarityFilter();
+ void SetInventoryRarityFilter(int32 Rarity);
+ void ResetInventoryFilters();
+ FString GetInventoryFilterLabel() const;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
  bool HitTestInventoryEquipButton() const;
@@ -600,6 +645,8 @@ public:
  // Matches the Canvas inventory row capacity on the active viewport.
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
+ void ReconcileCraftedInventorySelection();
+ void ReconcileRemovedInventorySelection(int32 RemovedIndex);
  // Read-only pointer hit test sharing the inventory Canvas row geometry.
  int32 HitTestInventoryRow() const;
  bool HitTestInventoryBagDropSurface() const;
@@ -680,6 +727,10 @@ private:
  uint32 EquipmentInventoryRevision=1;
  mutable uint32 CachedInventoryOrderRevision=0;
  mutable int32 CachedInventoryOrderMode=-1;
+ mutable int32 CachedInventoryFilter=-2;
+ mutable FString CachedInventorySearchText;
+ mutable FString ParsedInventorySearchText;
+ mutable TArray<FString> ParsedInventorySearchTerms;
  mutable TArray<int32> CachedInventoryOrder;
  mutable TArray<int32> CachedInventoryOrderSource;
  mutable uint32 CachedValidatedInventoryRevision=0;

@@ -7,6 +7,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
+#include "MoonfallMoney.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -238,6 +239,8 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Fresh equipment save has nine slots"), Original->EquippedSlotCodes.Num(), 9);
  TestEqual(TEXT("Fresh merchant stock has four faction groups"),Original->MerchantRestockUtc.Num(),4);
  for(const int64 Deadline:Original->MerchantRestockUtc)TestEqual(TEXT("Fresh specialty is ready"),Deadline,int64(0));
+ TestEqual(TEXT("Default bag capacity"),Original->BagCapacity,100);
+ Original->BagCapacity=350;
  Original->WalletCopper=123456;
  Original->MerchantRestockUtc={0,1800000000LL,1800001800LL,0};
  TestEqual(TEXT("Fresh buyback history is empty"),Original->MerchantBuybackRecords.Num(),0);
@@ -257,6 +260,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   if (!TestNotNull(TEXT("Deserialize equipment record from memory"), Restored)) return false;
   TestEqual(TEXT("Schema version preserved"), Restored->Version, Version);
   TestEqual(TEXT("Wallet copper round trips"),Restored->WalletCopper,Original->WalletCopper);
+  TestEqual(TEXT("Bag capacity round trips"),Restored->BagCapacity,Original->BagCapacity);
   TestTrue(TEXT("Faction restock timestamps round trip"),Restored->MerchantRestockUtc==Original->MerchantRestockUtc);
   const auto* Buyback=Restored->MerchantBuybackRecords.Find(FName(TEXT("Anvilkeeper")));
   if(!TestTrue(TEXT("Named merchant history round trips"),Buyback&&Buyback->Entries.Num()==1))return false;
@@ -447,6 +451,55 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  if(!RejectSerialized(TEXT("Serialized V19 truncated record rejected"),19,ShortV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V19 oversized record rejected"),19,LongV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V20 future schema rejected"),20,Future,Future))return false;
+ return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallInventoryStorageSaveTest,
+  "Moonfall.Dungeons.InventoryStorageSaveRoundTrip",
+  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMoonfallInventoryStorageSaveTest::RunTest(const FString& Parameters)
+{
+ // Memory-only: exercise actual Unreal tagged property serialization without
+ // touching a player's save slot or normalizing malformed records.
+ UMoonfallPersistentSave* Original=Cast<UMoonfallPersistentSave>(
+  UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if(!TestNotNull(TEXT("Create inventory storage fixture"),Original))return false;
+ TestEqual(TEXT("Default bag size"),Original->BagCapacity,MoonfallMoney::BagStart);
+ TestEqual(TEXT("Default vault empty"),Original->VaultItemCodes.Num(),0);
+ const auto RoundTrip=[this,Original]()->bool{
+  TArray<uint8> Bytes;
+  if(!TestTrue(TEXT("Serialize storage to memory"),UGameplayStatics::SaveGameToMemory(Original,Bytes)))return false;
+  const auto* Restored=Cast<UMoonfallPersistentSave>(UGameplayStatics::LoadGameFromMemory(Bytes));
+  if(!TestNotNull(TEXT("Restore storage fixture"),Restored))return false;
+  TestEqual(TEXT("Bag capacity preserved"),Restored->BagCapacity,Original->BagCapacity);
+  TestEqual(TEXT("Wallet preserved"),Restored->WalletCopper,Original->WalletCopper);
+  TestTrue(TEXT("Exact bag order and duplicates preserved"),Restored->InventoryItemCodes==Original->InventoryItemCodes);
+  TestTrue(TEXT("Exact vault order and duplicates preserved"),Restored->VaultItemCodes==Original->VaultItemCodes);
+  TestTrue(TEXT("Equipped references preserved"),Restored->EquippedSlotCodes==Original->EquippedSlotCodes);
+  return true;
+ };
+ if(!RoundTrip())return false;
+ Original->BagCapacity=MoonfallMoney::BagMax;
+ Original->WalletCopper=1234567;
+ const int32 Ring=MoonfallEquipmentLayout::EncodeFullItem(8,1,2,5);
+ const int32 Weapon=MoonfallEquipmentLayout::EncodeFullItem(0,1,2,5);
+ TestTrue(TEXT("Valid fixture equipment"),Ring>0&&Weapon>0);
+ Original->EquippedSlotCodes[0]=Weapon;
+ Original->EquippedWeaponCode=Weapon;
+ for(int32 I=0;I<MoonfallMoney::BagMax;++I)
+  Original->InventoryItemCodes.Add(I%3==0?Weapon:Ring);
+ for(int32 I=0;I<MoonfallMoney::VaultMax;++I)
+  Original->VaultItemCodes.Add(I%3==0?Ring:Weapon);
+ if(!RoundTrip())return false;
+ // Older oversized bags must retain all existing copies on serialization.
+ Original->BagCapacity=MoonfallMoney::BagStart;
+ if(!RoundTrip())return false;
+ // Serialization must not silently repair malformed input; the loader
+ // owns validation, so test exact preservation at the boundary.
+ Original->VaultItemCodes.Add(0);
+ Original->BagCapacity=101;
+ if(!RoundTrip())return false;
  return !HasAnyErrors();
 }
 
