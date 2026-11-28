@@ -81,6 +81,8 @@ void AMoonfallNorthFerryGate::EndPlay(const EEndPlayReason::Type EndPlayReason) 
 }
 
 void AMoonfallNorthFerryGate::StopAutomaticVoyage(bool bArrived) {
+ if (bStoppingVoyage) return;
+ TGuardValue<bool> StopGuard(bStoppingVoyage, true);
  if (GetWorld()) GetWorld()->GetTimerManager().ClearTimer(AutomaticVoyageTimer);
  AMoonfallHeroPawn* Hero = PendingVoyager.Get();
  AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
@@ -280,6 +282,7 @@ bool AMoonfallNorthFerryGate::FindSafeDryLandingAt(
 bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
  // The boat sails itself. There is no helm, player acceleration, steering
  // or enemy encounter code in this finite-duration boarding gate.
+ if (bBoardingTransaction || bStoppingVoyage || IsActorBeingDestroyed()) return false;
  if (!HasConfiguredPassage() || bAutoVoyageInProgress || !IsValid(Hero) || !IsValid(PairedGate)
      || PairedGate == this || !IsValid(SailingVessel)
      || !IsValid(PairedGate->SailingVessel) || SailingVessel == PairedGate->SailingVessel
@@ -287,8 +290,11 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
      || GetWorld() != PairedGate->GetWorld()
      || SailingVessel->GetWorld() != GetWorld()
      || PairedGate->SailingVessel->GetWorld() != GetWorld()
-     || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress)
+     || !Hero->IsPlayerControlled() || PairedGate->bAutoVoyageInProgress
+     || PairedGate->bBoardingTransaction || PairedGate->bStoppingVoyage
+     || PairedGate->IsActorBeingDestroyed())
   return false;
+ TGuardValue<bool> BoardingGuard(bBoardingTransaction, true);
  // A visually plausible editor marker is not proof of dry land. Both
  // departure and return routes require collision-backed walkable ground.
  FVector Destination;
@@ -444,6 +450,7 @@ bool AMoonfallNorthFerryGate::BoardFerry(AMoonfallHeroPawn* Hero) {
 }
 
 void AMoonfallNorthFerryGate::UpdateAutomaticVoyage() {
+ if (bBoardingTransaction || bStoppingVoyage) return;
  AMoonfallHeroPawn* Hero = PendingVoyager.Get();
  AMoonfallNorthFerryGate* Arrival = PendingArrivalGate.Get();
  AMoonfallNorthGothicFerryActor* Ship = PendingShip.Get();
