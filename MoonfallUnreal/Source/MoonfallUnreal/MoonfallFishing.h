@@ -5,6 +5,11 @@ namespace MoonfallFishing
     constexpr int Rank(int Catches) { return Catches<0?1:Catches>=27?10:1+Catches/3; }
     constexpr int RodTier(int Catches) { return 1+(Rank(Catches)-1)/3; }
     constexpr float CastReach(int Catches) { return 850.f+100.f*(RodTier(Catches)-1); }
+    inline bool InCastRange(double DistanceSquared,float Reach)
+    {
+        return std::isfinite(DistanceSquared)&&std::isfinite(Reach)&&Reach>=100.f
+            && DistanceSquared>=100.0*100.0&&DistanceSquared<=double(Reach)*Reach;
+    }
     constexpr double BiteSeconds(int Catches) { return 10.0+(Rank(Catches)-1)*0.5; }
     constexpr double CastWait(double Roll,int Catches) {
         const double Bounded=Roll>=0.0&&Roll<=1.0?Roll:0.5;
@@ -76,6 +81,10 @@ namespace MoonfallFishing
             HookWindow=BiteSeconds(Catches); Stage=EStage::Waiting; StageStarted=Now; Deadline=Now+Wait; return true;
         }
         bool Hook(double Now) {
+            // Input can arrive just before the tick that announces the bite.
+            // Promote only a due waiting cast, never an early click.
+            if(Stage==EStage::Waiting && std::isfinite(Now) && Now>=Deadline)
+                Advance(Now,true);
             if(Stage!=EStage::Bite||!std::isfinite(Now)||Now<StageStarted||Now>=Deadline||Now+1.5<=Now||!std::isfinite(Now+1.5)) return false;
             Stage=EStage::Reeling; StageStarted=Now; Deadline=Now+1.5; return true;
         }
