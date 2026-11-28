@@ -948,7 +948,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
   const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
   bool bCaughtThisTick=false;
-  if (Fishing.Advance(Now,CanContinueFishing())) {
+  const auto PreviousStage=Fishing.Stage;
+  const bool bEligible=CanContinueFishing();
+  if (Fishing.Advance(Now,bEligible)) {
+   FishingEndNotice=MoonfallFishing::EEndNotice::None;
    auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
    // Reel completion awards directly to profession stock, regardless of
    // ground auto-loot settings. No F pickup or physical loot actor.
@@ -956,7 +959,15 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    FishingNoticeUntil=Now+4.f;
    bCaughtThisTick=bFishingCaught;
   }
-  if (Fishing.Stage==MoonfallFishing::EStage::Idle) FishingWaterVolume.Reset();
+  if (Fishing.Stage==MoonfallFishing::EStage::Idle) {
+   FishingWaterVolume.Reset();
+   const auto EndNotice=MoonfallFishing::EndNotice(PreviousStage,Fishing.Stage,bEligible,Now);
+   if (EndNotice!=MoonfallFishing::EEndNotice::None) {
+    FishingEndNotice=EndNotice;
+    bFishingCaught=false;
+    FishingNoticeUntil=FMath::IsFinite(Now)&&Now>=0.f?Now+4.f:0.f;
+   }
+  }
   SyncFishingPresentation(bCaughtThisTick);
  }
  // Throttled automatic pickup uses the same authoritative world-loot collection API as manual pickup.
@@ -4692,11 +4703,23 @@ void AMoonfallHeroPawn::SyncFishingPresentation(bool bCaught) {
  if(IsValid(Sound)) UGameplayStatics::PlaySound2D(this,Sound);
 }
 
+void AMoonfallHeroPawn::CancelFishingWithFeedback() {
+ if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
+  const float Now=GetWorld()?GetWorld()->GetTimeSeconds():-1.f;
+  FishingEndNotice=MoonfallFishing::EEndNotice::Interrupted;
+  bFishingCaught=false;
+  FishingNoticeUntil=FMath::IsFinite(Now)&&Now>=0.f?Now+4.f:0.f;
+ }
+ Fishing.Cancel();
+ FishingWaterVolume.Reset();
+ SyncFishingPresentation();
+}
+
 bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
- if (!CanContinueFishing()) { Fishing.Cancel(); SyncFishingPresentation(); return false; }
+ if (!CanContinueFishing()) { CancelFishingWithFeedback(); return false; }
  const float Now=GetWorld()->GetTimeSeconds();
  if (Fishing.Stage!=MoonfallFishing::EStage::Idle) {
-  if (!IsFishingWaterValid(true)) { Fishing.Cancel(); FishingWaterVolume.Reset(); SyncFishingPresentation(); return false; }
+  if (!IsFishingWaterValid(true)) { CancelFishingWithFeedback(); return false; }
   if(Fishing.Hook(Now)) SyncFishingPresentation();
   return true;
  }
@@ -4742,7 +4765,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
  }
  if(BestSchoolId>=0) {
   if(!Fishing.Start(Now,MoonfallFishing::SchoolWait(MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount())),Preview->GetOceanCatchCount())) return false;
-  FishingSchoolId=BestSchoolId; FishingProvince=BestProvince; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingWaterVolume=BestVolume; FishingNoticeUntil=0.f;
+  FishingSchoolId=BestSchoolId; FishingProvince=BestProvince; FishingOrigin=GetActorLocation(); FishingBobber=BestSchool; FishingWaterVolume=BestVolume; FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
   SyncFishingPresentation();
   return true;
  }
@@ -4763,7 +4786,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    if(GetWorld()->LineTraceSingleByChannel(Hit,Start,Target,ECC_Visibility,Params)) continue;
    if(!Fishing.Start(Now,MoonfallFishing::CastWait(FMath::FRand(),Preview->GetOceanCatchCount()),Preview->GetOceanCatchCount())) return false;
    FishingOrigin=GetActorLocation(); FishingBobber=Target; FishingWaterVolume=Volume;
-   FishingProvince=ResolveFishingProvince(Volume); FishingNoticeUntil=0.f;
+   FishingProvince=ResolveFishingProvince(Volume); FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
    SyncFishingPresentation();
    return true;
   }
@@ -4779,7 +4802,7 @@ bool AMoonfallHeroPawn::TryFishingAction(const FVector* RequestedWater) {
    FishingOrigin=GetActorLocation();
    FishingBobber=Target;
    FishingProvince=ResolveFishingProvince(Volume);
-   FishingNoticeUntil=0.f;
+   FishingNoticeUntil=0.f; FishingEndNotice=MoonfallFishing::EEndNotice::None;
    SyncFishingPresentation();
    return true;
   }
