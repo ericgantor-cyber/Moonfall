@@ -19,6 +19,11 @@ namespace MoonfallMoney {
    Copper-=Amount;return true;
   }
  };
+ // Deliberately bounded vendor buyback value for one canonical equipment copy.
+ constexpr Coins GearSalePrice(int Tier,int Rarity,int Trait) {
+  return Tier<1||Tier>25||Rarity<0||Rarity>5||Trait<0||Trait>3||(Rarity==0&&Trait!=0)
+   ?0:Coins(25+Tier*15)*(Rarity+1)+Trait*10;
+ }
  constexpr Coins EnemyReward(int Level,bool Elite,bool Boss) {
   return Level<1||Level>100?0:(Boss?1200:Elite?350:100)+Coins(Level-1)*15;
  }
