@@ -36,4 +36,7 @@ private:
  int32 CachedSetPreviewCode = 0;
  double SetPreviewUpdatedAt = -1.0;
  FString CachedSetPreviewLine;
+ TWeakObjectPtr<const AMoonfallHeroPawn> CachedRingCopiesHero;
+ TArray<int32> CachedRingCopiesSource,CachedRingCopiesLoadout;
+ TMap<int32,int32> CachedWornRingCopies,CachedOwnedRingCopies;
 };
