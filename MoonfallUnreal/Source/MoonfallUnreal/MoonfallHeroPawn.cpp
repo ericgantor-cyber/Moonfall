@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallMoney.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallRegionalFishing.h"
 #include "MoonfallRegionalAtlas.h"
@@ -5792,6 +5793,22 @@ bool AMoonfallHeroPawn::RespecTalentPoints() {
  return CommitTalentAllocation(Candidate);
 }
 
+FString AMoonfallHeroPawn::GetWalletText() const {
+ const MoonfallMoney::FWallet Wallet{MoonfallMoney::Valid(WalletCopper)?WalletCopper:0};
+ return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Wallet.Gold()),
+  static_cast<long long>(Wallet.Silver()),static_cast<long long>(Wallet.LooseCopper()));
+}
+
+bool AMoonfallHeroPawn::AwardEnemyCoins(int32 EnemyLevel,bool bElite,bool bBoss) {
+ if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f
+    ||!bWorldProgressInitialized||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return false;
+ MoonfallMoney::FWallet Wallet{WalletCopper};
+ const int64 Reward=MoonfallMoney::EnemyReward(EnemyLevel,bElite,bBoss);
+ if(!Wallet.Credit(Reward))return false;
+ WalletCopper=Wallet.Copper;
+ return true;
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
@@ -5945,6 +5962,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->TalentRanks.Reserve(MoonfallTalents::NodeCount);
  for (const int32 Rank : TalentRanks) Save->TalentRanks.Add(Rank);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ if(!MoonfallMoney::Valid(WalletCopper))return false;
+ Save->WalletCopper=WalletCopper;
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
@@ -5977,7 +5996,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // otherwise an older runtime could silently downgrade the save on autosave.
  constexpr int32 MaxEquipmentSaveVersion=MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::FullSlotCount?19:
      MoonfallEquipmentLayout::ActiveSlotCount==MoonfallEquipmentLayout::SixteenSlotCount?18:17;
- if (!Save || Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion) {
+ if (!Save || Save->Version < 1 || Save->Version > MaxEquipmentSaveVersion || !MoonfallMoney::Valid(Save->WalletCopper)) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -6321,6 +6340,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Restore the same level-derived spell power used by earned level-ups.
  // Do not replay XP awards or add health already recorded in the save.
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
+ WalletCopper=Save->WalletCopper;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
  MaxMana = static_cast<float>(LoadedManaCap);
