@@ -230,7 +230,8 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertNotIn("GetMesh()", pose)
         self.assertNotIn("SetActorRotation", pose)
         self.assertIn("!bSwimming||!bSubmerged||bReducedMotion", rules)
-        self.assertIn("bWaterSubmerged = false;\n RefreshSwimPose();", source)
+        # The depth reset is part of respawn, before the neutral pose refresh.
+        self.assertIn("bWaterSubmerged = false;\n WaterBreathingDepth=0.f;\n RefreshSwimPose();", source)
 
     def test_rooms_do_not_overlap(self):
         rooms = grotto_layout()
