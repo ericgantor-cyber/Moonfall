@@ -891,6 +891,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Mode.SetWidgetToFocus(FirstPreset)", opening)
         for preset in ("Ring", "Weapon", "Armor"):
             self.assertIn(f'ApplyPreset(TEXT("{preset}"))', opening)
+        for rarity, value in (("All", -1), ("Common", 0), ("Uncommon", 1), ("Rare", 2),
+                              ("Epic", 3), ("Emerald", 4), ("Legendary", 5)):
+            self.assertIn(f'RarityButton(TEXT("{rarity}"),{value})', opening)
+        direct = hero.split("void AMoonfallHeroPawn::SetInventoryRarityFilter(", 1)[1].split("\n}", 1)[0]
+        reset = hero.split("void AMoonfallHeroPawn::ResetInventoryFilters()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Rarity< -1||Rarity>5", direct)
+        self.assertIn("InventoryRarityFilter=Rarity;", direct)
+        self.assertIn("InventoryRarityFilter=-1;", reset)
+        self.assertIn("InventorySearchText.Reset();", reset)
+        for body in (direct, reset):
+            self.assertIn("KeepInventorySelectionVisible();", body)
+            self.assertIn("CanOpenInventorySearch()", body)
+            self.assertNotIn("SaveWorldProgress", body)
 
     def test_worn_crafting_preserves_previous_tier_and_commits_before_notifications(self):
         hero = self.hero_cpp
