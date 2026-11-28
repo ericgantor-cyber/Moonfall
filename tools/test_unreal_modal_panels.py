@@ -55,7 +55,7 @@ class TestNativeModalPanels(unittest.TestCase):
         self.assertIn("DrawRect(FLinearColor(1.f,0.80f,0.37f", focus)
         required = (
             "DrawSelectionRail(float(Tab.X),float(Tab.Y),float(Tab.H));",  # talent
-            "DrawSelectionRail(L+14.f,Y,Pitch-10.f);",  # NPC
+            "DrawSelectionRail(X,Y,ActionH);",  # NPC
             "DrawSelectionRail(MenuLeft+10.f,Y,RowHeight);",  # options
             "DrawSelectionRail(Left+12.f,Y-3.f,",  # inventory
             "DrawSelectionRail(Book.RowX,Y,Book.RowHeight);",  # spell book
@@ -92,7 +92,7 @@ class TestNativeModalPanels(unittest.TestCase):
             "DrawHoverFrame(float(Spend.X),float(Spend.Y),float(Spend.W),float(Spend.H));",
             "DrawHoverFrame(float(Respec.X),float(Respec.Y),float(Respec.W),float(Respec.H));",
             "DrawHoverFrame(NpcCloseX,T+12.f,28.f,28.f);",
-            "DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);",
+            "DrawHoverFrame(X,Y,ActionW,ActionH);",
             "DrawHoverFrame(AtlasCloseX,Top+12.f,28.f,28.f);",
             "DrawHoverFrame(Left+13.f,Y-4.f,AtlasSidebarWidth-22.f,RowHeight);",
             "DrawHoverFrame(OptionsCloseX,MenuTop+12.f,28.f,28.f);",
