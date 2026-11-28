@@ -741,7 +741,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 ContractCost=bNoContract?0:Resident->GetContractSalvageCost();
    const auto QuestReward=MoonfallQuestXP::Preview(ContractCost,Hero->Level,
        Hero->Experience,Hero->ExperienceToNextLevel);
-   const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu;
+   const bool bQuestRewardVisible=!bNoContract && Quest<2 && !Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu;
    const auto* IslandPreview=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
    const bool bIslandTrader=IsValid(IslandPreview) && Resident->ActorHasTag(FName(TEXT("MoonfallIslandPreview")))
        && Resident->ResidentId==FName(TEXT("MoonwatchTrader"));
@@ -755,12 +755,15 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
-   if(Hero->CanOpenCoinMerchant())Names[3]=TEXT("Trade spare gear");
+   if(Hero->CanOpenCoinMerchant())Names[3]=TEXT("Trade equipment");
    if(Hero->bResidentMerchantMenu){
-    const int64 Price=Hero->GetMerchantSaleQuote();
-    Names[0]=TEXT("Previous bag item");Names[1]=TEXT("Next bag item");
-    Names[2]=Price>0?FString::Printf(TEXT("Sell for %lld copper"),static_cast<long long>(Price)):FString(TEXT("Cannot sell selected item"));
-    Names[3]=TEXT("Back");
+    const int32 Mode=Hero->MerchantTradeMode;
+    const FString Quote=Hero->GetMerchantTradeQuoteText();
+    Names[0]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Previous stock item"):TEXT("Previous bag item");
+    Names[1]=Mode==2?TEXT("Last sale only"):Mode==1?TEXT("Next stock item"):TEXT("Next bag item");
+    Names[2]=FString::Printf(TEXT("%s | %s"),Mode==0?TEXT("Sell"):Mode==1?TEXT("Buy"):TEXT("Buy back"),*Quote);
+    Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
+    Names[4]=TEXT("Back");
    }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
@@ -873,7 +876,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
-   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantSaleItemText();
+   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantTradeItemText();
    if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
    if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
