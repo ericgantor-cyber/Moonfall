@@ -183,7 +183,10 @@ npc = method_segment("OpenFocusedResidentContext", "void") + pawn[
 assert "if (bTalentWebOpen) { TalentMove(0,-1); return; }" in npc
 # The D-pad Up interaction shortcut must not silently open talents in combat.
 # The web opens explicitly through K, then D-pad Up navigates only inside it.
-assert 'if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;' in npc
+# A missing or unusable NPC may only dispatch the guarded water rescue,
+# and must return before setting up a conversation.
+assert 'if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {\n  if (bWaterSwimming) TryEmergencySurface();\n  return;\n }' in npc
+assert npc.index("if (bWaterSwimming) TryEmergencySurface();") < npc.index("FocusedResident = Resident;")
 assert "ToggleTalentWeb();" not in npc
 assert 'ActionName="TalentWeb",Key=K' in inputs
 assert 'ActionName="ResidentContext",Key=Gamepad_DPad_Up' in inputs

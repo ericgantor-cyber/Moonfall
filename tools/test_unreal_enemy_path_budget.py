@@ -371,7 +371,8 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("if (!bBoss && !bCanSeeHero", self.source)
 
     def test_idle_mesh_updates_skip_identical_scale(self):
-        self.assertIn("const FVector DesiredScale(", self.source)
+        self.assertIn("const FVector DesiredScale = ActorHasTag", self.source)
+        self.assertIn("MoonfallAquatic::Profile(AquaticProfileId).Scale", self.source)
         self.assertIn("Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER)", self.source)
         self.assertIn("Body->SetRelativeScale3D(DesiredScale);", self.source)
 

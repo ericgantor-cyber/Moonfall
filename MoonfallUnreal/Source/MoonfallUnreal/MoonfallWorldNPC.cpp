@@ -3,6 +3,7 @@
 #include "NavigationPath.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallUnrealGameMode.h"
+#include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -428,6 +429,29 @@ EMoonfallNpcMood AMoonfallWorldNPC::GetEmotionalState(const AMoonfallHeroPawn* H
 }
 bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  if (!CanHeroInteract(Hero)) return false;
+ if (ActorHasTag(FName(TEXT("MoonfallIslandPreview")))) {
+  auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+  if (!IsValid(Preview) || Hero->bWaterSwimming) return false;
+  if (ResidentId==FName(TEXT("MoonwatchTrader"))) {
+   LastSpokenLine=FText::FromString(FString::Printf(TEXT("Breath tonic: %d credits. Carry up to three."),Preview->GetIslandTonicPrice()));
+   OnDialogueStarted(Hero,LastSpokenLine);
+   return true;
+  }
+  const int32 Id=ResidentId==FName(TEXT("MoonwatchWarden"))?0:
+      ResidentId==FName(TEXT("MoonwatchCartographer"))?1:
+      ResidentId==FName(TEXT("MoonwatchKeeper"))?2:-1;
+  if (Id<0) return false;
+  const int32 Result=Preview->TalkIslandQuest(Id);
+  const TCHAR* Objective=Id==0?TEXT("Discover both shipwrecks"):
+      Id==1?TEXT("Explore both caverns"):TEXT("Recover all six grotto treasures");
+  LastSpokenLine=FText::FromString(Result==2?FString(TEXT("Contract complete. Moonwatch honors your discovery.")):
+      Result==3?FString(TEXT("Your discovery is recorded. Thank you.")):
+      FString::Printf(TEXT("%s (%d/%d), then return and speak to me."),Objective,
+       Preview->GetIslandQuestProgress(Id),MoonfallIslandQuest::Required(Id)));
+  InteractionCount=FMath::Min(InteractionCount+1,1000000);
+  OnDialogueStarted(Hero,LastSpokenLine);
+  return true;
+ }
  InteractionCount = FMath::Min(InteractionCount + 1, 1000000);
  LastConversationMood=GetEmotionalState(Hero);
  // The existing custom greeting wins; default dialogue reflects ancestry.

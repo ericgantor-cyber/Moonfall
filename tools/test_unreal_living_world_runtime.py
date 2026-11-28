@@ -474,7 +474,11 @@ int main(){
             "bool AMoonfallWorldNPC::OfferResidentQuest(",1)[0]
         self.assertLess(talk.index("CanHeroInteract(Hero)"),talk.index("LastConversationMood=GetEmotionalState"))
         self.assertLess(talk.index("LastConversationMood==EMoonfallNpcMood::Warm"),talk.index("SupportsResidentContract"))
-        self.assertLess(talk.index("LastConversationMood=GetEmotionalState"),talk.index("OnDialogueStarted"))
+        preview, ordinary = talk.split("InteractionCount = FMath::Min(InteractionCount + 1, 1000000);",1)
+        self.assertIn('GetAuthGameMode<AMoonfallNorthPreviewGameMode>()',preview)
+        self.assertIn("if (!IsValid(Preview) || Hero->bWaterSwimming) return false;",preview)
+        self.assertNotIn("AcceptResidentQuest(",preview)
+        self.assertLess(ordinary.index("LastConversationMood=GetEmotionalState"),ordinary.index("OnDialogueStarted"))
         self.assertNotIn("ChangeResidentBond(",mood)
         self.assertNotIn("WitnessNearbyDanger(",mood)
 
@@ -1484,7 +1488,10 @@ int main(){
                         choice.index("Resident->OfferResidentQuest(this)"))
         self.assertIn("const bool bNoContract = Resident->bAmbientVisitor ||",hud)
         self.assertIn("!Hero->SupportsResidentContract(Resident->ResidentId)",hud)
-        self.assertIn('const FString QuestAction = bNoContract ? TEXT("No contract")',hud)
+        self.assertIn('const FString QuestAction = bIslandTrader',hud)
+        self.assertIn('IsValid(IslandPreview) && Resident->ActorHasTag',hud)
+        self.assertIn('bNoContract ? TEXT("No contract")',hud)
+        self.assertIn("bPersistentSaveWritesBlocked && !bWaterSwimming",choice)
         self.assertIn('const FString ContractStatus = bNoContract ? TEXT("None")',hud)
         self.assertIn('bNoContract ? TEXT("Talk to hear this resident',hud)
         # The save format and author-defined world geometry are untouched.
