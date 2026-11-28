@@ -765,6 +765,12 @@ void AMoonfallCombatHUD::DrawHUD()
     Names[3]=Mode==0?TEXT("Switch to buy"):Mode==1?TEXT("Switch to buyback"):TEXT("Switch to sell");
     Names[4]=TEXT("Back");
     Names[5]=Hero->GetBagUpgradeText();
+    Names[6]=TEXT("Storage vault");
+    if(Hero->bResidentVaultMenu){
+     Names[0]=TEXT("Previous item");Names[1]=TEXT("Next item");
+     Names[2]=FString::Printf(TEXT("%s%s"),Hero->IsVaultConfirmationCurrent()?TEXT("Confirm "):TEXT(""),Hero->bVaultWithdraw?TEXT("Withdraw"):TEXT("Deposit"));
+     Names[3]=Hero->bVaultWithdraw?TEXT("Browse bag"):TEXT("Browse vault");Names[4]=TEXT("Back to merchant");
+    }
    }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
@@ -877,7 +883,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
-   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantTradeItemText();
+   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->bResidentVaultMenu?Hero->GetVaultSelectionText():Hero->GetMerchantTradeItemText();
    if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
    if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
@@ -931,7 +937,10 @@ void AMoonfallCombatHUD::DrawHUD()
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
         L + 18.f, T + 99.f, nullptr, W<390.f?0.60f:0.72f);
-   else if(Hero->bResidentMerchantMenu) {
+   else if(Hero->bResidentVaultMenu){
+     DrawText(FString::Printf(TEXT("Bag %d/%d | Vault %d/%d"),Hero->InventoryItemCodes.Num(),Hero->BagCapacity,Hero->VaultItemCodes.Num(),MoonfallMoney::VaultMax),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
+    }
+    else if(Hero->bResidentMerchantMenu) {
     DrawText(Hero->GetMerchantTradeStatusText(),FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.60f:0.72f);
    }
    else if (bQuestRewardVisible) {

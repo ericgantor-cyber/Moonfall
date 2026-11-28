@@ -233,6 +233,7 @@ int main() {
       assert(!MoonfallMoney::BagHasRoom(10000,Capacity));
       assert((MoonfallMoney::BagUpgradePrice(Capacity)>0)==(Valid&&Capacity<500));
     }
+    for(int Count=-1;Count<=1001;++Count)assert(MoonfallMoney::VaultHasRoom(Count)==(Count>=0&&Count<1000));
     assert(MoonfallMoney::BagUpgradePrice(100)==1000);
     assert(MoonfallMoney::BagUpgradePrice(450)==11500);
     assert(MoonfallMoney::ContractReward(1,1)==100);
