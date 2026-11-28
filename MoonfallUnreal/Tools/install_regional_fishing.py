@@ -6,7 +6,7 @@ Does not save maps or modify existing actors. Inspect geometry before saving.
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from deep_waters_layout import regional_water_plan, regional_environment_plan, REGIONAL_HABITATS
+from deep_waters_layout import regional_water_plan, regional_environment_plan, regional_breathing_plan, REGIONAL_HABITATS
 
 # Opt in only after inspecting the swimming space; no forced combat.
 ENABLE_WILDLIFE = False
@@ -94,7 +94,8 @@ def main():
             # Mid-depth air source on the east side, away from bank steps,
             # gathering nodes and the optional central guardian spawn.
             # A 160 cm radius fits within even the minimum 12 x 12 x 5 m pool.
-            place(pocket,"breathing bubble source",(.4*extent.x,0,-280))
+            for label,pos in regional_breathing_plan(province,extent.x,extent.y,extent.z*2):
+                place(pocket,label,pos)
             ornaments,light_pos,color,wildlife=environment
             for label,shape,pos,scale in ornaments:
                 ornament=place(unreal.StaticMeshActor,label,pos)
