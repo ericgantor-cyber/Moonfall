@@ -2916,17 +2916,17 @@ void AMoonfallCombatHUD::DrawHUD()
      MoonfallFishing::Rank(Preview->GetOceanCatchCount())),FLinearColor::White,X+8.f,Y+5.f,nullptr,0.8f);
    const TCHAR* Prompt=Stage==MoonfallFishing::EStage::Waiting?(Hero->FishingSchoolId>=0?TEXT("School cast: waiting..."):TEXT("Waiting for a bite...")):
       bBite?TEXT("BITE! RMB / X: Hook"):
-      Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling in..."):
+      Stage==MoonfallFishing::EStage::Reeling?TEXT("Reeling | auto-loot..."):
       GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil?
-      (Hero->bFishingCaught?TEXT("Fish caught!"):TEXT("Catch unavailable")):
-      TEXT("Aim at water | RMB / X: Cast");
+      (Hero->bFishingCaught?TEXT("Fish auto-looted!"):TEXT("Catch unavailable")):
+      TEXT("RMB / X: Cast | auto-loot");
    FString FishingPrompt=bBite?FString::Printf(TEXT("BITE! RMB / X: Hook %.1fs"),FMath::Max(0.0,Hero->Fishing.Deadline-double(GetWorld()->GetTimeSeconds()))):FString(Prompt);
    const bool bCatchNotice=!bActive && Hero->bFishingCaught && GetWorld()->GetTimeSeconds()<Hero->FishingNoticeUntil;
    if(bCatchNotice) {
     const TCHAR* Names[]={TEXT("Silverfin"),TEXT("Eel"),TEXT("Moonperch")};
     const int32 Species=Preview->GetLastFishSpecies();
     const TCHAR* LegendaryNames[]={TEXT("Dawncrest"),TEXT("Stormcoil"),TEXT("Abyssal Crown")};
-    if(Species>=0&&Species<3) FishingPrompt=Preview->WasLastFishLegendary()?FString::Printf(TEXT("LEGENDARY: %s"),LegendaryNames[Species]):FString::Printf(TEXT("%s%s caught!"),Preview->WasLastFishTrophy()?TEXT("TROPHY "):TEXT(""),Names[Species]);
+    if(Species>=0&&Species<3) FishingPrompt=Preview->WasLastFishLegendary()?FString::Printf(TEXT("+1 %s (LEGENDARY)"),LegendaryNames[Species]):FString::Printf(TEXT("+1 %s%s (auto-loot)"),Preview->WasLastFishTrophy()?TEXT("TROPHY "):TEXT(""),Names[Species]);
    }
    DrawText(FishingPrompt,bCatchNotice&&Preview->WasLastFishTrophy()?FLinearColor(1.f,0.8f,0.25f):Ink,X+8.f,Y+23.f,nullptr,0.82f);
    DrawText(FString::Printf(TEXT("Silverfin %d | Eel %d | Moonperch %d"),Preview->GetOceanFishCount(0),

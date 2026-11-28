@@ -73,6 +73,9 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("RMB / X: Cast", hud)
         self.assertIn("RMB / X: Hook", hud)
         self.assertNotIn("F / X: Cast", hud)
+        self.assertIn("auto-loot", hud)
+        self.assertIn("Preview->CatchOceanFish(FishingSchoolId,FishingProvince)", source)
+        self.assertNotIn("CatchOceanFish", pickup)
 
     def test_regional_water_layout(self):
         from deep_waters_layout import regional_water_plan

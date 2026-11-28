@@ -950,6 +950,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   bool bCaughtThisTick=false;
   if (Fishing.Advance(Now,CanContinueFishing())) {
    auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   // Reel completion awards directly to profession stock, regardless of
+   // ground auto-loot settings. No F pickup or physical loot actor.
    bFishingCaught=IsValid(Preview)&&IsFishingWaterValid(true)&&Preview->CatchOceanFish(FishingSchoolId,FishingProvince);
    FishingNoticeUntil=Now+4.f;
    bCaughtThisTick=bFishingCaught;

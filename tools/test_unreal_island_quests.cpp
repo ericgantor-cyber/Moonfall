@@ -214,6 +214,15 @@ int main() {
     assert(!OnCastSurface(50,50,4,0,0,100,100,0));
     assert(!OnCastSurface(50,50,2,0,0,40,40,0));
     assert(!OnCastSurface(50,50,2,0,0,100,100,std::numeric_limits<double>::quiet_NaN()));
+    // Reel completion is a one-shot event for automatic stock awards.
+    FSession AutoLootCast;
+    MoonfallOceanGathering::FCollection AutoLootStock;
+    assert(AutoLootCast.Start(1,2));
+    assert(!AutoLootCast.Advance(3,true));
+    assert(AutoLootCast.Hook(3));
+    if(AutoLootCast.Advance(4.5,true)) assert(AutoLootStock.Catch(0,0));
+    if(AutoLootCast.Advance(5,true)) assert(AutoLootStock.Catch(0,0));
+    assert(AutoLootStock.Catches()==1 && AutoLootStock.Species(0)==1);
     FSession BoundaryCast;
     assert(BoundaryCast.Start(5,2));
     assert(!BoundaryCast.Hook(6.999));
