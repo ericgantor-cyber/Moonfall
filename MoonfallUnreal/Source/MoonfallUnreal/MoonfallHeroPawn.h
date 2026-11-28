@@ -180,6 +180,15 @@ public:
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  bool bResidentContextOpen = false;
  bool bResidentCompanionMenu=false;
+ bool bResidentMerchantMenu=false;
+ bool bMerchantSaleInProgress=false;
+ int32 MerchantSellIndex=0;
+ int32 MerchantSellCode=0;
+ bool CanOpenCoinMerchant() const;
+ void SelectMerchantSaleItem(int32 Direction);
+ int64 GetMerchantSaleQuote() const;
+ FString GetMerchantSaleItemText() const;
+ bool SellMerchantItem();
  bool bResidentCompanionTalents=false;
  bool bResidentCompanionTraining=false;
  bool bResidentCompanionGear=false;
