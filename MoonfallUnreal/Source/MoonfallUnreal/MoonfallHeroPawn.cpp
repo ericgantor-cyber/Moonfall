@@ -5786,7 +5786,7 @@ bool AMoonfallHeroPawn::AwardEnemyCoins(int32 EnemyLevel,bool bElite,bool bBoss)
  if(!HasAuthority()||!GetWorld()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f
     ||!bWorldProgressInitialized||bWorldProgressLoadInProgress||bPersistentSaveWritesBlocked)return false;
  MoonfallMoney::FWallet Wallet{WalletCopper};
- const int64 Reward=MoonfallMoney::EnemyReward(EnemyLevel,bElite,bBoss);
+ const int64 Reward=MoonfallMoney::BoundedRewardCredit(MoonfallMoney::EnemyReward(EnemyLevel,bElite,bBoss),WalletCopper);
  if(!Wallet.Credit(Reward))return false;
  WalletCopper=Wallet.Copper;
  return true;
