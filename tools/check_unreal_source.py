@@ -67,6 +67,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("IsRecentlyInCombatForAmbientAI()",confirm)
         self.assertIn("MerchantConfirmLoadout!=GetEquipmentLoadoutFingerprint()",confirm)
         self.assertIn("Pending.Matches(Current)",confirm)
+        self.assertIn("MerchantConfirmWallet!=WalletCopper",confirm)
+        self.assertIn("MerchantConfirmResident!=Resident->ResidentId",confirm)
+        self.assertIn("Resident->CanHeroInteract(this)",confirm)
+        self.assertIn("HasBagRoom()&&Candidate.Debit(Current.Price)",confirm)
+        self.assertIn("MerchantConfirmWallet=WalletCopper;MerchantConfirmResident=Resident->ResidentId;",self.hero_cpp)
+        self.assertIn("if(bMerchantConfirmPending&&!IsMerchantConfirmationCurrent())",self.hero_cpp)
         self.assertIn("MerchantConfirmLoadout=GetEquipmentLoadoutFingerprint();",self.hero_cpp)
         self.assertIn("MerchantConfirmAfter=FPlatformTime::Seconds()+0.35;",self.hero_cpp)
 

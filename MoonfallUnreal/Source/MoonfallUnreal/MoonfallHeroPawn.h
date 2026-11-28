@@ -212,6 +212,8 @@ public:
  bool bMerchantConfirmPending=false;
  int32 MerchantConfirmMode=-1,MerchantConfirmCode=0,MerchantConfirmIndex=-1;
  int64 MerchantConfirmPrice=0;
+ int64 MerchantConfirmWallet=-1;
+ FName MerchantConfirmResident=NAME_None;
  uint32 MerchantConfirmRevision=0;
  double MerchantConfirmAfter=0.0;
  uint64 MerchantConfirmLoadout=0;
