@@ -1492,13 +1492,17 @@ bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
  if(Item.Slot<0||Item.Slot>=UE_ARRAY_COUNT(Slots)||Item.Rarity<0||Item.Rarity>=UE_ARRAY_COUNT(Rarities)||Item.Trait<0||Item.Trait>=UE_ARRAY_COUNT(Traits))return false;
  const TCHAR* Slot=MoonfallEquipmentLayout::IsRingSlot(Item.Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Item.Slot];
  const FString Label=FString::Printf(TEXT("%s %s %s T%d tier %d"),Slot,Rarities[Item.Rarity],Traits[Item.Trait],Item.Tier,Item.Tier);
- TArray<FString> Terms;InventorySearchText.ParseIntoArrayWS(Terms);
- for(const FString& Term:Terms){
+ if(ParsedInventorySearchText!=InventorySearchText){
+  ParsedInventorySearchTerms.Reset();
+  InventorySearchText.ParseIntoArrayWS(ParsedInventorySearchTerms);
+  ParsedInventorySearchText=InventorySearchText;
+ }
+ for(const FString& Term:ParsedInventorySearchTerms){
   bool bRarityTerm=false;
   for(const TCHAR* Rarity:Rarities)if(Term.Equals(Rarity,ESearchCase::IgnoreCase)){bRarityTerm=true;break;}
   if(bRarityTerm){if(!Term.Equals(Rarities[Item.Rarity],ESearchCase::IgnoreCase))return false;continue;}
   const FString TierToken=Term.Mid(1);
-  if(Term.StartsWith(TEXT("T"),ESearchCase::IgnoreCase)&&!TierToken.IsEmpty()&&TierToken.Len()<=2&&TierToken.IsNumeric()){
+  if(Term.StartsWith(TEXT("T"),ESearchCase::IgnoreCase)&&!TierToken.IsEmpty()&&TierToken.IsNumeric()){
    if(!Term.Equals(FString::Printf(TEXT("T%d"),Item.Tier),ESearchCase::IgnoreCase))return false;
    continue;
   }
@@ -7567,7 +7571,7 @@ FString AMoonfallHeroPawn::GetVaultSelectionText() const {
  if(!Item.IsValid())return TEXT("Invalid item");
  static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring"),TEXT("Trinket"),TEXT("Off-hand"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring"),TEXT("Ring")};
  static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
- static const TCHAR* Traits[]={TEXT(""),TEXT("Keen"),TEXT("Ward"),TEXT("Focus")};
+ static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
  return FString::Printf(TEXT("%d/%d %s T%d %s %s"),VaultSelection+1,Source.Num(),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
@@ -7578,6 +7582,11 @@ bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
  auto& Source=bVaultWithdraw?VaultItemCodes:InventoryItemCodes;
  auto& Destination=bVaultWithdraw?InventoryItemCodes:VaultItemCodes;
  if(Choice==0||Choice==1){ClearMerchantConfirmation();const int32 Count=Source.Num();VaultSelection=Count>0?(FMath::Clamp(VaultSelection,0,Count-1)+(Choice==0?-1:1)+Count)%Count:0;return true;}
+ if(Choice==5||Choice==6){
+  ClearMerchantConfirmation();
+  VaultSelection=MoonfallMoney::VaultPageSelection(VaultSelection,Source.Num(),Choice==5?-1:1);
+  return true;
+ }
  if(Choice!=2)return false;
  if(!CanTransferVaultItem()){ClearMerchantConfirmation();ResidentFeedbackMessage=TEXT("Transfer unavailable: worn item, full storage or combat.");ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;}
  if(!IsVaultConfirmationCurrent()){ClearMerchantConfirmation();PendingVaultCode=Source[VaultSelection];PendingVaultIndex=VaultSelection;PendingVaultRevision=EquipmentInventoryRevision;PendingVaultLoadout=GetEquipmentLoadoutFingerprint();VaultConfirmAfter=FPlatformTime::Seconds()+0.35;return true;}
@@ -7595,7 +7604,7 @@ bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
  return true;
 }
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
- if(bResidentVaultMenu)return 5;
+ if(bResidentVaultMenu)return 7;
  if(bResidentMerchantMenu)return 7;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
