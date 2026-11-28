@@ -2703,6 +2703,14 @@ void AMoonfallCombatHUD::DrawHUD()
       bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
       Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
     // Preview both gained and lost set thresholds; use the existing equip-target policy.
+    const uint64 SetLoadout=Hero->GetEquipmentLoadoutFingerprint();
+    const uint32 SetRevision=Hero->GetEquipmentInventoryRevision();
+    const double SetNow=FPlatformTime::Seconds();
+    const bool bRefreshSet=!FMath::IsFinite(SetNow)||CachedSetPreviewHero.Get()!=Hero
+      ||CachedSetPreviewLoadout!=SetLoadout||CachedSetPreviewRevision!=SetRevision
+      ||CachedSetPreviewCode!=SelectedCode||CachedSetPreviewLine.IsEmpty()
+      ||SetNow<SetPreviewUpdatedAt||SetNow-SetPreviewUpdatedAt>=0.25;
+    if(bRefreshSet){
     FString SetChanges;
     if(bValidDetail){
      const TCHAR* BonusNames[3][2]={{TEXT("Crit"),TEXT("Mastery")},
@@ -2721,7 +2729,14 @@ void AMoonfallCombatHUD::DrawHUD()
     const FString SetLine=!bValidDetail?TEXT("SET PREVIEW: invalid gear")
       :SetChanges.IsEmpty()?TEXT("SET PREVIEW: bonuses unchanged")
       :FString(TEXT("SET PREVIEW: "))+SetChanges;
-    DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
+    CachedSetPreviewLine=SetLine;
+    CachedSetPreviewHero=Hero;
+    CachedSetPreviewLoadout=SetLoadout;
+    CachedSetPreviewRevision=SetRevision;
+    CachedSetPreviewCode=SelectedCode;
+    SetPreviewUpdatedAt=SetNow;
+    }
+    DrawText(CachedSetPreviewLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
    // Read-only five-tier projection from the same forge cost schedule.
