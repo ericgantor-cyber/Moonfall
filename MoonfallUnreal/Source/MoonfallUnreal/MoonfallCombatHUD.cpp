@@ -34,6 +34,21 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Math/RotationMatrix.h"
+namespace {
+   const TCHAR* const InventorySlotNames[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),
+     TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),
+     TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),
+     TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),
+     TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),
+     TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+   static_assert(UE_ARRAY_COUNT(InventorySlotNames)==MoonfallEquipmentLayout::FullSlotCount,"Inventory slot labels must match the full layout");
+   const TCHAR* const InventoryRarityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+   const TCHAR* const InventoryTraitNames[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+   const FLinearColor InventoryRarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
+     FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
+     FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
+     FLinearColor(1.f,0.52f,0.12f)};
+}
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -2490,15 +2505,6 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Slot=Decoded.Slot;
    const int32 Rarity=Decoded.Rarity;
    const int32 Tier=Decoded.Tier;
-   const TCHAR* Slots[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),
-     TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),
-     TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),
-     TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),
-     TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),
-     TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
-   static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Inventory slot labels must match the full layout");
-   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
-   const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const bool bValid = Decoded.IsValid()
      && MoonfallEquipmentLayout::CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount,
         MoonfallEquipmentLayout::EInventoryOperation::Equip);
@@ -2519,18 +2525,14 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawSelectionRail(Left+12.f,Y-3.f,FMath::Max(3.f,RowSpacing-3.f));
    DrawHoverFrame(Left+12.f,Y-3.f,PanelWidth-24.f,RowSpacing-3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      DisplayPosition + 1, bFlexibleRing?TEXT("Ring"):Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], *WornLabel)
+      DisplayPosition + 1, bFlexibleRing?TEXT("Ring"):InventorySlotNames[Slot], Tier, InventoryRarityNames[Rarity], InventoryTraitNames[Affix], *WornLabel)
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
    // Item names retain a clear text label plus a distinct quality color.
-   const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
-     FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
-     FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
-     FLinearColor(1.f,0.52f,0.12f)};
    if (bValid && PanelWidth>=440.f && RowSpacing>=23.f)
     DrawGearGlyph(Left+PanelWidth-29.f,Y+FMath::Min(11.f,RowSpacing*0.40f),
-      9.f,Slot,RarityColors[Rarity]);
+      9.f,Slot,InventoryRarityColors[Rarity]);
    DrawText(Row, Index == Selected ? FLinearColor::Yellow
-     : (bValid ? RarityColors[Rarity] : FLinearColor::White),
+     : (bValid ? InventoryRarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Proportional scroll indicator. Clicking its track jumps the visible
@@ -2685,31 +2687,17 @@ void AMoonfallCombatHUD::DrawHUD()
    // A dedicated, read-only selected-item summary above crafting and comparison.
    // Keep this area hidden on very short viewports to avoid covering bag rows.
    if (PanelHeight >= 500.f) {
-    const TCHAR* DetailSlots[] = {
-      TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),
-      TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),
-      TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),
-      TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),
-      TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
-    static_assert(UE_ARRAY_COUNT(DetailSlots)==MoonfallEquipmentLayout::FullSlotCount,"Detail labels must match the full layout");
-    const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
-    const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
     const bool bValidDetail=MoonfallEquipmentLayout::CanOperateFull(SelectedCode,
       MoonfallEquipmentLayout::ActiveSlotCount,MoonfallEquipmentLayout::EInventoryOperation::Equip);
-    const FLinearColor DetailColors[] = {FLinearColor(0.90f,0.90f,0.90f),
-      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
-      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
-      FLinearColor(1.f,0.52f,0.12f)};
     const FString ItemName = bValidDetail
       ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
           MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount
-              &&MoonfallEquipmentLayout::IsRingSlot(SelectedSlot)?TEXT("Ring"):DetailSlots[SelectedSlot],
-          DetailRarities[SelectedRarity], SelectedTier,
-          DetailTraits[SelectedAffix])
+              &&MoonfallEquipmentLayout::IsRingSlot(SelectedSlot)?TEXT("Ring"):InventorySlotNames[SelectedSlot],
+          InventoryRarityNames[SelectedRarity], SelectedTier,
+          InventoryTraitNames[SelectedAffix])
       : TEXT("SELECTED  |  Invalid equipment data");
     DrawText(ItemName,
-      bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
+      bValidDetail ? InventoryRarityColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
       Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
     // Preview both gained and lost set thresholds; use the existing equip-target policy.
     const uint64 SetLoadout=Hero->GetEquipmentLoadoutFingerprint();
@@ -2819,24 +2807,21 @@ void AMoonfallCombatHUD::DrawHUD()
         :(bIsUpgrade?TEXT("RING UPGRADE"):TEXT("RING COMPARISON")))
       :bAlreadyEquipped?TEXT("EQUIPPED"):EquippedCode<=0?TEXT("EMPTY SLOT")
       :bIsUpgrade?TEXT("UPGRADE"):bIsLower?TEXT("LOWER"):TEXT("SIDEGRADE");
-    const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
-      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
-    const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
     const FString CompareLine = !bValidSelection ? FString(TEXT("Compare: INVALID GEAR"))
       : EquippedCode <= 0
       ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
       : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-        CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
-        CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
-        EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
-        CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
+        CompareWord, SelectedTier, InventoryRarityNames[FMath::Clamp(SelectedRarity, 0, 5)],
+        InventoryTraitNames[FMath::Clamp(SelectedAffix, 0, 3)],
+        EquippedTier, InventoryRarityNames[FMath::Clamp(EquippedRarity, 0, 5)],
+        InventoryTraitNames[FMath::Clamp(EquippedAffix, 0, 3)]);
     const FString PowerCompareLine = !bValidSelection ? CompareLine
       : bFlexibleRingCandidate
         ? FString::Printf(TEXT("Compare: %s | best eligible finger | %+d gear power"),CompareWord,PowerDelta)
         : EquippedCode>0
           ? FString::Printf(TEXT("%s | Tier %+d | Quality %+d | Power %+d | %s -> %s"),
               CompareWord,SelectedTier-EquippedTier,SelectedRarity-EquippedRarity,PowerDelta,
-              CompareTraits[EquippedAffix],CompareTraits[SelectedAffix])
+              InventoryTraitNames[EquippedAffix],InventoryTraitNames[SelectedAffix])
           : CompareLine+FString::Printf(TEXT("  |  %+d gear power"),PowerDelta);
     const FString CompactPowerCompareLine = !bValidSelection ? FString(TEXT("INVALID GEAR"))
       : bFlexibleRingCandidate
