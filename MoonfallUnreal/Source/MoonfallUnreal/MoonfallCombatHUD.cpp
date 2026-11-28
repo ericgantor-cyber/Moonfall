@@ -32,6 +32,7 @@
 #include "DynamicRHI.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -3018,8 +3019,12 @@ void AMoonfallCombatHUD::DrawHUD()
     const TCHAR* Direction=FMath::Abs(GuideDirection.Z)>FMath::Max(FMath::Abs(F),FMath::Abs(R))
         ? (GuideDirection.Z>0?TEXT("ABOVE"):TEXT("BELOW"))
         : FMath::Abs(F)>=FMath::Abs(R)?(F>=0?TEXT("AHEAD"):TEXT("BEHIND")):(R>=0?TEXT("RIGHT"):TEXT("LEFT"));
-    DrawText(FString::Printf(TEXT("AIR POCKET %s | %.1fm"),Direction,GuideDistance),
-        FLinearColor(0.45f,0.95f,0.75f),X+9.f,Y+104.f,nullptr,0.75f);
+    const auto* Movement=Hero->GetCharacterMovement();
+    const bool bShortBudget=!bProtected && IsValid(Movement)
+        && MoonfallWaterRules::GuideBreathWarning(GuideDistance,Movement->MaxSwimSpeed,
+            Air/MoonfallWaterRules::EffectiveDrain(Hero->WaterBreathScale));
+    DrawText(FString::Printf(TEXT("AIR %s | %.1fm%s"),Direction,GuideDistance,bShortBudget?TEXT(" | LOW AIR"):TEXT("")),
+        bShortBudget?FLinearColor(1.f,0.48f,0.25f):FLinearColor(0.45f,0.95f,0.75f),X+9.f,Y+104.f,nullptr,0.75f);
    }
   }
  }
