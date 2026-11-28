@@ -68,6 +68,8 @@ class DeepWatersLayoutTests(unittest.TestCase):
             self.assertIn(token, mouse)
         self.assertIn("Fishing.Stage==MoonfallFishing::EStage::Idle", mouse)
         self.assertLess(mouse.index("Fishing.Stage==MoonfallFishing::EStage::Idle"), mouse.index("TryFishingAction()"))
+        self.assertLess(mouse.index("LineTraceSingleByChannel"), mouse.index("!CanContinueFishing()"))
+        self.assertIn("CancelFishingWithFeedback();return true;", mouse)
         self.assertNotIn("TActorIterator", mouse)
         self.assertNotIn("TryFishingAction(&", mouse)
         pointer = source.split("void AMoonfallHeroPawn::FishingAction()", 1)[1].split("void AMoonfallHeroPawn::SyncFishingPresentation", 1)[0]
