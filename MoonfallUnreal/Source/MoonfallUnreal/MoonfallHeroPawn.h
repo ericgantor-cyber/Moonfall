@@ -532,6 +532,16 @@ public:
  double BagUpgradeConfirmAfter=0.0;
  FString GetBagUpgradeText() const;
  bool ConfirmBagUpgrade();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> VaultItemCodes;
+ bool bResidentVaultMenu=false,bVaultWithdraw=false;
+ int32 VaultSelection=0,PendingVaultCode=0,PendingVaultIndex=-1;
+ uint32 PendingVaultRevision=0;
+ uint64 PendingVaultLoadout=0;
+ double VaultConfirmAfter=0.0;
+ bool CanTransferVaultItem() const;
+ bool IsVaultConfirmationCurrent() const;
+ FString GetVaultSelectionText() const;
+ bool ChooseVaultAction(int32 Choice);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
  // Transient atlas navigation, never written into save data.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
