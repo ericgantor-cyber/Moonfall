@@ -226,6 +226,8 @@ public:
  int32 GetResidentContextRowCount() const;
  float GetResidentContextPanelHeight(float ViewportHeight) const;
  float GetResidentContextRowPitch(float PanelHeight) const;
+ int32 GetResidentContextVisualRowCount() const;
+ FBox2D GetResidentContextActionBounds(int32 Row,float PanelWidth,float PanelHeight) const;
  bool HasResidentContextPointerSurface(float ViewportWidth, float ViewportHeight) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
  // -1 merchant, -2 recipe list, 0-2 recipe detail.
