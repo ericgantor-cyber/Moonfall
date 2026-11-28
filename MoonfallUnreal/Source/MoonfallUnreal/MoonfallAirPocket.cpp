@@ -7,18 +7,21 @@ AMoonfallAirPocket::AMoonfallAirPocket()
     BreathingZone = CreateDefaultSubobject<USphereComponent>(TEXT("BreathingZone"));
     SetRootComponent(BreathingZone);
     BreathingZone->InitSphereRadius(160.f);
-    BreathingZone->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    BreathingZone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     BreathingZone->SetCollisionObjectType(ECC_WorldDynamic);
     BreathingZone->SetCollisionResponseToAllChannels(ECR_Ignore);
     BreathingZone->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-    BreathingZone->SetGenerateOverlapEvents(true);
+    BreathingZone->SetGenerateOverlapEvents(false);
 }
 
-bool AMoonfallAirPocket::ContainsEye(const FVector& EyeLocation) const
+void AMoonfallAirPocket::BeginPlay()
 {
-    if (!IsValid(BreathingZone) || EyeLocation.ContainsNaN()) return false;
-    const FVector Center = BreathingZone->GetComponentLocation();
-    const float Radius = BreathingZone->GetScaledSphereRadius();
-    return !Center.ContainsNaN() && FMath::IsFinite(Radius) && Radius > 0.f
-        && FVector::DistSquared(EyeLocation, Center) <= FMath::Square(Radius);
+    Super::BeginPlay();
+    SetActorEnableCollision(false);
+    SetActorHiddenInGame(true);
+}
+
+bool AMoonfallAirPocket::ContainsEye(const FVector&) const
+{
+    return false;
 }
