@@ -11,6 +11,13 @@ namespace MoonfallWaterRules
     constexpr float DrowningHealthFraction = 0.20f;
     constexpr float TonicDuration = 120.f;
     constexpr float TonicThreshold = 10.f;
+    // Local broad-phase refresh: the 25 cm probe covers the 10 cm movement
+    // budget for stationary pockets. Moving pockets refresh at most 0.1 s later.
+    inline bool RefreshPocketCandidates(double Now,double Last,double DistanceSquared)
+    {
+        return !FMath::IsFinite(Now) || !FMath::IsFinite(Last) || Last<0.0 || Now<Last
+            || Now-Last>=0.1 || !FMath::IsFinite(DistanceSquared) || DistanceSquared>=100.0;
+    }
     // Vertical commands are discrete and never survive invalid depth or input locks.
     inline int32 ResolveVerticalIntent(int32 Intent,bool bCanSteer,float EyeDepth)
     {
