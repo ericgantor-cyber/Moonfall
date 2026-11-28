@@ -262,6 +262,7 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
   if(!TestTrue(TEXT("Named merchant history round trips"),Buyback&&Buyback->Entries.Num()==1))return false;
   TestEqual(TEXT("Sold code preserved"),Buyback->Entries[0].Code,1);
   TestEqual(TEXT("Sale quote preserved"),Buyback->Entries[0].Price,int64(40));
+  TestEqual(TEXT("Historical sale formula preserved"),Buyback->Entries[0].PriceVersion,1);
   TestTrue(TEXT("Exact slot record preserved without normalization"),
     Restored->EquippedSlotCodes == Codes);
   TestTrue(TEXT("Inventory ownership record preserved"),
