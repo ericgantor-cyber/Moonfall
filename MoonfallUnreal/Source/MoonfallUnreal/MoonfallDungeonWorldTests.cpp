@@ -433,6 +433,17 @@ bool FMoonfallEquipmentSaveRoundTripTest::RunTest(const FString& Parameters)
  if(!RejectSerialized(TEXT("Serialized V19 truncated record rejected"),19,ShortV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V19 oversized record rejected"),19,LongV19,Future))return false;
  if(!RejectSerialized(TEXT("Serialized V20 future schema rejected"),20,Future,Future))return false;
+ // All ten fingers may reference identical codes only when ten physical
+ // copies exist. Validate the complete serialized loadout before activation.
+ TArray<int32> TenRings=Future;
+ const int32 SharedRing=Future[8];
+ for(const int32 Slot:MoonfallEquipmentLayout::RingSlots)TenRings[Slot]=SharedRing;
+ Original->InventoryItemCodes=TenRings;
+ if(!RoundTrip(TenRings,19,true))return false;
+ TArray<int32> NineCopies=TenRings;
+ NineCopies.RemoveAt(MoonfallEquipmentLayout::RingSlots.back());
+ if(!RejectSerialized(TEXT("Serialized ten-ring loadout with nine copies rejected"),19,TenRings,NineCopies))return false;
+
  return !HasAnyErrors();
 }
 
