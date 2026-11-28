@@ -2396,10 +2396,11 @@ void AMoonfallCombatHUD::DrawHUD()
           Hero->InventorySortMode == 1 ? TEXT("SORT: QLTY") : TEXT("SORT: SLOT"))
        : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
           Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
-     FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+     FLinearColor::White, SortX + 7.f, SortY + 3.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
+   DrawText(TEXT("RMB: FILTER"),FLinearColor(0.75f,0.82f,0.94f),SortX+7.f,SortY+18.f,nullptr,0.44f);
   // Match HitTestInventoryEquipButton exactly: wide panels only.
   // Row clicks remain selection-only; this is a separate explicit action.
-  if (PanelWidth >= 550.f && Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) {
+  if (PanelWidth >= 550.f && Hero->IsInventorySelectionVisible()) {
    const float EquipX = Left + PanelWidth - 186.f;
    const float EquipY = Top + 87.f;
    DrawRect(FLinearColor(0.18f,0.34f,0.28f,0.96f), EquipX, EquipY, 172.f, 30.f);
@@ -2429,7 +2430,7 @@ void AMoonfallCombatHUD::DrawHUD()
        X + (Slot == 0 ? 3.f : 7.f), StripY + 3.f, nullptr,
        Slot == 0 ? 0.55f : 0.68f);
   }
-  const int32 Count = Hero->InventoryItemCodes.Num();
+  const int32 Count = Hero->GetInventoryDisplayOrder().Num();
   const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
   // Identical rings are fungible codes, not individually tracked bag instances.
   // Report aggregate copies instead of marking every duplicate as equipped.
@@ -2446,21 +2447,21 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
-  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
+  const int32 Selected = Hero->IsInventorySelectionVisible()?Hero->InventorySelection:INDEX_NONE;
   const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
   const int32 HoveredIndex = Hero->HitTestInventoryRow();
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
-    Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
+  DrawText(FString::Printf(TEXT("%s | %d salvage | visible %d-%d / %d"),
+    *Hero->GetInventoryFilterLabel(), Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
     PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 46.f, nullptr, PanelWidth < 440.f ? 0.60f : 0.78f);
   DrawText(FString::Printf(TEXT("Bag %d/%d | %s"), Hero->InventoryItemCodes.Num(),Hero->BagCapacity,*Hero->GetWalletText()),
     FLinearColor(0.94f,0.82f,0.54f), Left + 18.f, Top + 60.f,
     nullptr, PanelWidth < 440.f ? 0.65f : 0.78f);
   if (Count == 0)
-   DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
+   DrawText(Hero->InventoryRarityFilter==-1?TEXT("No equipment yet."):TEXT("No matching equipment. RMB sort to change filter."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
   const float RowSpacing = FMath::Max(21.f, (PanelHeight - (PanelHeight >= 500.f ? 430.f : 390.f)) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
