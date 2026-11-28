@@ -30,4 +30,10 @@ private:
  uint32 CachedAdvisorInventoryRevision = 0;
  TArray<int32> CachedValidatedEquipmentCodes;
  int32 CachedAdvisorScore = 0;
+ TWeakObjectPtr<const AMoonfallHeroPawn> CachedSetPreviewHero;
+ uint64 CachedSetPreviewLoadout = 0;
+ uint32 CachedSetPreviewRevision = 0;
+ int32 CachedSetPreviewCode = 0;
+ double SetPreviewUpdatedAt = -1.0;
+ FString CachedSetPreviewLine;
 };
