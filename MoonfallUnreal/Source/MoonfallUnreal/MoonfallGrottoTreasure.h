@@ -14,6 +14,7 @@ class MOONFALLUNREAL_API AMoonfallGrottoTreasure : public AActor
     GENERATED_BODY()
 public:
     AMoonfallGrottoTreasure();
+    virtual void BeginPlay() override;
     UPROPERTY(EditInstanceOnly, Category="Moonfall|Water", meta=(ClampMin="0", ClampMax="5"))
     int32 GrottoIndex = 0;
     // -1 is an ordinary grotto chest; 0-47 are gathering nodes (12 base and 36 regional).
@@ -24,7 +25,4 @@ public:
     UPROPERTY(VisibleAnywhere, Category="Moonfall|Water")
     UStaticMeshComponent* ChestMesh;
     bool TryClaim(AMoonfallHeroPawn* Hero, bool bManual = true);
-private:
-    void RestoreResource();
-    bool bResourceDepleted=false;
 };
