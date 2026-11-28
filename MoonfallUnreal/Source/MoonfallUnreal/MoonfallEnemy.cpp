@@ -1,5 +1,10 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallUnrealGameMode.h"
+#include "MoonfallNorthPreviewGameMode.h"
+#include "MoonfallAquaticProfiles.h"
+#include "MoonfallAquaticTactics.h"
+#include "MoonfallAquaticArt.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
@@ -83,9 +88,59 @@ void AMoonfallEnemy::RefreshAttackTellMarker(float Now, bool bReduceMotion) {
  if (!AttackTellMarker->IsVisible()) AttackTellMarker->SetVisibility(true);
 }
 FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+float AMoonfallEnemy::GetAquaticWarningRemaining(float Now) const {
+ if (!ActorHasTag(FName(TEXT("MoonfallAquaticPreview"))) || Health <= 0.f
+     || !FMath::IsFinite(Health) || !FMath::IsFinite(Now) || !FMath::IsFinite(WindupEndsAt)) return 0.f;
+ return FMath::Max(0.f, WindupEndsAt - Now);
+}
+int32 AMoonfallEnemy::GetAquaticPhase() const {
+ return MoonfallAquatic::Phase(AquaticProfileId, MaxHealthAtSpawn > 0.f ? Health / MaxHealthAtSpawn : 1.f);
+}
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
+ if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+  // Fail closed if a preview actor is accidentally placed in the campaign.
+  if (!GetWorld() || !GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+   Destroy();
+   return;
+  }
+  AquaticProfileId = MoonfallAquatic::SelectEncounter(AquaticProfileId, FMath::RandRange(0,99));
+  const auto P = MoonfallAquatic::Profile(AquaticProfileId);
+  Health = P.Health;
+  AttackDamage = P.Damage;
+  bBoss = false; // Aquatic phases use the isolated profile, not the land boss pipeline.
+  bElite = false;
+  // One instanced detail batch per creature, using the existing cue mesh.
+  // Only preview actors receive this art. No additional collision or ticking.
+  if (IsValid(Body) && IsValid(AttackTellMarker) && AttackTellMarker->GetStaticMesh()) {
+   auto* Fins = NewObject<UInstancedStaticMeshComponent>(this,TEXT("AquaticFinArt"));
+   if (IsValid(Fins)) {
+    Fins->SetupAttachment(Body);
+    Fins->SetStaticMesh(AttackTellMarker->GetStaticMesh());
+    Fins->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Fins->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Fins->SetGenerateOverlapEvents(false);
+    Fins->SetCanEverAffectNavigation(false);
+    Fins->SetCastShadow(false);
+    Fins->SetCullDistances(3000,4500);
+    AddInstanceComponent(Fins);
+    Fins->RegisterComponent();
+    for (const FTransform& Part : MoonfallAquaticArt::Fins(AquaticProfileId))
+     Fins->AddInstance(Part);
+   }
+   // Use only a material parameter supported by the current body material.
+   // Missing parameters fall back to the original mesh material.
+   if (auto* Material = Body->CreateDynamicMaterialInstance(0)) {
+    const FName ColorParameter(TEXT("Color"));
+    FLinearColor ExistingColor;
+    if (Material->GetVectorParameterValue(FMaterialParameterInfo(ColorParameter),ExistingColor)) {
+     Material->SetVectorParameterValue(ColorParameter,MoonfallAquaticArt::Tint(AquaticProfileId));
+     if (IsValid(Fins)) Fins->SetMaterial(0,Material);
+    }
+   }
+  }
+ }
  // Native regional bosses and elites receive one static engraved armor batch.
  // Ordinary native enemies receive two race ornaments in the same batch.
  // Never overlay authored Blueprint meshes, divine bosses, or practice sentries.
@@ -95,6 +150,7 @@ void AMoonfallEnemy::BeginPlay() {
  const bool bRaceArt = !bBoss && !bElite && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
      && RaceId>=0 && RaceId<MoonfallRaces::Count;
  if (GetClass()==AMoonfallEnemy::StaticClass() && DivineBossId.IsNone()
+     && !ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
      && !ActorHasTag(FName(TEXT("MoonfallSanctuaryPractice")))
      && (bRegionalArt || bEliteArt || bRaceArt)
      && IsValid(Body) && Body->GetStaticMesh()
@@ -487,6 +543,11 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
    OnEnemyDefeated(bLastHitWasShatter);
    if (!IsValid(this) || IsActorBeingDestroyed() || !GetWorld()) return;
+    // No campaign rewards or finisher movement from preview creatures.
+    if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+     SetLifeSpan(1.25f);
+     return;
+    }
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     if (!IsValid(Hero) || Hero->IsActorBeingDestroyed()) return;
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
@@ -650,8 +711,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
-  const FVector DesiredScale(0.85f * Scale / FMath::Max(0.75f,Squash),
-    0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
+  const FVector DesiredScale = ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))
+    ? MoonfallAquatic::Profile(AquaticProfileId).Scale
+    : FVector(0.85f * Scale / FMath::Max(0.75f,Squash),
+        0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale);
   // In large worlds, idle enemies otherwise send the same mesh transform
   // every AI tick. Preserve all attack tells and hit reactions.
   if (!Body->GetRelativeScale3D().Equals(DesiredScale, KINDA_SMALL_NUMBER))
@@ -676,7 +739,102 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
- // Reject invalid actor transforms before targeting, pathfinding or attack hit checks.
+ // Isolated aquatic encounters use bounded 3D sweeps instead of land navigation.
+  if (ActorHasTag(FName(TEXT("MoonfallAquaticPreview")))) {
+   const auto Profile = MoonfallAquatic::Profile(AquaticProfileId);
+   const int32 AquaticPhase = GetAquaticPhase();
+   const auto Tactics=MoonfallAquaticTactics::Behavior(AquaticProfileId);
+   const FVector Position = GetActorLocation();
+   const FVector Target = Hero->GetActorLocation();
+   auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
+   const int32 OceanActivity=IsValid(Preview)?Preview->GetOceanActivity():0;
+   const bool bValid = IsValid(Preview)
+       && !Position.ContainsNaN() && !Target.ContainsNaN() && !DungeonHomePosition.ContainsNaN();
+   const bool bEngaged = bValid && Hero->bWaterSwimming && !Hero->bInsideAirPocket
+       && FVector::DistSquared(Target, DungeonHomePosition) <= FMath::Square(MoonfallOceanEvents::AwarenessRadius(OceanActivity,AquaticProfileId));
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAquaticSight), false);
+   Params.AddIgnoredActor(this);
+   Params.AddIgnoredActor(Hero);
+   FHitResult Sight;
+   const bool bClear = bEngaged && !GetWorld()->LineTraceSingleByChannel(
+       Sight, Position, Target, ECC_Visibility, Params);
+   const double DistanceSq = FVector::DistSquared(Position, Target);
+   // Sightings require genuine proximity and clear visibility, not a spawn roll.
+   if (bClear && DistanceSq<=FMath::Square(420.f) && !Preview->HasAquaticSighting(AquaticProfileId))
+    Preview->DiscoverAquaticCreature(AquaticProfileId);
+   if (!FMath::IsFinite(NextAttackAt)) NextAttackAt=Now+0.35f;
+   const int32 NextMoveId=MoonfallAquatic::SelectMove(AquaticProfileId,AquaticPhase,AquaticAttackSequence);
+   const auto NextMove=MoonfallAquatic::Move(AquaticProfileId,NextMoveId);
+   if (!bClear) {
+    WindupEndsAt = -1.f;
+    NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
+   } else if (WindupEndsAt >= 0.f) {
+    if (Now >= WindupEndsAt) {
+     WindupEndsAt = -1.f;
+     NextAttackAt = Now + Profile.Recovery * MoonfallAquatic::RecoveryScale(AquaticPhase);
+     RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+     const auto Move = MoonfallAquatic::Move(AquaticProfileId, AquaticCommittedMove);
+     if (MoonfallAquatic::Hits(Move, Target-Position, LockedAttackDirection)) {
+      const bool bParried = Move.bUnblockable
+       ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(Move.Damage, Position)
+       : Hero->ApplyMoonfallDamageFrom(Move.Damage, Position);
+      if (IsValid(this) && !IsActorBeingDestroyed() && Health > 0.f) {
+       if (bParried) ApplyPostureDamage(ParryPostureDamage);
+       else OnEnemyAttack();
+      }
+     }
+     return;
+    }
+    return;
+   } else if (DistanceSq <= FMath::Square(NextMove.Reach-20.f) && Now >= NextAttackAt) {
+    AquaticCommittedMove = NextMoveId;
+    AquaticAttackSequence = (AquaticAttackSequence + 1) % 6;
+    const auto Move = MoonfallAquatic::Move(AquaticProfileId, AquaticCommittedMove);
+    LockedAttackDirection = (Target-Position).GetSafeNormal();
+    if (!LockedAttackDirection.GetSafeNormal2D().IsNearlyZero())
+     SetActorRotation(FRotator(0.f,LockedAttackDirection.Rotation().Yaw,0.f));
+    CurrentWindup = Move.Windup;
+    WindupEndsAt = Now + CurrentWindup;
+    CurrentAttackMultiplier = Move.bUnblockable ? 1.5f : 1.f;
+    CurrentAttackRangeMultiplier = Move.Reach / Profile.Reach;
+    RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+    return;
+   }
+   RefreshAttackTellMarker(Now, Hero->bReduceMotion);
+   if (!bValid) return;
+   FVector Destination = bClear ? Target : DungeonHomePosition;
+   float SpeedScale=1.f;
+   const bool bRecovering=Now<NextAttackAt;
+   const bool bReposition=MoonfallAquaticTactics::MayReposition(bClear,bRecovering,false);
+   const bool bPatrol=MoonfallAquaticTactics::MayPatrol(Hero->bWaterSwimming,
+       Hero->bInsideAirPocket,bEngaged,float(FVector::Dist(Target,DungeonHomePosition)));
+   if (bPatrol) {
+    const float Angle=FMath::Fmod(Now,120.f)*Tactics.PatrolRate+float(AquaticProfileId);
+    const float Radius=Tactics.PatrolRadius*MoonfallOceanEvents::PatrolScale(OceanActivity,AquaticProfileId);
+    Destination+=FVector(FMath::Cos(Angle)*Radius,
+        FMath::Sin(Angle)*Radius,0.f);
+    SpeedScale=0.35f;
+   } else if (bReposition) {
+    const FVector Away=(Position-Target).GetSafeNormal2D();
+    const FVector Side(-Away.Y,Away.X,0.f);
+    const float Direction=AquaticAttackSequence%2==0?1.f:-1.f;
+    Destination=Target+Away*(Profile.Reach+Tactics.RecoveryDistance)+Side*(Direction*Tactics.StrafeDistance);
+    Destination.Z=Position.Z;
+    SpeedScale=Tactics.RecoverySpeedScale;
+   }
+   Destination = DungeonHomePosition + (Destination-DungeonHomePosition).GetClampedToMaxSize(270.f);
+   Destination.Z = FMath::Clamp(Destination.Z, DungeonHomePosition.Z-55.0, DungeonHomePosition.Z+55.0);
+   if (!bClear || bReposition || DistanceSq > FMath::Square(Profile.Reach-15.f)) {
+    const FVector Step = (Destination-Position).GetClampedToMaxSize(Profile.Speed*SafeAIDelta*SpeedScale);
+    if (!Step.IsNearlyZero()) {
+     SetActorRotation(FRotator(0.f, Step.Rotation().Yaw, 0.f));
+     FHitResult MoveHit;
+     AddActorWorldOffset(Step, true, &MoveHit);
+    }
+   }
+   return;
+  }
+  // Reject invalid actor transforms before targeting, pathfinding or attack hit checks.
  const FVector HeroPosition = Hero->GetActorLocation();
  const FVector EnemyPosition = GetActorLocation();
  if (HeroPosition.ContainsNaN() || EnemyPosition.ContainsNaN()) return;
