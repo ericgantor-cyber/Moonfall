@@ -35,6 +35,8 @@ struct FMoonfallBuybackEntry {
  GENERATED_BODY()
  UPROPERTY() int32 Code=0;
  UPROPERTY() int64 Price=0;
+ // Missing in early tagged records defaults to the original sale formula.
+ UPROPERTY() int32 PriceVersion=1;
 };
 USTRUCT()
 struct FMoonfallBuybackRecord {
