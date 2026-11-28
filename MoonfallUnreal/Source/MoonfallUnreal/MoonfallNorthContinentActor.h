@@ -34,6 +34,10 @@ public:
  // Names identify built locations, never hidden quest or divine lore.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
  TArray<TObjectPtr<UTextRenderComponent>> ProvinceSigns;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Northern Expanse")
+ bool bEnableRoadDirections=true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Northern Expanse")
+ TArray<TObjectPtr<UTextRenderComponent>> RoadDirectionSigns;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Northern Expanse")
  FVector GetProvinceCenterWorldLocation(int32 ProvinceIndex) const;
 };

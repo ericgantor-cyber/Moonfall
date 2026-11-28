@@ -69,7 +69,7 @@ assert hud.index("const auto DrawLiveMenuHitCue = [this, Hero]() {") < hud.index
 sections = (
     ("talents", " if (Hero->bTalentWebOpen) {", " // Native Canvas resident menu.", 2),
     ("NPC conversation", " // Native Canvas resident menu.", " if (Hero->bAtlasOpen) {", 2),
-    ("atlas and quest log", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 3),
+    ("atlas and quest log", " if (Hero->bAtlasOpen) {", " if (Hero->bOptionsOpen) {", 4),
     ("options", " if (Hero->bOptionsOpen) {", " if (Hero->bInventoryOpen) {", 2),
     ("inventory, sheet, spellbook", " if (Hero->bInventoryOpen) {", " // Reuse a single world scan", 4),
 )
