@@ -10,9 +10,24 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalAtlas.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionUI.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallAttributes.h"
 #include <limits>
 #include <cassert>
 int main() {
+    {
+        using namespace MoonfallAttributes;
+        constexpr auto Start=BuildPrimary(1,0,0,0);
+        static_assert(Start.Strength==10&&Start.Agility==10&&Start.Intellect==10&&Start.Stamina==10);
+        constexpr auto Gear=BuildPrimary(1,5,3,7);
+        static_assert(Gear.Strength==20&&Gear.Agility==18&&Gear.Intellect==24&&Gear.Stamina==16);
+        constexpr auto Bad=BuildPrimary(-100,-1,-1,-1);
+        static_assert(Bad.Strength==10&&Bad.Stamina==10);
+        constexpr auto Max=BuildPrimary(2147483647,2147483647,2147483647,2147483647);
+        static_assert(Max.Strength==258&&Max.Stamina==258);
+        static_assert(PhysicalBonusBps(-1)==0&&PhysicalBonusBps(999)==2000);
+        static_assert(FinesseBonusBps(999)==1000&&SpellBonusBps(999)==2000);
+        static_assert(HealthBonus(-1)==0&&HealthBonus(999)==500);
+    }
     using namespace MoonfallIslandQuest;
     FJournal J;
     assert(J.Talk(-1,99)==0);
