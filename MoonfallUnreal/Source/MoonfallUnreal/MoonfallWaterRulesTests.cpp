@@ -7,6 +7,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
+    TestTrue(TEXT("First pocket query"),RefreshPocketCandidates(1.0,-1.0,0.0));
+    TestFalse(TEXT("Stationary eye reuses candidates"),RefreshPocketCandidates(1.05,1.0,0.0));
+    TestTrue(TEXT("Moving eye refreshes candidates"),RefreshPocketCandidates(1.01,1.0,100.0));
+    TestTrue(TEXT("Timed pocket refresh"),RefreshPocketCandidates(1.2,1.0,0.0));
+    TestTrue(TEXT("Clock reset refresh"),RefreshPocketCandidates(0.5,1.0,0.0));
     TestEqual(TEXT("Dive from surface"),ResolveVerticalIntent(-1,true,0.f),-1);
     TestEqual(TEXT("Rise below surface"),ResolveVerticalIntent(1,true,100.f),1);
     TestEqual(TEXT("Rise stops at surface"),ResolveVerticalIntent(1,true,0.f),0);
