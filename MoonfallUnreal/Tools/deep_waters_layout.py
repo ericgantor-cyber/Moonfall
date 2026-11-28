@@ -210,3 +210,23 @@ def regional_environment_plan(province, half_width, half_length, depth):
     # pools can host an optional hostile creature with its existing 270cm leash.
     wildlife = (profile, (0,0,-240)) if half_width>=1400 and half_length>=1400 else None
     return ornaments, (.35*half_width,0,-120), color, wildlife
+
+
+# Named exploration sites are authoring labels, not new save identities.
+REGIONAL_DIVE_SITES = (
+    "Frozen Shipwreck", "Drowned Root Caverns", "Frostveil Caves",
+    "Sunken Necropolis", "Emerald Reef", "Thunderstone Cavern",
+    "Lost Royal City", "Astral Crystal Grotto", "Abyssal Eclipse Temple",
+)
+
+
+def regional_breathing_plan(province, half_width, half_length, depth):
+    regional_water_plan(province, half_width, half_length, depth)
+    # One compact-pool source; three recovery stations in larger pools.
+    # Keep them away from the western entry steps and central guardian.
+    offsets = [(0.4*half_width, 0, -280)]
+    if half_width >= 1400 and half_length >= 1400:
+        offsets.extend([(-0.25*half_width, -0.65*half_length, -280),
+                        (-0.25*half_width, 0.65*half_length, -280)])
+    return tuple((f"{REGIONAL_DIVE_SITES[province]} air source {i+1}", pos)
+                 for i, pos in enumerate(offsets))
