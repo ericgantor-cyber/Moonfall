@@ -1,11 +1,6 @@
 #include "MoonfallGrottoTreasure.h"
-#include "MoonfallHeroPawn.h"
-#include "MoonfallNorthPreviewGameMode.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/World.h"
-#include "TimerManager.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -15,11 +10,11 @@ AMoonfallGrottoTreasure::AMoonfallGrottoTreasure()
     PickupZone = CreateDefaultSubobject<USphereComponent>(TEXT("PickupZone"));
     SetRootComponent(PickupZone);
     PickupZone->InitSphereRadius(180.f);
-    PickupZone->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    PickupZone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     PickupZone->SetCollisionObjectType(ECC_WorldDynamic);
     PickupZone->SetCollisionResponseToAllChannels(ECR_Ignore);
     PickupZone->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-    PickupZone->SetGenerateOverlapEvents(true);
+    PickupZone->SetGenerateOverlapEvents(false);
     ChestMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ChestMesh"));
     ChestMesh->SetupAttachment(PickupZone);
     ChestMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -28,58 +23,15 @@ AMoonfallGrottoTreasure::AMoonfallGrottoTreasure()
     if (Cube.Succeeded()) ChestMesh->SetStaticMesh(Cube.Object);
 }
 
-bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn* Hero, bool bManual)
+// Keep the class loadable for older preview maps, but retire its gameplay.
+void AMoonfallGrottoTreasure::BeginPlay()
 {
-    if (bResourceDepleted || !HasAuthority() || IsActorBeingDestroyed() || !GetWorld() || !IsValid(Hero)
-        || Hero->GetWorld() != GetWorld() || !FMath::IsFinite(Hero->Health)
-        || Hero->Health <= 0.f
-        || Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->bAtlasOpen
-        || Hero->bCharacterStatsOpen || Hero->bSpellBookOpen || Hero->bQuestLogOpen
-        || Hero->bResidentContextOpen || Hero->bTalentWebOpen || Hero->FocusedResident.IsValid())
-        return false;
-    auto* Mode = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
-    if (!IsValid(Mode)) return false;
-    const auto* Movement=Hero->GetCharacterMovement();
-    if (ResourceIndex == -1) {
-        if (!Hero->bWaterSwimming) return false;
-    } else if (!MoonfallOceanGathering::CanCollect(ResourceIndex,Hero->bWaterSwimming,
-        IsValid(Movement)&&Movement->IsMovingOnGround(),bManual)) return false;
-    const FVector Start = Hero->GetActorLocation();
-    const FVector End = GetActorLocation();
-    if (Start.ContainsNaN() || End.ContainsNaN()
-        || FVector::DistSquared(Start, End) > FMath::Square(250.f)) return false;
-    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallGrottoTreasureSight), false);
-    Params.AddIgnoredActor(Hero);
-    Params.AddIgnoredActor(this);
-    FHitResult Hit;
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)) return false;
-    if (ResourceIndex == -1) {
-        if (!Mode->ClaimGrotto(GrottoIndex)) return false;
-        Destroy();
-        return true;
-    }
-    if (!Mode->CollectOceanResource(ResourceIndex)) return false;
-    bResourceDepleted=true;
+    Super::BeginPlay();
     SetActorEnableCollision(false);
     SetActorHiddenInGame(true);
-    FTimerHandle RespawnHandle;
-    GetWorld()->GetTimerManager().SetTimer(RespawnHandle,this,&AMoonfallGrottoTreasure::RestoreResource,
-        FMath::Max(0.01f,Mode->GetOceanResourceCooldown(ResourceIndex)),false);
-    return true;
 }
 
-void AMoonfallGrottoTreasure::RestoreResource()
+bool AMoonfallGrottoTreasure::TryClaim(AMoonfallHeroPawn*, bool)
 {
-    if (!HasAuthority() || IsActorBeingDestroyed() || !bResourceDepleted) return;
-    auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>():nullptr;
-    if(!IsValid(Mode)) return;
-    const float Remaining=Mode->GetOceanResourceCooldown(ResourceIndex);
-    if(Remaining>0.f) {
-        FTimerHandle Retry;
-        GetWorld()->GetTimerManager().SetTimer(Retry,this,&AMoonfallGrottoTreasure::RestoreResource,FMath::Max(.01f,Remaining),false);
-        return;
-    }
-    bResourceDepleted=false;
-    SetActorHiddenInGame(false);
-    SetActorEnableCollision(true);
+    return false;
 }
