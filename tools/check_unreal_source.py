@@ -905,6 +905,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("CanOpenInventorySearch()", body)
             self.assertNotIn("SaveWorldProgress", body)
 
+    def test_no_implicit_reselection_after_inventory_transaction(self):
+        hero = self.hero_cpp
+        opening = hero.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
+        click = hero.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        sort = click.split("if (HitTestInventorySortButton())", 1)[1].split("return;", 1)[0]
+        up = hero.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("ReconcileCraftedInventorySelection();", opening)
+        self.assertNotIn("InventorySelection = FMath::Clamp", opening)
+        self.assertIn("ReconcileCraftedInventorySelection();", sort)
+        self.assertIn("CurrentRow==0||DisplayOrder.IsEmpty()", up)
+        self.assertNotIn("CurrentRow<=0&&CanFocusRingNavigation()", up)
+
     def test_committed_bag_removal_preserves_selection_identity(self):
         hero = self.hero_cpp
         helper = hero.split("void AMoonfallHeroPawn::ReconcileRemovedInventorySelection(", 1)[1].split("\n}", 1)[0]
@@ -1492,7 +1504,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", award.split("if (!SaveWorldProgress())", 1)[0])
         self.assertEqual(award.count("InventoryItemCodes.RemoveAt("), 1)
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", award.split("if (!SaveWorldProgress())", 1)[1].split("return;", 1)[0])
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", award)
+        self.assertIn("ReconcileCraftedInventorySelection();", award)
+        self.assertLess(award.index("if (!SaveWorldProgress())"), award.index("ReconcileCraftedInventorySelection();"))
         # A failed disk write must not consume ground loot. The rollback is
         # explicitly inside the failed-save branch, never on successful pickup.
         self.assertIn("const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);", collect)
