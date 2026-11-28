@@ -600,6 +600,8 @@ public:
  int32 InventoryRarityFilter=-1;
  FString InventorySearchText;
  void OpenInventorySearch();
+ void ControllerSprintOrSearch();
+ bool bInventorySearchControllerEntry=false;
  void CloseInventorySearch();
  void SetInventorySearchText(const FString& Text);
  bool CanOpenInventorySearch() const;

@@ -1260,6 +1260,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
+ Input->BindAction(TEXT("ControllerSprintOrSearch"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerSprintOrSearch);
+ Input->BindAction(TEXT("ControllerSprintOrSearch"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
  Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
  Input->BindAction(TEXT("ControllerRightStick"), IE_Pressed, this, &AMoonfallHeroPawn::ControllerRightStickPress);
@@ -1309,6 +1311,15 @@ void AMoonfallHeroPawn::SetInventorySearchText(const FString& Text) {
  InventoryViewStart=0;
  KeepInventorySelectionVisible();
 }
+void AMoonfallHeroPawn::ControllerSprintOrSearch() {
+ if(bInventoryOpen){
+  if(HasRingNavigationFocus())return;
+  TGuardValue<bool> Entry(bInventorySearchControllerEntry,true);
+  OpenInventorySearch();
+  return;
+ }
+ BeginSprint();
+}
 void AMoonfallHeroPawn::OpenInventorySearch() {
  if(!CanOpenInventorySearch()||InventorySearchOverlay.IsValid()||!GetWorld())return;
  auto* PC=Cast<APlayerController>(Controller);
@@ -1331,6 +1342,14 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
    }
   });
  const TWeakPtr<SEditableTextBox> WeakEditor(Editor);
+ TSharedPtr<SButton> FirstPreset;
+ const auto ApplyPreset=[WeakThis](const TCHAR* Query){
+  if(auto* Hero=WeakThis.Get())if(Hero->InventorySearchOverlay.IsValid()){
+   Hero->SetInventorySearchText(FString(Query));
+   Hero->CloseInventorySearch();
+  }
+  return FReply::Handled();
+ };
  InventorySearchOverlay=SNew(SOverlay)
   +SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
   [
@@ -1343,6 +1362,19 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
      [SNew(STextBlock).Text(FText::FromString(TEXT("Search equipment")))]
      +SVerticalBox::Slot().AutoHeight()
      [Editor]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
+     [
+      SNew(SHorizontalBox)
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SAssignNew(FirstPreset,SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Ring"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Ring"));})]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Weapon"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Weapon"));})]
+      +SHorizontalBox::Slot().FillWidth(1.f).Padding(2.f)
+      [SNew(SButton).HAlign(HAlign_Center).ContentPadding(FMargin(3.f,10.f))
+       .Text(FText::FromString(TEXT("Armor"))).OnClicked_Lambda([ApplyPreset](){return ApplyPreset(TEXT("Armor"));})]
+     ]
      +SVerticalBox::Slot().AutoHeight().Padding(0.f,12.f,0.f,0.f)
      [
       SNew(SHorizontalBox)
@@ -1381,7 +1413,7 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
       ]
      ]
      +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
-     [SNew(STextBlock).Text(FText::FromString(TEXT("Enter: apply | Tab: move focus")))]
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Tab / D-pad: focus | Enter / A: select")))]
     ]
    ]
   ];
@@ -1389,7 +1421,8 @@ void AMoonfallHeroPawn::OpenInventorySearch() {
  InventorySearchController=PC;
  Viewport->AddViewportWidgetContent(InventorySearchOverlay.ToSharedRef(),100);
  FInputModeUIOnly Mode;
- Mode.SetWidgetToFocus(Editor);
+ if(bInventorySearchControllerEntry&&FirstPreset.IsValid())Mode.SetWidgetToFocus(FirstPreset);
+ else Mode.SetWidgetToFocus(Editor);
  PC->SetInputMode(Mode);
  PC->bShowMouseCursor=true;
 }

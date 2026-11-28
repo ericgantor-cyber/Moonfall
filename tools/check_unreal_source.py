@@ -882,7 +882,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("KeepInventorySelectionVisible();", setter)
         self.assertNotIn("SaveWorldProgress", setter)
         self.assertIn("if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}", hero)
-        self.assertIn("F9: SEARCH", self.hud)
+        self.assertIn("F9/L3: SEARCH", self.hud)
+        route = hero.split("void AMoonfallHeroPawn::ControllerSprintOrSearch()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(bInventoryOpen)", route)
+        self.assertIn("if(HasRingNavigationFocus())return;", route)
+        self.assertIn("OpenInventorySearch();", route)
+        self.assertLess(route.index("OpenInventorySearch();"), route.index("BeginSprint();"))
+        self.assertIn("Mode.SetWidgetToFocus(FirstPreset)", opening)
+        for preset in ("Ring", "Weapon", "Armor"):
+            self.assertIn(f'ApplyPreset(TEXT("{preset}"))', opening)
 
     def test_worn_crafting_preserves_previous_tier_and_commits_before_notifications(self):
         hero = self.hero_cpp
@@ -2820,7 +2828,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
-        self.assertIn('ActionName="Sprint",Key=Gamepad_LeftThumbstick', inputs)
+        self.assertIn('ActionName="ControllerSprintOrSearch",Key=Gamepad_LeftThumbstick', inputs)
+        self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Released', self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::BeginSprint()", self.hero_cpp)
