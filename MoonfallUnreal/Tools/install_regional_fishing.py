@@ -21,9 +21,10 @@ def main():
     mode=getattr(unreal,"MoonfallNorthPreviewGameMode",None)
     treasure=getattr(unreal,"MoonfallGrottoTreasure",None)
     enemy=getattr(unreal,"MoonfallEnemy",None)
+    pocket=getattr(unreal,"MoonfallAirPocket",None)
     if ENABLE_WILDLIFE and enemy is None:
         raise RuntimeError("Compile aquatic enemy class first")
-    if mode is None or treasure is None or world.get_world_settings().get_editor_property("default_game_mode")!=mode:
+    if mode is None or treasure is None or pocket is None or world.get_world_settings().get_editor_property("default_game_mode")!=mode:
         raise RuntimeError("Compile and select isolated preview game mode")
     selected=actors.get_selected_level_actors()
     if not selected:
@@ -90,6 +91,10 @@ def main():
                 mesh=node.get_editor_property("chest_mesh")
                 mesh.set_static_mesh(meshes[shape])
                 mesh.set_relative_scale3d(unreal.Vector(*scale))
+            # Mid-depth air source on the east side, away from bank steps,
+            # gathering nodes and the optional central guardian spawn.
+            # A 160 cm radius fits within even the minimum 12 x 12 x 5 m pool.
+            place(pocket,"breathing bubble source",(.4*extent.x,0,-280))
             ornaments,light_pos,color,wildlife=environment
             for label,shape,pos,scale in ornaments:
                 ornament=place(unreal.StaticMeshActor,label,pos)
@@ -115,7 +120,7 @@ def main():
         for actor in reversed(created):
             actors.destroy_actor(actor)
         raise
-    unreal.log("Regional banks installed. Inspect dry approach, floor and swim exits before manually saving.")
+    unreal.log("Regional banks and breathing sources installed. Inspect dry approach, floor, bubble access and swim exits before manually saving.")
 
 if __name__=="__main__":
     main()
