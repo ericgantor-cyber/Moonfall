@@ -1072,7 +1072,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CanOperateFull(Code,MoonfallEquipmentLayout::ActiveSlotCount", hud)
         self.assertIn("DecodeFullItem(SelectedCode)", hud)
         self.assertIn("best eligible finger", hud)
-        self.assertIn("TMap<int32,int32> WornRingCopies,OwnedRingCopies", hud)
+        self.assertIn("TMap<int32,int32>& WornRingCopies=CachedWornRingCopies", hud)
+        self.assertIn("CachedRingCopiesHero.Get()!=Hero", hud)
+        self.assertIn("CachedRingCopiesSource!=Hero->InventoryItemCodes", hud)
+        self.assertIn("CachedRingCopiesLoadout!=WornCodes", hud)
+        self.assertIn("OwnedRingCopies.Reset()", hud)
+        self.assertIn("CachedRingCopiesSource=Hero->InventoryItemCodes", hud)
         self.assertIn("++WornRingCopies.FindOrAdd(WornCodes[Ring])", hud)
         self.assertIn("OwnedRingCopies.Find(Item)", hud)
         self.assertIn('TEXT("  [%d/%d WORN]")', hud)
@@ -1084,7 +1089,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CachedAdvisorLoadoutHash != AdvisorLoadoutHash", hud)
         self.assertIn("CachedAdvisorLoadoutHash = AdvisorLoadoutHash", hud)
         self.assertIn("uint64 CachedAdvisorLoadoutHash = 0;", (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8"))
-        self.assertIn("DecodeFullItem(CodeA)", self.hero_cpp)
+        self.assertIn("DecodeFullItem(InventoryItemCodes[Index])", self.hero_cpp)
         self.assertIn("GetEquipmentLoadoutFingerprint()", hud)
 
     def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
