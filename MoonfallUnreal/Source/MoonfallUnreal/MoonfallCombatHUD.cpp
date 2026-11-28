@@ -2057,12 +2057,15 @@ void AMoonfallCombatHUD::DrawHUD()
           Left+25.f,DetailY+122.f,nullptr,PanelWidth<440.f?0.49f:0.70f);
     }
    } else {
+   const auto Primary=Hero->GetPrimaryAttributes();
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->GetEquipmentSlotCode(0)),
        Hero->GetItemPower(Hero->GetEquipmentSlotCode(1)),
        Hero->GetItemPower(Hero->GetEquipmentSlotCode(2))),
      TEXT("PRIMARY ATTRIBUTES"),
+     FString::Printf(TEXT("Preview | Str %d  Agi %d  Int %d  Sta %d"),
+       Primary.Strength,Primary.Agility,Primary.Intellect,Primary.Stamina),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
      FString::Printf(TEXT("Insight: %d    |    +%.1f%% mana regeneration"),
@@ -2098,14 +2101,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bCompactStats = PanelHeight < 570.f;
    const float StatsBottom = Top + PanelHeight - (bCompactStats ? 130.f : 144.f);
    const float StatsRowHeight = FMath::Clamp(
-     (StatsBottom-StartY)/(bCompactStats ? 8.f : 18.f),9.f,24.f);
+     (StatsBottom-StartY)/(bCompactStats ? 9.f : 19.f),9.f,24.f);
    int32 ShownStatsRows = 0;
    const float StatPanelLeft = Left + 15.f;
    const float StatPanelWidth = PanelWidth - 30.f;
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row) {
-    const bool bSection = Row == 1 || Row == 5 || Row == 8 || Row == 12 || Row == 16;
-    if (bCompactStats && !(Row==0 || Row==2 || Row==3 || Row==4
-      || Row==6 || Row==7 || Row==13 || Row==17)) continue;
+    const bool bSection = Row == 1 || Row == 6 || Row == 9 || Row == 13 || Row == 17;
+    if (bCompactStats && !(Row==0 || Row==2 || Row==3 || Row==4 || Row==5
+      || Row==7 || Row==8 || Row==14 || Row==18)) continue;
     const float RowY = StartY + ShownStatsRows * StatsRowHeight;
     if (RowY+StatsRowHeight > StatsBottom) break;
     ++ShownStatsRows;
