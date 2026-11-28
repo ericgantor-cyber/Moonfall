@@ -54,6 +54,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         page=transfer.split("if(Choice==5||Choice==6)",1)[1].split("return true;",1)[0]
         self.assertLess(page.index("ClearMerchantConfirmation();"),page.index("VaultPageSelection("))
 
+    def test_merchant_sale_page_navigation_clears_pending_trade(self):
+        hero = self.hero_cpp
+        rows = hero.split("int32 AMoonfallHeroPawn::GetResidentContextRowCount()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if(bResidentVaultMenu)return 7;", rows)
+        self.assertIn("if(bResidentMerchantMenu)return MerchantTradeMode==0?9:7;", rows)
+        body = hero.split("bool AMoonfallHeroPawn::ChooseResidentContextAction(", 1)[1]
+        page = body.split("if(Choice==7||Choice==8)", 1)[1].split("return true;", 1)[0]
+        self.assertIn("if(MerchantTradeMode!=0)return false;", page)
+        self.assertLess(page.index("ClearMerchantConfirmation();"), page.index("VaultPageSelection("))
+        self.assertIn("SelectMerchantSaleItem(0);", page)
+        self.assertIn('TEXT("Previous 25 bag items")', self.hud)
+        self.assertIn('TEXT("Next 25 bag items")', self.hud)
+
     def test_merchant_transactions_require_live_confirm_and_atomic_save(self):
         sell = self.hero_cpp.split("bool AMoonfallHeroPawn::SellMerchantItem()",1)[1].split("\n}",1)[0]
         buy = self.hero_cpp.split("bool AMoonfallHeroPawn::BuyMerchantItem()",1)[1].split("\n}",1)[0]
