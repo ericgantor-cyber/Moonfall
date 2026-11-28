@@ -99,6 +99,7 @@ private:
  // World-scoped, single-local-player preview ledger. Never serialized.
  friend class AMoonfallHeroPawn;
  MoonfallSkillMastery::State MasterySessionLedger{};
+ bool bMasteryLedgerRestored=false;
  FTimerHandle DungeonSpawnTimer;
  int32 NextDungeonSlot = 0;
  int32 NextFailedDungeonRetry = 0;
