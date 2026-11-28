@@ -11,6 +11,13 @@ namespace MoonfallWaterRules
     constexpr float DrowningHealthFraction = 0.20f;
     constexpr float TonicDuration = 120.f;
     constexpr float TonicThreshold = 10.f;
+    // Negative means unavailable; rank valid guides by distance to breathable edge.
+    inline double GuideEdgeDistance(double CenterDistance,double Radius)
+    {
+        if (!FMath::IsFinite(CenterDistance) || !FMath::IsFinite(Radius)
+            || Radius<=0.0 || CenterDistance<=Radius || CenterDistance>1200.0) return -1.0;
+        return CenterDistance-Radius;
+    }
     // Local broad-phase refresh: the 25 cm probe covers the 10 cm movement
     // budget for stationary pockets. Moving pockets refresh at most 0.1 s later.
     inline bool RefreshPocketCandidates(double Now,double Last,double DistanceSquared)
