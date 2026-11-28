@@ -6,7 +6,8 @@
 namespace MoonfallProfessionLedger {
  constexpr int LegacyCount=31;
  constexpr int RegionalCount=34;
- constexpr int Count=39;
+ constexpr int WorkshopCount=39;
+ constexpr int Count=40;
  struct FSnapshot {
   MoonfallOceanGathering::FCollection Gathering;
   MoonfallOceanCrafting::FWorkshop Workshop;
@@ -30,9 +31,10 @@ namespace MoonfallProfessionLedger {
    Out[N++]=int(Regions.Visited); Out[N++]=int(Regions.Caught); Out[N++]=int(Regions.Harvested);
    Out[N++]=Workshop.CookingCrafts; Out[N++]=Workshop.AlchemyCrafts; Out[N++]=Workshop.SmithingCrafts;
    Out[N++]=Workshop.Provisions; Out[N++]=int(Workshop.DeliveredContracts);
+   Out[N++]=int(Regions.Treasures);
   }
   bool Decode(const int* In,int Size) {
-   if(!In||(Size!=Count&&Size!=RegionalCount&&Size!=LegacyCount)) return false;
+   if(!In||(Size!=Count&&Size!=WorkshopCount&&Size!=RegionalCount&&Size!=LegacyCount)) return false;
    FSnapshot S;
    int N=0;
    for(int& I:S.Gathering.Harvested) I=In[N++];
@@ -46,7 +48,8 @@ namespace MoonfallProfessionLedger {
    S.Journal.Accepted=unsigned(In[N++]); S.Journal.Completed=unsigned(In[N++]); S.Journal.Credits=In[N++];
    S.Sightings.Seen=unsigned(In[N++]); S.Wrecks=unsigned(In[N++]); S.Caves=unsigned(In[N++]);
    if(Size>=RegionalCount) { S.Regions.Visited=unsigned(In[N++]); S.Regions.Caught=unsigned(In[N++]); S.Regions.Harvested=unsigned(In[N++]); }
-   if(Size==Count) { S.Workshop.CookingCrafts=In[N++]; S.Workshop.AlchemyCrafts=In[N++]; S.Workshop.SmithingCrafts=In[N++]; S.Workshop.Provisions=In[N++]; S.Workshop.DeliveredContracts=unsigned(In[N++]); }
+   if(Size>=WorkshopCount) { S.Workshop.CookingCrafts=In[N++]; S.Workshop.AlchemyCrafts=In[N++]; S.Workshop.SmithingCrafts=In[N++]; S.Workshop.Provisions=In[N++]; S.Workshop.DeliveredContracts=unsigned(In[N++]); }
+   if(Size==Count) S.Regions.Treasures=unsigned(In[N++]);
    if(!S.Regions.Valid()) return false;
    for(int I=0;I<4;++I) if(S.Gathering.Harvested[I]<0||S.Gathering.Harvested[I]>MoonfallOceanGathering::MaxMaterialPerType||
     S.Workshop.Spent[I]<0||S.Workshop.Spent[I]>S.Gathering.Harvested[I]) return false;
