@@ -34,7 +34,7 @@ assert 'Selected.AffectedStat==MoonfallTalents::Stat::MeleeDamage' in hud
 assert 'MELEE DAMAGE +%.1f%%/RANK' in hud
 assert 'const float Tier = static_cast<float>(GetValidatedEquippedTier(0));' in pawn
 assert 'const float TalentMeleeMultiplier = static_cast<float>(' in pawn
-assert '* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier;' in pawn
+assert '* (1.f + GetVersatilityBonus()) * TalentMeleeMultiplier\n     * (1.f+SkillMasteryBonus(MoonfallSkillMastery::Skill::Swordsmanship));' in pawn
 # Every category, including flat resource caps and percent damage bonuses,
 # must have a readable selected-node effect preview.
 for stat in ("Health", "Mana", "Stamina", "MeleeDamage", "RangedDamage", "MagicDamage"):

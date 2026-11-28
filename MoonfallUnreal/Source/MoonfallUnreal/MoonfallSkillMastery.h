@@ -77,6 +77,33 @@ constexpr int JumpBonusBps(const State& S) {
  constexpr std::array<int,MaxRank+1> Bonus{{0,600,1200,1800,2100,2500,2800,3100,3400,3700,4000}};
  return R<0||R>MaxRank?0:Bonus[static_cast<std::size_t>(R)];
 }
+// Additive basis-point bonuses relative to existing gameplay calculations.
+// This is independent of the gear secondary stat also named Mastery.
+constexpr int PassiveBonusBps(const State& S,Skill K) {
+ const int R=RankFor(S,K);
+ if(R<0)return 0;
+ switch(K){
+  case Skill::Swordsmanship:return R*100;
+  case Skill::Arcane:return R*100;
+  case Skill::Agility:return JumpBonusBps(S);
+  case Skill::Defense:return R*150;
+  case Skill::Strength:return R*200;
+  case Skill::Survival:return R*150;
+  default:return 0;
+ }
+}
+enum class Challenge : int { Standard, Elite, Boss };
+constexpr int VictoryMultiplier(Challenge C) {
+ switch(C){
+  case Challenge::Standard:return 1;
+  case Challenge::Elite:return 2;
+  case Challenge::Boss:return 4;
+ }
+ return 0;
+}
+constexpr bool VictoryAction(Action A){
+ return A==Action::MeleeVictory||A==Action::SpellVictory||A==Action::HeavyVictory;
+}
 constexpr int Reward(Action A) {
  switch(A){
   case Action::MeleeVictory:return 12;
@@ -104,9 +131,11 @@ constexpr int SaturatingXP(int Current,int Amount) {
 }
 // Output remains unchanged on every rejected transaction. Rewards are fixed,
 // bounded, and separate from character level, gear mastery and talent points.
-inline bool TryAward(const State& Current,Action A,bool Confirmed,State& Out) {
+inline bool TryAward(const State& Current,Action A,bool Confirmed,State& Out,Challenge C=Challenge::Standard) {
  if(!Confirmed||!Valid(Current))return false;
- const int I=static_cast<int>(SkillFor(A)),Amount=Reward(A);
+ const int Factor=VictoryMultiplier(C);
+ if(Factor==0||(!VictoryAction(A)&&C!=Challenge::Standard))return false;
+ const int I=static_cast<int>(SkillFor(A)),Amount=Reward(A)*Factor;
  if(I<0||I>=SkillCount||Amount<=0)return false;
  State Next=Current;
  auto& XP=Next.XP[static_cast<std::size_t>(I)];

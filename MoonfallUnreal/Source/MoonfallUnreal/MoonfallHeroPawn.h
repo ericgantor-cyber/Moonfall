@@ -454,6 +454,7 @@ public:
  // Read-only session preview; no Blueprint reward entry point.
  UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetSkillMasteryXP(int32 SkillIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetSkillMasteryRank(int32 SkillIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetSkillMasteryBonusBps(int32 SkillIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetCollectedMasteryRouteOrbs() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
@@ -608,7 +609,8 @@ private:
  MoonfallSkillMastery::State* GetSessionMastery() const;
  void ReconcileMasteryOrbOverlaps();
  bool IsSkillMasteryPreviewEnabled() const;
- void AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action);
+ void AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action,MoonfallSkillMastery::Challenge Challenge=MoonfallSkillMastery::Challenge::Standard);
+ float SkillMasteryBonus(MoonfallSkillMastery::Skill Skill) const;
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;

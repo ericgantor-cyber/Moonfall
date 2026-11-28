@@ -1754,22 +1754,27 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Hero->bCharacterStatsOpen) {
    // Optional read-only mastery sidebar occupies only unused screen space.
    // Existing tabs, gear layout and all input hit targets stay unchanged.
-   if(Hero->GetSkillMasteryXP(0)>=0&&Left>=338.f&&PanelHeight>=352.f){
-    const float MX=Left-328.f,MY=Top,MW=312.f,MH=352.f;
+   if(Hero->GetSkillMasteryXP(0)>=0&&Left>=338.f&&PanelHeight>=430.f){
+    const float MX=Left-328.f,MY=Top,MW=312.f,MH=418.f;
     DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.96f),MX,MY,MW,MH);
     DrawModalChrome(MX,MY,MW,MH,FLinearColor(0.36f,0.69f,0.52f,1.f));
     DrawText(TEXT("CHARACTER | MASTERY"),FLinearColor::White,MX+14,MY+15,nullptr,0.88f);
     const TCHAR* Names[]={TEXT("Swordsmanship"),TEXT("Arcane"),TEXT("Agility"),
       TEXT("Defense"),TEXT("Strength"),TEXT("Survival")};
+    int32 TotalRanks=0;
+    for(int32 K=0;K<MoonfallSkillMastery::SkillCount;++K)
+     TotalRanks+=FMath::Clamp(Hero->GetSkillMasteryRank(K),0,MoonfallSkillMastery::MaxRank);
+    DrawText(FString::Printf(TEXT("TOTAL MASTERY  %d / %d"),TotalRanks,MoonfallSkillMastery::SkillCount*MoonfallSkillMastery::MaxRank),
+      FLinearColor(0.77f,0.82f,0.90f),MX+14,MY+32,nullptr,0.63f);
     for(int32 K=0;K<MoonfallSkillMastery::SkillCount;++K){
      const int32 XP=Hero->GetSkillMasteryXP(K),Rank=Hero->GetSkillMasteryRank(K);
      if(Rank<0||Rank>=static_cast<int32>(MoonfallSkillMastery::RankThresholds.size()))continue;
      const int32 Start=MoonfallSkillMastery::RankThresholds[Rank];
      const int32 End=Rank==MoonfallSkillMastery::MaxRank?Start:MoonfallSkillMastery::RankThresholds[Rank+1];
      const float Progress=Rank==MoonfallSkillMastery::MaxRank?1.f:FMath::Clamp(float(XP-Start)/float(End-Start),0.f,1.f);
-     const float Y=MY+51.f+K*42.f;
+     const float Y=MY+51.f+K*52.f;
      DrawText(FString::Printf(TEXT("%s | %d/%d"),Names[K],Rank,MoonfallSkillMastery::MaxRank),FLinearColor(0.91f,0.93f,0.96f),MX+14,Y,nullptr,0.75f);
-     DrawText(Rank==MoonfallSkillMastery::MaxRank?FString(TEXT("MAX")):FString::Printf(TEXT("%d / %d"),XP-Start,End-Start),
+     DrawText(Rank==MoonfallSkillMastery::MaxRank?FString(TEXT("MAX")):FString::Printf(TEXT("%d XP left"),End-XP),
         FLinearColor(0.8f,0.85f,0.9f),MX+194,Y,nullptr,0.65f);
      // Character-profile rank strips: earned ranks stay filled; the next rank fills with XP.
      const FLinearColor SkillTints[]={FLinearColor(0.93f,0.58f,0.44f),FLinearColor(0.69f,0.58f,0.96f),
@@ -1781,11 +1786,16 @@ void AMoonfallCombatHUD::DrawHUD()
       const float Fill=Segment<Rank?1.f:Segment==Rank?Progress:0.f;
       DrawRect(FLinearColor(0.19f,0.22f,0.27f,1.f),X,Y+21,SegmentWidth,8.f);
       if(Fill>0.f)DrawRect(SkillTints[K],X,Y+21,SegmentWidth*Fill,8.f);
+      if(Segment==Rank&&Rank<MoonfallSkillMastery::MaxRank)
+       DrawRect(FLinearColor(0.94f,0.94f,0.96f),X,Y+30,SegmentWidth,1.f);
      }
+     const TCHAR* Effects[]={TEXT("melee damage"),TEXT("spell damage"),TEXT("jump velocity"),TEXT("guard mitigation"),TEXT("posture damage"),TEXT("stamina regen")};
+     DrawText(FString::Printf(TEXT("+%.1f%% %s"),Hero->GetSkillMasteryBonusBps(K)/100.f,Effects[K]),
+       FLinearColor(0.78f,0.84f,0.90f),MX+14,Y+31,nullptr,0.60f);
     }
     DrawText(FString::Printf(TEXT("Route orbs collected: %d"),Hero->GetCollectedMasteryRouteOrbs()),
-       FLinearColor(1.f,0.85f,0.52f),MX+14,MY+307,nullptr,0.76f);
-    DrawText(TEXT("Session only | Not saved"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+327,nullptr,0.67f);
+       FLinearColor(1.f,0.85f,0.52f),MX+14,MY+369,nullptr,0.76f);
+    DrawText(TEXT("Session only | Not saved"),FLinearColor(0.75f,0.8f,0.86f),MX+14,MY+389,nullptr,0.67f);
    }
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
