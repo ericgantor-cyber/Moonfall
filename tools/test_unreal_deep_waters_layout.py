@@ -81,6 +81,17 @@ class DeepWatersLayoutTests(unittest.TestCase):
         self.assertIn("bOptionsOpen||bInventoryOpen||bAtlasOpen||bTalentWebOpen", pointer)
         self.assertIn("EStage::Reeling) ReleaseFishingPointer()", source)
         self.assertIn("EndPlayReason) {\n ReleaseFishingPointer();", source)
+        # Modal entry must release fishing input before the menu owns the cursor.
+        for method, marker in (
+            ("ToggleAtlas", "bAtlasOpen = !bAtlasOpen"),
+            ("ToggleInventory", "bInventoryOpen = !bInventoryOpen"),
+            ("OpenOptions", "bOptionsOpen = !bOptionsOpen"),
+            ("ToggleTalentWeb", "bTalentWebOpen=true"),
+            ("OpenFocusedResidentContext", "bResidentContextOpen = true"),
+            ("CastRightMouse", "bResidentContextOpen = true"),
+        ):
+            body = source.split("void AMoonfallHeroPawn::"+method+"()",1)[1].split("\n}",1)[0]
+            self.assertLess(body.index("CancelFishingWithFeedback();"),body.index(marker))
         right = source.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("int32 AMoonfallHeroPawn::GetRingPointerDragCode()", 1)[0]
         self.assertLess(right.index("Cast<AMoonfallWorldNPC>"), right.index("TryMouseFishingAction()"))
         self.assertLess(right.index("TryMouseFishingAction()"), right.index("CastRight();"))
