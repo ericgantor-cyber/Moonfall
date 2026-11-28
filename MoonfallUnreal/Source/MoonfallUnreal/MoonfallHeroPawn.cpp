@@ -5964,6 +5964,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  if(!MoonfallMoney::Valid(WalletCopper))return false;
  Save->WalletCopper=WalletCopper;
+ if(MerchantRestockUtc.Num()!=MoonfallMoney::StockGroups)return false;
+ for(const int64 Deadline:MerchantRestockUtc)if(!MoonfallMoney::ValidRestock(Deadline))return false;
+ Save->MerchantRestockUtc=MerchantRestockUtc;
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
  Save->MaxHealth = static_cast<float>(BaseHealthCap);
  // Retain inventory and the worn IDs so replacing gear never wipes old loot.
@@ -6003,6 +6006,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ if(Save->MerchantRestockUtc.Num()!=MoonfallMoney::StockGroups){bPersistentSaveWritesBlocked=true;return false;}
+ for(const int64 Deadline:Save->MerchantRestockUtc){
+  if(!MoonfallMoney::ValidRestock(Deadline)){bPersistentSaveWritesBlocked=true;return false;}
  }
  if(Save->Version>=16){
   const auto& Party=Save->CompanionParty;
@@ -6342,6 +6349,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Do not replay XP awards or add health already recorded in the save.
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
  WalletCopper=Save->WalletCopper;
+ MerchantRestockUtc=Save->MerchantRestockUtc;
  MerchantBuybackCode=0;MerchantBuybackPrice=0;
  Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
  MaxHealth = static_cast<float>(LoadedHealthCap);
@@ -7039,11 +7047,22 @@ FString AMoonfallHeroPawn::GetMerchantStandingText() const {
  return Percent<100?FString::Printf(TEXT("Faction discount %d%%"),100-Percent):
   Percent>100?FString::Printf(TEXT("Faction surcharge %d%%"),Percent-100):FString(TEXT("Standard prices"));
 }
+bool AMoonfallHeroPawn::IsMerchantSpecialtySelected() const {
+ return MerchantTradeMode==1&&MerchantStockIndex==MoonfallEquipmentLayout::ActiveSlotCount;
+}
+int64 AMoonfallHeroPawn::GetMerchantSpecialtyWait() const {
+ if(!MerchantRestockUtc.IsValidIndex(MerchantStockFaction))return -1;
+ const int64 Deadline=MerchantRestockUtc[MerchantStockFaction];
+ const int64 Now=FDateTime::UtcNow().ToUnixTimestamp();
+ if(!MoonfallMoney::ValidRestock(Deadline)||Now<=0||Now>MoonfallMoney::MaxUtc-MoonfallMoney::RestockSeconds)return -1;
+ return Deadline>Now?Deadline-Now:0;
+}
 int64 AMoonfallHeroPawn::GetMerchantTradeQuote() const {
  if(!CanOpenCoinMerchant()||!bResidentMerchantMenu)return 0;
  if(MerchantTradeMode==0)return GetMerchantSaleQuote();
  if(MerchantTradeMode==2)return ValidMoonfallItemCode(MerchantBuybackCode)&&MoonfallMoney::Valid(MerchantBuybackPrice)?MerchantBuybackPrice:0;
  if(MerchantTradeMode!=1)return 0;
+ if(IsMerchantSpecialtySelected()&&GetMerchantSpecialtyWait()!=0)return 0;
  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(GetMerchantStockCode());
  return Item.IsValid()?MoonfallMoney::FactionPurchasePrice(Item.Tier,Item.Rarity,Item.Trait,MerchantStockStanding):0;
 }
@@ -7057,6 +7076,11 @@ FString AMoonfallHeroPawn::GetMerchantTradeItemText() const {
  return FString::Printf(TEXT("%s%s T%d %s %s"),MerchantTradeMode==1&&MerchantStockIndex==MoonfallEquipmentLayout::ActiveSlotCount?TEXT("Special: "):TEXT(""),Slots[Item.Slot],Item.Tier,Rarities[Item.Rarity],Traits[Item.Trait]);
 }
 FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
+ if(IsMerchantSpecialtySelected()){
+  const int64 Wait=GetMerchantSpecialtyWait();
+  if(Wait<0)return TEXT("Stock unavailable");
+  if(Wait>0)return FString::Printf(TEXT("Restock in %lld min"),static_cast<long long>((Wait+59)/60));
+ }
  const int64 Price=GetMerchantTradeQuote();
  if(Price<=0)return TEXT("Unavailable");
  const MoonfallMoney::FWallet Quote{Price};
@@ -7074,12 +7098,23 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
  if(!Candidate.Debit(GetMerchantTradeQuote()))return false;
  TGuardValue<bool> SaleGuard(bMerchantSaleInProgress,true);
  const int64 PreviousWallet=WalletCopper;
+ const bool bSpecialty=IsMerchantSpecialtySelected();
+ const int32 StockGroup=MerchantStockFaction;
+ int64 PreviousDeadline=0;
+ if(bSpecialty){
+  if(!MerchantRestockUtc.IsValidIndex(StockGroup))return false;
+  PreviousDeadline=MerchantRestockUtc[StockGroup];
+  const int64 Next=MoonfallMoney::NextRestock(FDateTime::UtcNow().ToUnixTimestamp(),PreviousDeadline);
+  if(!Next)return false;
+  MerchantRestockUtc[StockGroup]=Next;
+ }
  const int32 AddedIndex=InventoryItemCodes.Add(Code);
  WalletCopper=Candidate.Copper;
  MarkEquipmentInventoryDirty();
  if(!SaveWorldProgress()){
   InventoryItemCodes.RemoveAt(AddedIndex);
   WalletCopper=PreviousWallet;
+  if(bSpecialty)MerchantRestockUtc[StockGroup]=PreviousDeadline;
   MarkEquipmentInventoryDirty();
   return false;
  }

@@ -41,6 +41,16 @@ namespace MoonfallMoney {
   return Level<1||Level>100||Standing<-100||Standing>100?0:Level>=25&&Standing>=40?2:Level>=5?1:0;
  }
  constexpr int SpecialtyTrait(int Faction) {return Faction==1?1:Faction==2?2:3;}
+ // One specialty per faction every 30 real-world minutes, including across saves.
+ constexpr int StockGroups=4;
+ constexpr Coins RestockSeconds=1800, MaxUtc=253402300799LL;
+ constexpr bool ValidRestock(Coins Deadline){return Deadline>=0&&Deadline<=MaxUtc;}
+ constexpr bool SpecialtyAvailable(Coins Now,Coins Deadline){
+  return Now>0&&Now<=MaxUtc-RestockSeconds&&ValidRestock(Deadline)&&Now>=Deadline;
+ }
+ constexpr Coins NextRestock(Coins Now,Coins Deadline){
+  return SpecialtyAvailable(Now,Deadline)?Now+RestockSeconds:0;
+ }
  constexpr int TradeMode(int Mode) {return Mode>=0&&Mode<=2?(Mode+1)%3:0;}
  constexpr Coins EnemyReward(int Level,bool Elite,bool Boss) {
   return Level<1||Level>100?0:(Boss?1200:Elite?350:100)+Coins(Level-1)*15;
