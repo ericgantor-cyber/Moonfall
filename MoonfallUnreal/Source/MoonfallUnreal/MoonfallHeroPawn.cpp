@@ -7633,7 +7633,7 @@ bool AMoonfallHeroPawn::ChooseVaultAction(int32 Choice) {
 }
 int32 AMoonfallHeroPawn::GetResidentContextRowCount() const {
  if(bResidentVaultMenu)return 7;
- if(bResidentMerchantMenu)return 7;
+ if(bResidentMerchantMenu)return MerchantTradeMode==0?9:7;
  const auto* Resident=FocusedResident.Get();
  if(bResidentCompanionMenu){
   if(bResidentCompanionGear)return 7;
@@ -7971,6 +7971,13 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   if(Choice==4){ClearMerchantConfirmation();bResidentMerchantMenu=false;ResidentContextSelection=0;return true;}
   if(!CanOpenCoinMerchant()){CloseResidentContext();return false;}
   if(Choice==3){ClearMerchantConfirmation();MerchantTradeMode=MoonfallMoney::TradeMode(MerchantTradeMode);ResidentContextSelection=0;ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;return true;}
+  if(Choice==7||Choice==8){
+   if(MerchantTradeMode!=0)return false;
+   ClearMerchantConfirmation();ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
+   MerchantSellIndex=MoonfallMoney::VaultPageSelection(MerchantSellIndex,InventoryItemCodes.Num(),Choice==7?-1:1);
+   SelectMerchantSaleItem(0);
+   return true;
+  }
   if(Choice==0||Choice==1){
    ClearMerchantConfirmation();ResidentFeedbackMessage.Empty();ResidentFeedbackUntil=0.f;
    if(MerchantTradeMode==0)SelectMerchantSaleItem(Choice==0?-1:1);
