@@ -948,8 +948,8 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("NORTHERN WATERS | DISCOVERY ATLAS"),FLinearColor(.95f,.82f,.58f),L+12,T+12,nullptr,W<480?.65f:1.f);
     DrawRect(FLinearColor(.37f,.16f,.22f),L+W-42,T+12,28,28);
     DrawText(TEXT("X"),FLinearColor::White,L+W-33,T+16,nullptr,.9f);
-    DrawText(FString::Printf(TEXT("%d/9 visited | %d/9 mastered"),Preview->GetRegionalVisited(),Preview->GetRegionalCompleted()),
-     FLinearColor::White,L+12,T+40,nullptr,.72f);
+    DrawText(FString::Printf(TEXT("Visit %d/9 | Master %d/9 | Cache %d/9"),Preview->GetRegionalVisited(),Preview->GetRegionalCompleted(),Preview->GetRegionalTreasureCount()),
+     FLinearColor::White,L+12,T+40,nullptr,W<480?.48f:.72f);
     FVector2D Nodes[MoonfallNorth::ZoneCount];
     for(int I=0;I<MoonfallNorth::ZoneCount;++I) {
      const auto R=MoonfallRegionalAtlas::Node(I,W,H);
@@ -971,7 +971,8 @@ void AMoonfallCombatHUD::DrawHUD()
      if(Available) DrawHoverFrame(L+R.X,T+R.Y,R.W,R.H);
      if(Hero->RegionalWaypoint==I) DrawRect(FLinearColor(.95f,.78f,.35f),L+R.X,T+R.Y,3,R.H);
      DrawText(FString::Printf(TEXT("%s %d/3"),Names[I],N),Ink,X-W*.22f+5,Y-8,nullptr,W<480?.55f:.8f);
-     for(int K=0;K<3;++K) DrawRect(K<N?Ink:FLinearColor(.22f,.25f,.30f),X-12+K*9,Y+7,6,4);
+     for(int K=0;K<3;++K) DrawRect(K<N?Ink:FLinearColor(.22f,.25f,.30f),X-16+K*9,Y+7,6,4);
+     DrawRect(Preview->HasRegionalTreasure(I)?FLinearColor(.96f,.72f,.22f):FLinearColor(.22f,.25f,.30f),X+13,Y+7,7,4);
     }
     DrawText(TEXT("Click / up-down: waypoint | links planned | J/Esc"),FLinearColor(.74f,.78f,.86f),L+12,T+H-21,nullptr,W<480?.49f:.68f);
     DrawLiveMenuHitCue();
