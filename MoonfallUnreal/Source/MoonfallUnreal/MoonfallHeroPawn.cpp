@@ -1851,6 +1851,7 @@ void AMoonfallHeroPawn::RefreshAirPocketGuide()
  if (!FMath::IsFinite(Now)) { GuidedAirPocket.Reset(); LastAirGuideTime=-1.0; return; }
  if (LastAirGuideTime>=0.0 && Now>=LastAirGuideTime && Now-LastAirGuideTime<0.5) return;
  LastAirGuideTime=Now;
+ const auto* PreviousGuide=GuidedAirPocket.Get();
  GuidedAirPocket.Reset();
  const auto* Volume=GetPhysicsVolume();
  const FVector Eye=GetPawnViewLocation();
@@ -1876,7 +1877,7 @@ void AMoonfallHeroPawn::RefreshAirPocketGuide()
       || !Pocket->GetBreathingSphere(Center,Radius) || !Bounds.IsInsideOrOn(Center)) continue;
   Seen.Add(Pocket);
   const double Edge=MoonfallWaterRules::GuideEdgeDistance(FVector::Dist(Eye,Center),Radius);
-  if (Edge>=0.0) Candidates.Add({Pocket,Center,Edge});
+  if (Edge>=0.0) Candidates.Add({Pocket,Center,MoonfallWaterRules::GuidePriority(Edge,Pocket==PreviousGuide)});
  }
  Candidates.Sort([](const FGuideCandidate& A,const FGuideCandidate& B) {
   return A.EdgeDistance<B.EdgeDistance;

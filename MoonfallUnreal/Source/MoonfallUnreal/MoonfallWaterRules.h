@@ -18,6 +18,20 @@ namespace MoonfallWaterRules
             || Radius<=0.0 || CenterDistance<=Radius || CenterDistance>1200.0) return -1.0;
         return CenterDistance-Radius;
     }
+    // Retain the previous visible guide unless a replacement is substantially nearer.
+    inline double GuidePriority(double Edge,bool bPrevious)
+    {
+        return bPrevious?Edge-75.0:Edge;
+    }
+    // Advisory estimate only: actual travel can take longer due to acceleration,
+    // currents, obstacles or input pauses. Never promise that a source is reachable.
+    inline bool GuideBreathWarning(float DistanceMeters,float MaxSwimCmPerSecond,float BreathSeconds)
+    {
+        if (!FMath::IsFinite(DistanceMeters)||!FMath::IsFinite(MaxSwimCmPerSecond)
+            ||!FMath::IsFinite(BreathSeconds)||DistanceMeters<0.f||MaxSwimCmPerSecond<=0.f||BreathSeconds<0.f)
+            return false;
+        return DistanceMeters*100.f/MaxSwimCmPerSecond+2.f>=BreathSeconds;
+    }
     // Local broad-phase refresh: the 25 cm probe covers the 10 cm movement
     // budget for stationary pockets. Moving pockets refresh at most 0.1 s later.
     inline bool RefreshPocketCandidates(double Now,double Last,double DistanceSquared)
