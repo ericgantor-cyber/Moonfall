@@ -1055,6 +1055,7 @@ void AMoonfallCombatHUD::DrawHUD()
            Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
      Detail=FString::Printf(TEXT("%s | Salvage %d/%d | %s"),UTF8_TO_TCHAR(Entry.Name),
        FMath::Clamp(Hero->Salvage,0,Cost),Cost,*RewardLabel);
+     Detail+=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(Cost,Hero->Level,Hero->WalletCopper)));
     } else {
      const int Goal=Id-J::ResidentCount,Zone=Goal/2;
      int Progress=0;
@@ -3470,7 +3471,8 @@ void AMoonfallCombatHUD::DrawHUD()
       const FString RewardLabel=Hero->Level>=100 ? TEXT("MAX LEVEL")
         : FString::Printf(TEXT("+%d XP%s"),Reward.RewardXP,
             Reward.LevelsGained>0?TEXT(" | LEVEL UP"):TEXT(""));
-      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel),
+      const FString CoinLabel=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(Cost,Hero->Level,Hero->WalletCopper)));
+      DrawText(FString::Printf(TEXT("Salvage %d/%d | %s"),Salvage,Cost,*RewardLabel)+CoinLabel,
          FLinearColor(0.85f,0.92f,0.98f),Left+14.f,Y+12.f,nullptr,0.64f);
       continue;
      }
