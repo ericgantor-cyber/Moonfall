@@ -2439,7 +2439,15 @@ void AMoonfallCombatHUD::DrawHUD()
   const TArray<int32>& WornCodes=CachedValidatedEquipmentCodes;
   // Identical rings are fungible codes, not individually tracked bag instances.
   // Report aggregate copies instead of marking every duplicate as equipped.
-  TMap<int32,int32> WornRingCopies,OwnedRingCopies;
+  TMap<int32,int32>& WornRingCopies=CachedWornRingCopies;
+  TMap<int32,int32>& OwnedRingCopies=CachedOwnedRingCopies;
+  if(CachedRingCopiesHero.Get()!=Hero||CachedRingCopiesSource!=Hero->InventoryItemCodes
+     ||CachedRingCopiesLoadout!=WornCodes){
+   WornRingCopies.Reset();
+   OwnedRingCopies.Reset();
+   CachedRingCopiesHero=Hero;
+   CachedRingCopiesSource=Hero->InventoryItemCodes;
+   CachedRingCopiesLoadout=WornCodes;
   if(MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount){
    for(int32 Ring:MoonfallEquipmentLayout::RingSlots){
     if(WornCodes.IsValidIndex(Ring)&&WornCodes[Ring]>0)
@@ -2449,6 +2457,7 @@ void AMoonfallCombatHUD::DrawHUD()
    if(!OwnedRingCopies.IsEmpty())
     for(int32 Item:Hero->InventoryItemCodes)
      if(int32* Copies=OwnedRingCopies.Find(Item))++*Copies;
+  }
   }
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
