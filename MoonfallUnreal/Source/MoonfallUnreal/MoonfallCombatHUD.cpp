@@ -1125,6 +1125,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bCompactAtlasRows = AtlasRowGap < 55.f;
   const float AtlasSideTextScale = FMath::Clamp(AtlasSidebarWidth / 230.f, 0.50f, 1.f);
   const int32 Selected = FMath::Clamp(Hero->AtlasSelectedRegion, 0, 5);
+  const auto* DangerMode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
   DrawRect(FLinearColor(0.09f, 0.08f, 0.08f, 0.95f),
       Left + 10.f, Top + 102.f, AtlasSidebarWidth - 16.f, Height - 132.f);
   for (int32 Zone = 0; Zone < 6; ++Zone) {
@@ -1156,7 +1157,12 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.72f, 0.79f, 0.76f), Left + 23.f, Y + 19.f,
        nullptr, Scale * AtlasSideTextScale * 0.73f);
    if (!bCompactAtlasRows) {
-    DrawText(FString::Printf(TEXT("EXPLORED %d%%"), FMath::RoundToInt(100.f * Revealed / 56.f)),
+    const int32 Danger=IsValid(DangerMode)?DangerMode->GetRegionalDanger(Zone):-1;
+    const FString ExplorationLabel=Danger>=0&&AtlasSidebarWidth>=205.f
+       ?FString::Printf(TEXT("EXPLORED %d%% | %s"),FMath::RoundToInt(100.f*Revealed/56.f),
+         UTF8_TO_TCHAR(MoonfallLivingSimulation::RegionalDangerName(Danger)))
+       :FString::Printf(TEXT("EXPLORED %d%%"),FMath::RoundToInt(100.f*Revealed/56.f));
+    DrawText(ExplorationLabel,
         FLinearColor(0.72f, 0.66f, 0.55f), Left + 23.f, Y + 38.f,
         nullptr, Scale * AtlasSideTextScale * 0.75f);
     const int32 Orbs=Hero->GetRegionMasteryOrbCount(Zone);

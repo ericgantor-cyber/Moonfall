@@ -4,6 +4,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "TimerManager.h"
 #include "MoonfallSkillMastery.h"
+#include "MoonfallLivingSimulation.h"
+#include <array>
 class AMoonfallArena;
 class AMoonfallWorldNPC;
 class AMoonfallHeroPawn;
@@ -38,6 +40,10 @@ public:
  bool bGenerateDungeonWorld = true;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|World")
  bool bEnableLivingWorldPulse = true;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|World")
+ bool bEnableReactiveRegionalDanger = true;
+ UFUNCTION(BlueprintPure, Category="Moonfall|World")
+ int32 GetRegionalDanger(int32 Region) const;
  // Default remains two layouts per timer pulse. Designers may tune startup
  // throughput without removing the elapsed-time or hard slot ceiling.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World", meta=(ClampMin="1", ClampMax="8"))
@@ -116,6 +122,9 @@ private:
  // One 4-second simulation pulse, no NPC Tick and no per-frame world scan.
  void PulseLivingWorld();
  FTimerHandle LivingWorldPulseTimer;
+ std::array<int32,MoonfallLivingSimulation::RegionCount> RegionalPressure{};
+ std::array<int32,MoonfallLivingSimulation::RegionCount> RegionalBossVictories{};
+ bool bRegionalDangerReady=false;
  FTimerHandle FollowerPulseTimer;
  void PulseFollower();
  void TryRestoreCompanionParty(AMoonfallHeroPawn* Hero);

@@ -122,6 +122,36 @@ constexpr EEvent EncounterForWeather(int region,int phase,EWeather weather) {
   return planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
  return planned;
 }
+// Regional pressure is transient, bounded and updated on the existing pulse.
+// Dungeon victories lower baseline danger; recent local combat raises pressure.
+// The pressure is not evidence of crime and never authorizes NPC aggression.
+constexpr int ClampPressure(int Value){return Value<0?0:Value>60?60:Value;}
+constexpr int StepRegionalPressure(int Previous,bool LocalCombat){
+ return ClampPressure(ClampPressure(Previous)+(LocalCombat?8:-2));
+}
+constexpr int RegionalDanger(int Pressure,int DefeatedBosses){
+ if(DefeatedBosses<0||DefeatedBosses>5)return -1;
+ return (5-DefeatedBosses)*8+ClampPressure(Pressure);
+}
+constexpr const char* RegionalDangerName(int Danger){
+ return Danger<0||Danger>100?"UNKNOWN":Danger>=65?"HIGH":Danger>=35?"WATCH":"CALM";
+}
+// Reuse the existing one-event scheduler. A dangerous province gets more
+// watch patrols; liberated provinces favour trade. Severe weather always wins.
+constexpr EEvent ReactiveEncounter(EEvent Planned,EWeather Weather,int Danger,int DefeatedBosses){
+ if(Danger<0||Danger>100||DefeatedBosses<0||DefeatedBosses>5)return Planned;
+ if(Severe(Weather))return Planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
+ if(Danger>=65&&(Planned==EEvent::Merchant||Planned==EEvent::Dispute))return EEvent::Patrol;
+ if(Danger<35&&DefeatedBosses==5&&Planned==EEvent::Monster)return EEvent::Merchant;
+ return Planned;
+}
+static_assert(StepRegionalPressure(58,true)==60,"Pressure cap");
+static_assert(StepRegionalPressure(1,false)==0,"Pressure decay");
+static_assert(RegionalDanger(60,0)==100&&RegionalDanger(0,5)==0,"Danger bounds");
+static_assert(RegionalDanger(0,6)==-1,"Invalid dungeon count");
+static_assert(ReactiveEncounter(EEvent::Merchant,EWeather::Clear,70,0)==EEvent::Patrol,"High pressure patrol");
+static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Clear,10,5)==EEvent::Merchant,"Liberated region trade");
+static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue,"Weather priority");
 // Encounter expiry is deliberately paused while a player is actively
 // speaking with its visitor or fighting its nearby monster. No actor Tick,
 // extra timers, quest state or immortal crowd of world events is required.

@@ -572,6 +572,13 @@ void AMoonfallUnrealGameMode::ShareNearbyResidentRumor(
  Speaker->OnAmbientNewsShared(Listener->ResidentId,Listener->DisplayName);
 }
 
+int32 AMoonfallUnrealGameMode::GetRegionalDanger(int32 Region) const
+{
+ if(!bEnableLivingWorldPulse||!bEnableReactiveRegionalDanger||!bRegionalDangerReady||
+    Region<0||Region>=MoonfallLivingSimulation::RegionCount)return -1;
+ return MoonfallLivingSimulation::RegionalDanger(RegionalPressure[Region],RegionalBossVictories[Region]);
+}
+
 void AMoonfallUnrealGameMode::PulseLivingWorld() {
  UWorld* World=GetWorld();
  if (!World) return;
@@ -606,6 +613,22 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  const FVector HeroLocation=bHeroActive ? Hero->GetActorLocation() : FVector::ZeroVector;
  const bool bHeroReady=bHeroActive && !HeroLocation.ContainsNaN();
  const bool bCombatNearby=bHeroReady && Hero->IsRecentlyInCombatForAmbientAI();
+ // Six integer ledgers on the existing four-second pulse, no new actors,
+ // timers, scans or persistent fields. Empty/dead hero still permits decay.
+ if(bEnableReactiveRegionalDanger){
+  const int32 LocalRegion=bHeroReady&&HeroLocation.Y<=-1800.f&&!Hero->IsNearStartingSanctuary()
+      ?MoonfallLivingSimulation::RegionFromWorldX(HeroLocation.X):-1;
+  for(int32 Z=0;Z<MoonfallLivingSimulation::RegionCount;++Z){
+   RegionalPressure[Z]=MoonfallLivingSimulation::StepRegionalPressure(RegionalPressure[Z],
+       bCombatNearby&&LocalRegion==Z);
+   if(bHeroReady){
+    int32 Victories=0;
+    for(int32 D=0;D<DungeonsPerZone;++D)if(Hero->HasDefeatedDungeonBoss(Z,D))++Victories;
+    RegionalBossVictories[Z]=Victories;
+   }
+  }
+  if(bHeroReady)bRegionalDangerReady=true;
+ }else bRegionalDangerReady=false;
  // Retire old ambient actors on the existing four-second pulse, not via
  // a fixed SetLifeSpan that could destroy a conversation or active fight.
  if (AActor* Active=ActiveAmbientEncounter.Get()) {
@@ -741,8 +764,11 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
  const FTransform SpawnTransform(FRotator::ZeroRotator,SpawnPosition);
  const auto CurrentWeather=MoonfallLivingSimulation::WeatherFor(
      Region,MoonfallLivingSimulation::Phase(Now,360.f));
- const auto Event=MoonfallLivingSimulation::EncounterForWeather(
+ const auto PlannedEvent=MoonfallLivingSimulation::EncounterForWeather(
      Region,Phase,CurrentWeather);
+ const int32 Danger=GetRegionalDanger(Region);
+ const auto Event=Danger>=0?MoonfallLivingSimulation::ReactiveEncounter(
+     PlannedEvent,CurrentWeather,Danger,RegionalBossVictories[Region]):PlannedEvent;
  AActor* Spawned=nullptr;
  if (Event==MoonfallLivingSimulation::EEvent::Monster) {
   // A single short-lived, ordinary enemy; no divine IDs or special loot.
@@ -806,6 +832,10 @@ void AMoonfallUnrealGameMode::PulseLivingWorld() {
     FString Story=Visitor->Greeting.ToString()+TEXT(" ")+RegionRumors[Region];
     if (MoonfallLivingSimulation::Severe(CurrentWeather))
      Story+=TEXT(" The weather has made travel dangerous.");
+    if(Danger>=65&&Event==MoonfallLivingSimulation::EEvent::Patrol)
+     Story+=TEXT(" Recent fighting has put this province on alert.");
+    else if(Danger>=0&&Danger<35&&RegionalBossVictories[Region]==5)
+     Story+=TEXT(" With the dungeon bosses defeated, the roads are quieter.");
     Visitor->Greeting=FText::FromString(Story);
    }
    Visitor->FinishSpawning(SpawnTransform);
