@@ -5984,7 +5984,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (GetWorld() && IsValid(GetWorld()->GetAuthGameMode())
      && GetWorld()->GetAuthGameMode()->IsA(AMoonfallNorthPreviewGameMode::StaticClass()))
   return false;
- if (bEquipmentCraftInProgress || bMerchantSaleInProgress) return false;
+ if (bEquipmentCraftInProgress) return false;
+ if (bMerchantSaleInProgress) return false;
  // Teleport and health notifications can synchronously invoke Blueprint code.
  // Refuse nested loads while the current save is being restored.
  if (bWorldProgressLoadInProgress || bEquipBestInProgress || bTalentAllocationInProgress || !GetWorld() || IsActorBeingDestroyed()) return false;
