@@ -86,4 +86,24 @@ namespace MoonfallWaterRules
         const float Rate = bSubmerged ? -EffectiveDrain(Multiplier) : RefillPerSecond;
         return FMath::Clamp(Air + Rate * Seconds, 0.f, MaxAir);
     }
+    // Split a frame at tonic expiration: protected time refills air, only
+    // the remaining unprotected time can drain air or cause drowning.
+    inline bool AdvanceBreathFrame(float& Air,float& Exposure,float Seconds,
+                                   bool bSwimming,bool bNeedsBreath,bool bPaused,
+                                   float ProtectedSeconds,float Multiplier)
+    {
+        if (!bSwimming) { Air=MaxAir; Exposure=0.f; return false; }
+        if (bPaused || !FMath::IsFinite(Seconds) || Seconds<=0.f) return false;
+        Seconds=FMath::Min(Seconds,0.25f);
+        const float Protected=bNeedsBreath && FMath::IsFinite(ProtectedSeconds)
+            ? FMath::Clamp(ProtectedSeconds,0.f,Seconds) : 0.f;
+        if (!bNeedsBreath || Protected>0.f) {
+            Air=AdvanceAir(Air,bNeedsBreath?Protected:Seconds,true,false,false,Multiplier);
+            Exposure=0.f;
+        }
+        if (!bNeedsBreath || Protected>=Seconds) return false;
+        const float Remaining=Seconds-Protected, Before=Air;
+        Air=AdvanceAir(Air,Remaining,true,true,false,Multiplier);
+        return AdvanceDrowning(Exposure,Before,Remaining,true,false,Multiplier);
+    }
 }
