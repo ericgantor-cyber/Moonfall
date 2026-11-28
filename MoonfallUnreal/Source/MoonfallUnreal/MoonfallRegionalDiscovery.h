@@ -3,7 +3,7 @@
 namespace MoonfallRegionalDiscovery {
  constexpr unsigned Mask=(1u<<MoonfallNorth::ZoneCount)-1u;
  struct FProgress {
-  unsigned Visited=0,Caught=0,Harvested=0;
+  unsigned Visited=0,Caught=0,Harvested=0,Treasures=0;
   static bool Mark(unsigned& Bits,int Id) {
    if(!MoonfallNorth::ValidZone(Id)) return false;
    const unsigned Bit=1u<<Id;
@@ -13,6 +13,9 @@ namespace MoonfallRegionalDiscovery {
   bool Visit(int Id) { return Mark(Visited,Id); }
   bool Fish(int Id) { return Mark(Caught,Id); }
   bool Gather(int Id) { return Mark(Harvested,Id); }
+  bool HasTreasure(int Id) const { return MoonfallNorth::ValidZone(Id)&&(Treasures&(1u<<Id)); }
+  bool Treasure(int Id) { return HasVisited(Id)&&Mark(Treasures,Id); }
+  int TreasureCount() const { return Count(Treasures); }
   int Milestones(int Id) const {
    if(!MoonfallNorth::ValidZone(Id)) return 0;
    const unsigned Bit=1u<<Id;
@@ -25,6 +28,6 @@ namespace MoonfallRegionalDiscovery {
    return N;
   }
   int Completed() const { return Count(Visited&Caught&Harvested); }
-  bool Valid() const { return ((Visited|Caught|Harvested)&~Mask)==0; }
+  bool Valid() const { return ((Visited|Caught|Harvested|Treasures)&~Mask)==0 && (Treasures&~Visited)==0; }
  };
 }
