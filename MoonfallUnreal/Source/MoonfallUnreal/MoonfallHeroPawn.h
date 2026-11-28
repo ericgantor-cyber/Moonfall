@@ -526,6 +526,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootSlot = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootUpgrade = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 BagCapacity=MoonfallMoney::BagStart;
+ bool HasBagRoom() const {return MoonfallMoney::BagHasRoom(InventoryItemCodes.Num(),BagCapacity);}
+ int32 PendingBagUpgradeCapacity=0;
+ double BagUpgradeConfirmAfter=0.0;
+ FString GetBagUpgradeText() const;
+ bool ConfirmBagUpgrade();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") bool bAtlasOpen = false;
  // Transient atlas navigation, never written into save data.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Atlas") int32 AtlasSelectedRegion = 0;
