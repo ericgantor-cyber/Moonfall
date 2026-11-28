@@ -88,6 +88,9 @@ public:
  // Camera depth drives presentation independently of the hero's breathing.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float WaterCameraDepth = 0.f;
+ // Eye depth for readable navigation, independent of camera placement.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
+ float WaterBreathingDepth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
  float WaterStrokeSpeed = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category="Moonfall|Water")
@@ -105,6 +108,7 @@ public:
  bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
+ bool CanSteerSwimming() const;
  // Preview-only shoreline recovery. The anchor is transient and captured
  // from a recent grounded position, never from a saved checkpoint.
  FVector WaterRecoveryShore=FVector::ZeroVector;

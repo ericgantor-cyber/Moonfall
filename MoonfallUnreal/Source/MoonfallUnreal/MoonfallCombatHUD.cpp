@@ -2973,7 +2973,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bCritical=!bRefilling && Air<=20.f;
   const FLinearColor AirColor=bRefilling?FLinearColor(0.40f,0.95f,0.60f):
       bCritical?FLinearColor(1.f,0.35f,0.25f):FLinearColor(0.35f,0.83f,0.95f);
-  const float W=300.f,H=92.f;
+  const float W=300.f,H=110.f;
   const float X=(Canvas->SizeX-W)*0.5f;
   const float Y=FMath::Clamp(Canvas->SizeY*0.60f,8.f,Canvas->SizeY-H-20.f);
   DrawRect(FLinearColor(0.025f,0.045f,0.07f,0.96f),X,Y,W,H);
@@ -2996,15 +2996,17 @@ void AMoonfallCombatHUD::DrawHUD()
    if (IsValid(Preview))
     DrawText(FString::Printf(TEXT("TONICS %d"),Preview->GetBreathingTonicCharges()),FLinearColor(0.65f,0.85f,0.9f),X+190.f,Y+38.f,nullptr,0.8f);
   }
-  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+9.f,Y+54.f,nullptr,0.76f);
+  const float Depth=FMath::IsFinite(Hero->WaterBreathingDepth)?FMath::Clamp(Hero->WaterBreathingDepth/100.f,0.f,9999.f):0.f;
+  const TCHAR* SwimState=Hero->WaterVerticalIntent>0?TEXT("RISING"):
+      Hero->WaterVerticalIntent<0?TEXT("DIVING"):Hero->bWaterSubmerged?TEXT("SWIMMING"):TEXT("SURFACE");
+  DrawText(FString::Printf(TEXT("DEPTH %.1fm | %s"),Depth,SwimState),FLinearColor::White,X+9.f,Y+54.f,nullptr,0.78f);
+  DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+9.f,Y+70.f,nullptr,0.76f);
   const TCHAR* WaterTip=Hero->bInsideAirPocket?TEXT("Air pocket: breathe here"):
       bProtected?TEXT("Breathing protection active"):
       bCritical?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
-  if (!bCritical && !bRefilling && Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
-      && GetWorld() && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
-      && !Hero->IsRecentlyInCombatForAmbientAI())
+  if (!bCritical && !bRefilling && Hero->CanRequestEmergencySurface())
    WaterTip=TEXT("F1 / D-pad Up: shore rescue if safe");
-  DrawText(WaterTip,bCritical?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+9.f,Y+72.f,nullptr,0.73f);
+  DrawText(WaterTip,bCritical?AirColor:FLinearColor(0.65f,0.85f,0.9f),X+9.f,Y+88.f,nullptr,0.73f);
  }
  // Reuse a single world scan for boss/posture HUD and nearby combat text.
  // This avoids iterating the entire enemy population twice every rendered frame.
