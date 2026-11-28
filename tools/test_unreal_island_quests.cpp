@@ -5,6 +5,7 @@
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanGathering.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallOceanCrafting.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallFishing.h"
+#include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallMoney.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallProfessionLedger.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalFishing.h"
 #include "../MoonfallUnreal/Source/MoonfallUnreal/MoonfallRegionalAtlas.h"
@@ -205,6 +206,15 @@ int main() {
     assert(!Supplies.Collect(0,0,179.99));
     assert(Supplies.Collect(0,1,180));
     assert(Workshop.AvailableMaterials(Supplies)==1);
+    MoonfallMoney::FWallet Coins;
+    assert(Coins.Credit(12345)&&Coins.Gold()==1&&Coins.Silver()==23&&Coins.LooseCopper()==45);
+    assert(!Coins.Debit(12346)&&!Coins.Credit(-1)&&Coins.Copper==12345);
+    assert(Coins.Debit(345)&&Coins.Copper==12000);
+    MoonfallMoney::FWallet Full{MoonfallMoney::MaxCoins};
+    assert(!Full.Credit(1)&&!Full.Debit(0));
+    assert(MoonfallMoney::EnemyReward(1,false,false)==100);
+    assert(MoonfallMoney::EnemyReward(1,true,false)>100&&MoonfallMoney::EnemyReward(1,true,true)>350);
+    assert(MoonfallMoney::EnemyReward(101,false,false)==0);
     using namespace MoonfallFishing;
     assert(!InCastRange(9999.0,850.f) && InCastRange(10000.0,850.f));
     assert(InCastRange(850.0*850.0,850.f) && !InCastRange(851.0*851.0,850.f));
