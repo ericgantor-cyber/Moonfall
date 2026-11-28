@@ -2702,17 +2702,25 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(ItemName,
       bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
       Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
-    const int32 SetPieces = bValidDetail && SelectedAffix > 0
-      ? Hero->GetSetPieceCount(SelectedAffix) : 0;
-    const TCHAR* SetEffects[] = {TEXT("No set trait"), TEXT("2pc: +3% crit  |  3pc: +4% mastery"),
-      TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
-      TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
-    const FString SetLine = bValidDetail && SelectedAffix > 0
-      ? FString::Printf(TEXT("SET PREVIEW: %s %d -> %d  |  %s"),
-          DetailTraits[SelectedAffix], SetPieces,
-          Hero->GetProjectedSetPieceCount(SelectedAffix, SelectedCode),
-          SetEffects[SelectedAffix])
-      : TEXT("EQUIPPED SET: no set bonus from this item");
+    // Preview both gained and lost set thresholds; use the existing equip-target policy.
+    FString SetChanges;
+    if(bValidDetail){
+     const TCHAR* BonusNames[3][2]={{TEXT("Crit"),TEXT("Mastery")},
+        {TEXT("Versatility"),TEXT("Protection")},{TEXT("Haste"),TEXT("Mana regen")}};
+     for(int32 Trait=1;Trait<=3;++Trait){
+      const int32 Current=Hero->GetSetPieceCount(Trait);
+      const int32 Projected=Hero->GetProjectedSetPieceCount(Trait,SelectedCode);
+      for(int32 Threshold=2;Threshold<=3;++Threshold){
+       if((Current>=Threshold)==(Projected>=Threshold))continue;
+       if(!SetChanges.IsEmpty())SetChanges+=TEXT(" | ");
+       SetChanges+=FString::Printf(TEXT("%s%s"),Projected>=Threshold?TEXT("+"):TEXT("-"),
+          BonusNames[Trait-1][Threshold-2]);
+      }
+     }
+    }
+    const FString SetLine=!bValidDetail?TEXT("SET PREVIEW: invalid gear")
+      :SetChanges.IsEmpty()?TEXT("SET PREVIEW: bonuses unchanged")
+      :FString(TEXT("SET PREVIEW: "))+SetChanges;
     DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
       Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
    }
