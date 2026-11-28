@@ -755,6 +755,13 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close"), TEXT("Companion"), TEXT("Talents") };
+   if(Hero->CanOpenCoinMerchant())Names[3]=TEXT("Trade spare gear");
+   if(Hero->bResidentMerchantMenu){
+    const int64 Price=Hero->GetMerchantSaleQuote();
+    Names[0]=TEXT("Previous bag item");Names[1]=TEXT("Next bag item");
+    Names[2]=Price>0?FString::Printf(TEXT("Sell for %lld copper"),static_cast<long long>(Price)):FString(TEXT("Cannot sell selected item"));
+    Names[3]=TEXT("Back");
+   }
    const int32 RecipePage=bIslandTrader?Hero->OceanRecipePage:-1;
    const bool bRecipeDetail=RecipePage>=0&&RecipePage<MoonfallOceanCrafting::RecipeCount;
    const bool bRecipeReady=bRecipeDetail && IslandPreview->CanCraftOceanRecipe(RecipePage);
@@ -852,7 +859,7 @@ void AMoonfallCombatHUD::DrawHUD()
     if (Row == Hero->ResidentContextSelection)
      DrawSelectionRail(L+14.f,Y,Pitch-10.f);
     DrawHoverFrame(L+14.f,Y,W-28.f,Pitch-10.f);
-    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
+    DrawText(Names[Row], (bRecipeDetail && Row==0 && !bRecipeReady) || (!Hero->bResidentCompanionMenu && !Hero->bResidentMerchantMenu && Row == 1 && !bIslandTrader && (Resident->bAmbientVisitor || Quest == 2))
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 4.f, nullptr, Pitch<40.f?0.75f:1.f);
    }
@@ -866,6 +873,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : bIslandTrader ? FString::Printf(TEXT("Credits %d | Tonics %d/3 | Rep %d"),IslandPreview->GetIslandCredits(),IslandPreview->GetBreathingTonicCharges(),IslandPreview->GetIslandReputation())
      : FString::Printf(TEXT("Contract: %s  |  Faction %s"),*ContractStatus,*Resident->FactionId.ToString());
    FString DisplayContext=Hero->bResidentCompanionTalents?TEXT("COMPANION TALENTS | Select a path"):ContextStatus;
+   if(Hero->bResidentMerchantMenu)DisplayContext=Hero->GetMerchantSaleItemText();
    if(RecipePage==-2) DisplayContext=TEXT("WORKSHOP | Select recipe");
    if(bRecipeDetail) DisplayContext=RecipeNames[RecipePage];
    if(Hero->bResidentCompanionMenu&&!Hero->bResidentCompanionTalents){
@@ -894,7 +902,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    DrawText(DisplayContext,
      FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
-   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
+   if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(Hero->bResidentMerchantMenu ? Hero->GetWalletText() : bIslandTrader ? FString::Printf(TEXT("Materials %d | Fish %d | Loan gear only"),IslandPreview->GetAvailableOceanMaterials(),IslandPreview->GetAvailableOceanFish()) : Resident->bAmbientVisitor
        ? TEXT("Road encounter  |  Talk to hear their story")
        : bNoContract ? TEXT("Talk to hear this resident's story")
        : FString::Printf(TEXT("Salvage: %d / %d"),
