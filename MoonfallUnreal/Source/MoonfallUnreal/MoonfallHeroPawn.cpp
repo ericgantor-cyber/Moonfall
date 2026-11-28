@@ -796,18 +796,6 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  bInsideAirPocket = false;
- if (bWaterSwimming && bWaterSubmerged && GetCapsuleComponent()) {
-  // Only query existing local capsule overlaps; no per-frame world actor scan.
-  TArray<AActor*> Pockets;
-  GetCapsuleComponent()->GetOverlappingActors(Pockets, AMoonfallAirPocket::StaticClass());
-  for (AActor* Actor : Pockets) {
-   const AMoonfallAirPocket* Pocket = Cast<AMoonfallAirPocket>(Actor);
-   if (IsValid(Pocket) && Pocket->ContainsEye(GetPawnViewLocation())) {
-    bInsideAirPocket = true;
-    break;
-   }
-  }
- }
  if (bWaterSwimming) {
   const FVector Velocity = GetVelocity();
   if (!Velocity.ContainsNaN()) {
@@ -820,47 +808,21 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   OnSwimmingStateChanged(bWaterSwimming,bWaterSubmerged);
   if (IsActorBeingDestroyed()) return;
  }
- // Discover wrecks only while actually swimming through their open interiors.
+ // Regional visits remain available from surface swimming; no dive discoveries.
  if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
      && IsLocallyControlled() && GetWorld()
      && UGameplayStatics::GetCurrentLevelName(this,true)==TEXT("DeepWatersPreview")) {
-  if (auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
+  if (auto* Preview=GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()) {
    const int32 Province=ResolveFishingProvince(GetPhysicsVolume());
-   if(MoonfallRegionalFishing::Valid(Province)) Preview->DiscoverRegionalWater(Province);
-   else {
-   const FVector WreckCenters[] = {FVector(-2200,-1250,-260),FVector(2200,1250,-260)};
-   for (int32 I=0; I<2; ++I) {
-    const FVector Offset=WaterRelativePosition-WreckCenters[I];
-    if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
-        && FMath::Abs(Offset.Y)<=100.f && FMath::Abs(Offset.Z)<=90.f)
-     Preview->DiscoverWreck(I);
-   }
-   const FVector CaveCenters[] = {FVector(-3800,2200,-255),FVector(3800,-2200,-255)};
-   const auto* Volume=GetPhysicsVolume();
-   if (IsValid(Volume)) {
-    const FVector Extent=Volume->GetComponentsBoundingBox(true).GetExtent();
-    if (Extent.X>=6000.0 && Extent.Y>=4500.0) {
-     for (int32 I=0; I<2; ++I) {
-      const FVector Offset=WaterRelativePosition-CaveCenters[I];
-      if (!Offset.ContainsNaN() && FMath::Abs(Offset.X)<=180.f
-          && FMath::Abs(Offset.Y)<=160.f && FMath::Abs(Offset.Z)<=70.f)
-       Preview->DiscoverCave(I);
-     }
-    }
-   }
-  }
+   if (MoonfallRegionalFishing::Valid(Province)) Preview->DiscoverRegionalWater(Province);
   }
  }
- const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
- // Swim through native collision, never teleport or bypass the movement component.
- if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
-     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
-     || bResidentContextOpen || FocusedResident.IsValid()
-     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)) {
-  WaterVerticalIntent = 0;
- }
- if (WaterVerticalIntent != 0)
-  AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
+ // Surface-only swimming: recover toward the surface through native collision.
+ WaterVerticalIntent=0;
+ if (bWaterSwimming && bValidWaterSurface && bWaterSubmerged && IsLocallyControlled()
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bResidentContextOpen && !FocusedResident.IsValid())
+  AddMovementInput(FVector::UpVector,1.f);
  // Gentle horizontal flow only in the dedicated preview. Native movement
  // retains collision, acceleration limits and full player steering authority.
  if (bWaterSwimming && bValidWaterSurface && bPersistentSaveWritesBlocked
@@ -884,33 +846,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (auto* Movement = GetCharacterMovement())
    Movement->MaxSwimSpeed = NormalWalkSpeed * MoonfallWaterRules::SurfaceSpeedScale;
  }
- const float BreathScale = WaterBreathScale;
- const bool bWaterPaused = !GetWorld() || GetWorld()->IsPaused();
- if (!FMath::IsFinite(Health) || Health <= 0.f || !bPersistentSaveWritesBlocked)
-  WaterTonicRemaining = 0.f;
- else
-  WaterTonicRemaining = MoonfallWaterRules::AdvanceTonic(WaterTonicRemaining,SafeTimerDelta,bWaterPaused);
- if (bPersistentSaveWritesBlocked && GetWorld() && bWaterSwimming
-     && MoonfallWaterRules::ShouldUseTonic(Oxygen,WaterTonicRemaining,bNeedsBreath,bWaterPaused)) {
-  auto* Preview = GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>();
-  if (IsValid(Preview) && Preview->ConsumeBreathingTonic()) {
-   WaterTonicRemaining = MoonfallWaterRules::TonicDuration;
-   Oxygen = MoonfallWaterRules::MaxAir;
-  }
- }
- const bool bDrainAir = bNeedsBreath && WaterTonicRemaining <= 0.f;
- const float PreviousAir = Oxygen;
- Oxygen = MoonfallWaterRules::AdvanceAir(Oxygen, SafeTimerDelta, bWaterSwimming,
-     bDrainAir, bWaterPaused, BreathScale);
- const bool bDrowningPulse = MoonfallWaterRules::AdvanceDrowning(DrowningExposureSeconds,
-     PreviousAir, SafeTimerDelta, bWaterSwimming && bDrainAir, bWaterPaused, BreathScale);
- if (bDrowningPulse && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f) {
-  TGuardValue<bool> DrowningGuard(bApplyingDrowningDamage, true);
-  TGuardValue<bool> NoBlockGuard(bIncomingDamageDodgeOnly, true);
-  TGuardValue<bool> NoSourceGuard(bHasIncomingDamageSource, false);
-  ApplyMoonfallDamage(MaxHealth * MoonfallWaterRules::DrowningHealthFraction);
-  if (IsActorBeingDestroyed()) return;
- }
+ // Legacy transient fields remain neutral for existing Blueprint compatibility.
+ Oxygen=MoonfallWaterRules::MaxAir;
+ WaterTonicRemaining=0.f;
+ DrowningExposureSeconds=0.f;
  if (bPersistentSaveWritesBlocked && GetWorld() && GetWorld()->GetTimeSeconds()>=NextFishingSchoolScan) {
   RefreshFishingSchools(GetWorld()->GetTimeSeconds());
  }
@@ -1826,7 +1765,7 @@ void AMoonfallHeroPawn::TryJump()
  if (!FMath::IsFinite(Health) || FocusedResident.IsValid() || IsActorBeingDestroyed()) return;
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  WaterVerticalIntent = WaterVerticalIntent == 1 ? 0 : 1;
+  WaterVerticalIntent = 0;
   return;
  }
  Jump();
@@ -2675,7 +2614,7 @@ void AMoonfallHeroPawn::Dodge()
  if (bResolvingCombatAction) return;
  if (!FMath::IsFinite(Health)) return;
  if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming()) {
-  if (!bDispatchingBufferedDodge) WaterVerticalIntent = WaterVerticalIntent == -1 ? 0 : -1;
+  WaterVerticalIntent = 0;
   DodgeBuffer.Clear();
   BufferedDodgeDirection = FVector::ZeroVector;
   return;
