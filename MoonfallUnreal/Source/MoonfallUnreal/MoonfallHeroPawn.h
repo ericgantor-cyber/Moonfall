@@ -98,6 +98,15 @@ public:
  bool bInsideAirPocket = false;
  // Tap-to-toggle vertical swimming; no sustained key hold required.
  int32 WaterVerticalIntent = 0;
+ // Preview-only shoreline recovery. The anchor is transient and captured
+ // from a recent grounded position, never from a saved checkpoint.
+ FVector WaterRecoveryShore=FVector::ZeroVector;
+ double WaterRecoveryShoreAt=-1.0;
+ TWeakObjectPtr<class APhysicsVolume> WaterRecoveryVolume;
+ bool CanRequestEmergencySurface() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Water")
+ bool TryEmergencySurface();
+ void EmergencySurfaceAction() { TryEmergencySurface(); }
  float DrowningExposureSeconds = 0.f;
  bool bApplyingDrowningDamage = false;
  // One-shot, save-safe placement for arenas spawned after hero BeginPlay.

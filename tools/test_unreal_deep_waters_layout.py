@@ -7,6 +7,39 @@ from deep_waters_layout import grotto_layout, grotto_geometry, MIN_HALF_WIDTH, M
 
 
 class DeepWatersLayoutTests(unittest.TestCase):
+    def test_emergency_surface_contract(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        bindings = (root / "MoonfallUnreal/Config/DefaultInput.ini").read_text(encoding="utf-8")
+        capture = source.split("// Remember the last grounded shoreline;", 1)[1].split("float WaterEyeDepth", 1)[0]
+        for token in ("IsMovingOnGround()", "!GetPhysicsVolume()->bWaterVolume",
+                      "EComponentMobility::Static", "Now-WaterRecoveryShoreAt<=3.0",
+                      "FMath::Square(1200.f)", "WaterRecoveryVolume=Volume"):
+            self.assertIn(token, capture)
+        gate = source.split("bool AMoonfallHeroPawn::CanRequestEmergencySurface() const", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryEmergencySurface()", 1)[0]
+        for token in ("bPersistentSaveWritesBlocked", "HasAuthority()", "IsLocallyControlled()",
+                      "DeepWatersPreview", "Health>0.f", "bWaterSubmerged",
+                      "WaterRecoveryVolume.Get()==GetPhysicsVolume()",
+                      "!bWorldProgressLoadInProgress", "!bTalentWebOpen", "!bSpellBookOpen",
+                      "!bQuestLogOpen", "!IsRecentlyInCombatForAmbientAI()"):
+            self.assertIn(token, gate)
+        rescue = source.split("bool AMoonfallHeroPawn::TryEmergencySurface()", 1)[1].split(
+            "void AMoonfallHeroPawn::TryJump()", 1)[0]
+        teleport = rescue.index("TeleportTo(Candidate,GetActorRotation(),false,false)")
+        for token in ("TActorIterator<AMoonfallEnemy>", "FVector::DistSquared(P,Origin)",
+                      "FVector::DistSquared(P,WaterRecoveryShore)", "LineTraceSingleByChannel",
+                      "Floor.ImpactNormal.Z<0.7f", "ECR_Block", "OverlapBlockingTestByProfile",
+                      "TActorIterator<APhysicsVolume>", "Bounds.Intersect(CandidateBounds)"):
+            self.assertLess(rescue.index(token), teleport)
+        self.assertGreater(rescue.index("WaterRecoveryVolume.Reset()"), teleport)
+        self.assertNotIn("Oxygen =", rescue)
+        self.assertIn('ActionName="EmergencySurface",Key=F1', bindings)
+        self.assertIn('if (bWaterSwimming) TryEmergencySurface();', source)
+        self.assertIn("shore rescue if safe", hud)
+        self.assertIn("LOW AIR: rise or find an air pocket", hud)
+
     def test_regional_water_layout(self):
         from deep_waters_layout import regional_water_plan
         ids=set()
