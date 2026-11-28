@@ -63,6 +63,19 @@ bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Two minute duration"),AdvanceTonic(TonicDuration,60.f,false),60.f);
     TestEqual(TEXT("Pause preserves tonic"),AdvanceTonic(60.f,20.f,true),60.f);
     TestEqual(TEXT("Tonic expires"),AdvanceTonic(1.f,2.f,false),0.f);
+    float FrameAir=50.f, FrameExposure=0.75f;
+    TestFalse(TEXT("Tonic expiration splits protected and unprotected time"),
+        AdvanceBreathFrame(FrameAir,FrameExposure,0.25f,true,true,false,0.125f,1.f));
+    TestTrue(TEXT("Only unprotected fraction drains"),FMath::IsNearlyEqual(FrameAir,50.f+25.f*0.125f-DrainPerSecond*0.125f));
+    TestEqual(TEXT("Protection clears drowning exposure"),FrameExposure,0.f);
+    FrameAir=0.f; FrameExposure=0.75f;
+    TestFalse(TEXT("Air pocket immediately stops drowning"),AdvanceBreathFrame(FrameAir,FrameExposure,0.25f,true,false,false,0.f,1.f));
+    TestEqual(TEXT("Air pocket refill"),FrameAir,6.25f);
+    TestEqual(TEXT("Air pocket clears exposure"),FrameExposure,0.f);
+    FrameAir=0.f; FrameExposure=0.75f;
+    TestTrue(TEXT("Unprotected frame can still drown"),AdvanceBreathFrame(FrameAir,FrameExposure,0.25f,true,true,false,0.f,1.f));
+    TestFalse(TEXT("Paused frame preserves air"),AdvanceBreathFrame(FrameAir,FrameExposure,0.25f,true,true,true,0.f,1.f));
+    TestEqual(TEXT("Paused air unchanged"),FrameAir,0.f);
     using MoonfallWaterCurrent::Input;
     TestTrue(TEXT("West current flows north"),FMath::IsNearlyEqual(Input(FVector(-700,0,-200),false,false).Y,0.18));
     TestTrue(TEXT("East current flows south"),FMath::IsNearlyEqual(Input(FVector(700,0,-200),false,false).Y,-0.18));
