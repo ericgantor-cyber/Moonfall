@@ -69,7 +69,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  // Keep critical breath warnings visible above menus, without a flashing effect.
  if (bLiveMenuOpen && Hero->bWaterSwimming && Hero->bWaterSubmerged
-     && !Hero->bInsideAirPocket && FMath::IsFinite(Hero->Oxygen)
+     && !Hero->bInsideAirPocket && Hero->WaterTonicRemaining<=0.f && FMath::IsFinite(Hero->Oxygen)
      && Hero->Oxygen <= 20.f && Canvas->SizeX >= 300 && Canvas->SizeY >= 120) {
   const float X = (Canvas->SizeX - 260.f)*0.5f;
   const int32 Seconds = FMath::CeilToInt(FMath::Max(0.f,Hero->Oxygen)
@@ -2979,7 +2979,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Space / A: rise | Q / B: dive"),FLinearColor::White,X+8.f,Y+33.f,nullptr,0.76f);
   const TCHAR* WaterTip=Hero->bInsideAirPocket?TEXT("Air pocket: breathe here"):
       Air<=20.f?TEXT("LOW AIR: rise or find an air pocket"):TEXT("Follow open passages; avoid cave walls");
-  if (Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
+  if (Air>20.f && !Hero->bInsideAirPocket && Hero->bWaterSubmerged && Hero->WaterRecoveryVolume.IsValid()
       && GetWorld() && GetWorld()->GetAuthGameMode<AMoonfallNorthPreviewGameMode>()
       && !Hero->IsRecentlyInCombatForAmbientAI())
    WaterTip=TEXT("F1 / D-pad Up: shore rescue if safe");
