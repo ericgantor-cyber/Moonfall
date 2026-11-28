@@ -1028,8 +1028,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    CloseResidentContext();
  }
  if(PendingVaultCode!=0&&!IsVaultConfirmationCurrent())ClearMerchantConfirmation();
- if(PendingBagUpgradeCapacity!=0&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||PendingBagUpgradeCapacity!=BagCapacity
-     ||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()))ClearMerchantConfirmation();
+ if(PendingBagUpgradeCapacity!=0&&!IsBagUpgradeConfirmationCurrent())ClearMerchantConfirmation();
  // Combat or changed equipment invalidates a pending trade even if the menu stays open.
  if(bMerchantConfirmPending&&(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!FMath::IsFinite(Health)||Health<=0.f
      ||IsRecentlyInCombatForAmbientAI()||MerchantConfirmRevision!=EquipmentInventoryRevision
@@ -7435,7 +7434,7 @@ FString AMoonfallHeroPawn::GetMerchantTradeQuoteText() const {
  return FString::Printf(TEXT("%lldg %llds %lldc"),static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
 }
 void AMoonfallHeroPawn::ClearMerchantConfirmation() {
- PendingBagUpgradeCapacity=0;BagUpgradeConfirmAfter=0.0;
+ PendingBagUpgradeCapacity=0;BagUpgradeConfirmAfter=0.0;PendingBagUpgradeWallet=-1;
  PendingVaultCode=0;PendingVaultIndex=-1;PendingVaultRevision=0;PendingVaultLoadout=0;VaultConfirmAfter=0.0;bPendingVaultWithdraw=false;
  bMerchantConfirmPending=false;MerchantConfirmMode=-1;MerchantConfirmCode=0;
  MerchantConfirmIndex=-1;MerchantConfirmPrice=0;MerchantConfirmRevision=0;MerchantConfirmAfter=0.0;MerchantConfirmLoadout=0;
@@ -7509,17 +7508,29 @@ bool AMoonfallHeroPawn::BuyMerchantItem() {
  ReconcileCraftedInventorySelection();
  return true;
 }
+bool AMoonfallHeroPawn::IsBagUpgradeConfirmationCurrent() const {
+ const auto* Resident=FocusedResident.Get();
+ if(PendingBagUpgradeCapacity!=BagCapacity||PendingBagUpgradeWallet!=WalletCopper
+    ||!CanOpenCoinMerchant()||!bResidentMerchantMenu||bResidentVaultMenu
+    ||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+    ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f
+    ||IsRecentlyInCombatForAmbientAI())return false;
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ return Candidate.Debit(MoonfallMoney::BagUpgradePrice(BagCapacity));
+}
 FString AMoonfallHeroPawn::GetBagUpgradeText() const {
  const int64 Price=MoonfallMoney::BagUpgradePrice(BagCapacity);
  if(Price<=0)return TEXT("Bag capacity: MAX");
+ MoonfallMoney::FWallet Candidate{WalletCopper};
+ if(!Candidate.Debit(Price))return FString::Printf(TEXT("+50 slots | Need %lldc"),static_cast<long long>(Price));
  const MoonfallMoney::FWallet Quote{Price};
  return FString::Printf(TEXT("%s +50 slots | %lldg %llds %lldc"),
-  PendingBagUpgradeCapacity==BagCapacity?TEXT("Confirm"):TEXT("Buy"),
+  IsBagUpgradeConfirmationCurrent()?TEXT("Confirm"):TEXT("Buy"),
   static_cast<long long>(Quote.Gold()),static_cast<long long>(Quote.Silver()),static_cast<long long>(Quote.LooseCopper()));
 }
 bool AMoonfallHeroPawn::ConfirmBagUpgrade() {
  const auto* Resident=FocusedResident.Get();
- if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
+ if(!CanOpenCoinMerchant()||!bResidentMerchantMenu||bResidentVaultMenu||!IsValid(Resident)||!Resident->CanHeroInteract(this)
     ||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f||IsRecentlyInCombatForAmbientAI()
     ||bEquipmentCraftInProgress||bTalentAllocationInProgress||bEquipBestInProgress||bMerchantSaleInProgress){
   ClearMerchantConfirmation();return false;
@@ -7530,8 +7541,8 @@ bool AMoonfallHeroPawn::ConfirmBagUpgrade() {
   ClearMerchantConfirmation();ResidentFeedbackMessage=Price<=0?TEXT("Bag capacity is at maximum."):TEXT("Insufficient coins for bag upgrade.");
   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return false;
  }
- if(PendingBagUpgradeCapacity!=BagCapacity){
-  ClearMerchantConfirmation();PendingBagUpgradeCapacity=BagCapacity;BagUpgradeConfirmAfter=FPlatformTime::Seconds()+0.35;
+ if(!IsBagUpgradeConfirmationCurrent()){
+  ClearMerchantConfirmation();PendingBagUpgradeCapacity=BagCapacity;PendingBagUpgradeWallet=WalletCopper;BagUpgradeConfirmAfter=FPlatformTime::Seconds()+0.35;
   ResidentFeedbackMessage=TEXT("Review bag upgrade; select again to confirm.");
   ResidentFeedbackUntil=GetWorld()->GetTimeSeconds()+4.f;return true;
  }
