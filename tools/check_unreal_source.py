@@ -26,6 +26,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("VaultItemCodes=Save->VaultItemCodes;",self.hero_cpp)
         self.assertIn("Save->VaultItemCodes.Num()>MoonfallMoney::VaultMax",self.hero_cpp)
         self.assertIn('TEXT("Storage vault")',self.hud)
+        self.assertIn("if(bResidentVaultMenu)return 7;",self.hero_cpp)
+        self.assertIn('TEXT("Previous 25 items")',self.hud)
+        self.assertIn('TEXT("Next 25 items")',self.hud)
+        page=transfer.split("if(Choice==5||Choice==6)",1)[1].split("return true;",1)[0]
+        self.assertLess(page.index("ClearMerchantConfirmation();"),page.index("VaultPageSelection("))
 
     def test_merchant_transactions_require_live_confirm_and_atomic_save(self):
         sell = self.hero_cpp.split("bool AMoonfallHeroPawn::SellMerchantItem()",1)[1].split("\n}",1)[0]
@@ -865,7 +870,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         opening = hero.split("void AMoonfallHeroPawn::OpenInventorySearch()", 1)[1].split("\n}", 1)[0]
         closing = hero.split("void AMoonfallHeroPawn::CloseInventorySearch()", 1)[1].split("\n}", 1)[0]
         setter = hero.split("void AMoonfallHeroPawn::SetInventorySearchText(", 1)[1].split("\n}", 1)[0]
-        self.assertIn("InventorySearchText.ParseIntoArrayWS(Terms)", match)
+        self.assertIn("InventorySearchText.ParseIntoArrayWS(ParsedInventorySearchTerms)", match)
+        self.assertIn("ParsedInventorySearchText!=InventorySearchText", match)
+        self.assertIn("ParsedInventorySearchText=InventorySearchText;", match)
         self.assertIn("ESearchCase::IgnoreCase", match)
         self.assertIn("CachedInventorySearchText==InventorySearchText", order)
         self.assertIn("CachedInventorySearchText=InventorySearchText;", order)
