@@ -38,6 +38,13 @@ namespace { int32 ResolveFishingProvince(const APhysicsVolume* Volume); }
 #include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"
@@ -708,6 +715,7 @@ void AMoonfallHeroPawn::RefreshSwimPose()
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ if(InventorySearchOverlay.IsValid()&&(!CanOpenInventorySearch()||InventorySearchController.Get()!=Controller))CloseInventorySearch();
  // Wall-clock interval, independent of simulation dilation and clamped timers.
  // Menus and defeat never pollute the last gameplay sample.
  if (IsLocallyControlled()) {
@@ -1263,6 +1271,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ChronicleFocus"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlasChronicleFocus);
  Input->BindAction(TEXT("QuestLog"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleQuestLog);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("InventorySearch"), IE_Pressed, this, &AMoonfallHeroPawn::OpenInventorySearch);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("SpellBook"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleSpellBookShortcut);
  Input->BindAction(TEXT("TalentWeb"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalentWeb);
@@ -1285,11 +1294,94 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+bool AMoonfallHeroPawn::CanOpenInventorySearch() const {
+ return IsLocallyControlled()&&FMath::IsFinite(Health)&&Health>0.f&&bInventoryOpen
+   &&!bCharacterStatsOpen&&!bSpellBookOpen&&!bOptionsOpen&&!bAtlasOpen&&!bTalentWebOpen
+   &&!bResidentContextOpen&&!FocusedResident.IsValid()&&!IsActorBeingDestroyed();
+}
+void AMoonfallHeroPawn::SetInventorySearchText(const FString& Text) {
+ if(!CanOpenInventorySearch())return;
+ FString Next=Text.Left(64).TrimStartAndEnd();
+ if(Next==InventorySearchText)return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ InventorySearchText=MoveTemp(Next);
+ InventoryViewStart=0;
+ KeepInventorySelectionVisible();
+}
+void AMoonfallHeroPawn::OpenInventorySearch() {
+ if(!CanOpenInventorySearch()||InventorySearchOverlay.IsValid()||!GetWorld())return;
+ auto* PC=Cast<APlayerController>(Controller);
+ auto* Viewport=GetWorld()->GetGameViewport();
+ if(!IsValid(PC)||!IsValid(Viewport))return;
+ ClearRingPointerDrag();ClearRingNavigationFocus();bInventoryScrollbarDragging=false;
+ TSharedPtr<SEditableTextBox> Editor;
+ const TWeakObjectPtr<AMoonfallHeroPawn> WeakThis(this);
+ InventorySearchOverlay=SNew(SOverlay)
+  +SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
+  [
+   SNew(SBox).WidthOverride(280.f)
+   [
+    SNew(SBorder).Padding(FMargin(12.f))
+    [
+     SNew(SVerticalBox)
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,0.f,0.f,8.f)
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Search equipment")))]
+     +SVerticalBox::Slot().AutoHeight()
+     [
+      SAssignNew(Editor,SEditableTextBox)
+      .Text(FText::FromString(InventorySearchText))
+      .HintText(FText::FromString(TEXT("e.g. rare ring T5")))
+      .SelectAllTextWhenFocused(true)
+      .OnTextCommitted_Lambda([WeakThis](const FText& Text,ETextCommit::Type Commit){
+       if(auto* Hero=WeakThis.Get()){
+        if(!Hero->InventorySearchOverlay.IsValid())return;
+        if(Commit==ETextCommit::OnEnter)Hero->SetInventorySearchText(Text.ToString());
+        Hero->CloseInventorySearch();
+       }
+      })
+     ]
+     +SVerticalBox::Slot().AutoHeight().Padding(0.f,8.f,0.f,0.f)
+     [SNew(STextBlock).Text(FText::FromString(TEXT("Enter: apply | Esc: cancel | empty: clear")))]
+    ]
+   ]
+  ];
+ InventorySearchViewport=Viewport;
+ InventorySearchController=PC;
+ Viewport->AddViewportWidgetContent(InventorySearchOverlay.ToSharedRef(),100);
+ FInputModeUIOnly Mode;
+ Mode.SetWidgetToFocus(Editor);
+ PC->SetInputMode(Mode);
+ PC->bShowMouseCursor=true;
+}
+void AMoonfallHeroPawn::CloseInventorySearch() {
+ if(!InventorySearchOverlay.IsValid())return;
+ const TSharedPtr<SWidget> Overlay=InventorySearchOverlay;
+ InventorySearchOverlay.Reset();
+ auto* Viewport=InventorySearchViewport.Get();
+ auto* PC=InventorySearchController.Get();
+ InventorySearchViewport.Reset();InventorySearchController.Reset();
+ if(IsValid(Viewport))Viewport->RemoveViewportWidgetContent(Overlay.ToSharedRef());
+ if(IsValid(PC)&&PC->GetPawn()==this){
+  PC->SetInputMode(FInputModeGameOnly());
+  PC->bShowMouseCursor=bInventoryOpen||bOptionsOpen||bAtlasOpen||bTalentWebOpen||bResidentContextOpen;
+ }
+}
 bool AMoonfallHeroPawn::MatchesInventoryFilter(int32 Index) const {
  if(!InventoryItemCodes.IsValidIndex(Index))return false;
- if(InventoryRarityFilter==-1)return true;
+ if(InventoryRarityFilter==-1&&InventorySearchText.IsEmpty())return true;
  const auto Item=MoonfallEquipmentLayout::DecodeFullItem(InventoryItemCodes[Index]);
- return Item.IsValid()&&Item.Rarity==InventoryRarityFilter;
+ if(!Item.IsValid()||(InventoryRarityFilter!=-1&&Item.Rarity!=InventoryRarityFilter))return false;
+ if(InventorySearchText.IsEmpty())return true;
+ static const TCHAR* Slots[]={TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory"),TEXT("Head"),TEXT("Shoulders"),TEXT("Hands"),TEXT("Legs"),TEXT("Feet"),TEXT("Ring 1"),TEXT("Neck"),TEXT("Back"),TEXT("Wrists"),TEXT("Waist"),TEXT("Ring 2"),TEXT("Trinket 2"),TEXT("Off-hand"),TEXT("Ring 3"),TEXT("Ring 4"),TEXT("Ring 5"),TEXT("Ring 6"),TEXT("Ring 7"),TEXT("Ring 8"),TEXT("Ring 9"),TEXT("Ring 10")};
+ static const TCHAR* Rarities[]={TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+ static const TCHAR* Traits[]={TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+ static_assert(UE_ARRAY_COUNT(Slots)==MoonfallEquipmentLayout::FullSlotCount,"Search slots must match equipment layout");
+ if(Item.Slot<0||Item.Slot>=UE_ARRAY_COUNT(Slots)||Item.Rarity<0||Item.Rarity>=UE_ARRAY_COUNT(Rarities)||Item.Trait<0||Item.Trait>=UE_ARRAY_COUNT(Traits))return false;
+ const TCHAR* Slot=MoonfallEquipmentLayout::IsRingSlot(Item.Slot)&&MoonfallEquipmentLayout::ActiveSlotCount>MoonfallEquipmentLayout::SlotCount?TEXT("Ring"):Slots[Item.Slot];
+ const FString Label=FString::Printf(TEXT("%s %s %s T%d tier %d"),Slot,Rarities[Item.Rarity],Traits[Item.Trait],Item.Tier,Item.Tier);
+ TArray<FString> Terms;InventorySearchText.ParseIntoArrayWS(Terms);
+ for(const FString& Term:Terms)if(!Label.Contains(Term,ESearchCase::IgnoreCase))return false;
+ return true;
 }
 bool AMoonfallHeroPawn::IsInventorySelectionVisible() const {
  return MatchesInventoryFilter(InventorySelection);
@@ -1312,13 +1404,13 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  // Reuse the same sorted order for HUD rendering, hit testing and keyboard
  // selection. Keep an exact source snapshot as a guard against direct C++
  // inventory edits that bypass the normal revisioned mutation paths.
- if((InventorySortMode!=0||InventoryRarityFilter!=-1)&&CachedInventoryOrderRevision==EquipmentInventoryRevision
+ if((InventorySortMode!=0||InventoryRarityFilter!=-1||!InventorySearchText.IsEmpty())&&CachedInventoryOrderRevision==EquipmentInventoryRevision
     &&CachedInventoryOrderMode==InventorySortMode&&CachedInventoryFilter==InventoryRarityFilter
-    &&CachedInventoryOrderSource==InventoryItemCodes)
+    &&CachedInventorySearchText==InventorySearchText&&CachedInventoryOrderSource==InventoryItemCodes)
   return CachedInventoryOrder;
  Order.Reserve(Count);
  for (int32 Index = 0; Index < Count; ++Index) if(MatchesInventoryFilter(Index))Order.Add(Index);
- if (InventorySortMode == 0&&InventoryRarityFilter==-1) return Order;
+ if (InventorySortMode == 0&&InventoryRarityFilter==-1&&InventorySearchText.IsEmpty()) return Order;
  // Sort only a temporary index array. Persistent inventory and equipped slots
  // never change. Original position is the stable tie-breaker for duplicates.
  if(InventorySortMode!=0)Order.Sort([this](int32 A, int32 B) {
@@ -1347,6 +1439,7 @@ TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
  CachedInventoryOrderRevision=EquipmentInventoryRevision;
  CachedInventoryOrderMode=InventorySortMode;
  CachedInventoryFilter=InventoryRarityFilter;
+ CachedInventorySearchText=InventorySearchText;
  return Order;
 }
 
@@ -1450,6 +1543,18 @@ bool AMoonfallHeroPawn::HitTestInventorySortButton() const
  const float SortY = Top + 14.f;
  return MouseX >= SortX && MouseX <= SortX + SortWidth &&
         MouseY >= SortY && MouseY <= SortY + 28.f;
+}
+
+bool AMoonfallHeroPawn::HitTestInventorySearchButton() const {
+ if(!CanOpenInventorySearch()||!HasVisibleInventoryPointerSurface(Controller))return false;
+ const auto* PC=Cast<APlayerController>(Controller);
+ int32 W=0,H=0;float X=0.f,Y=0.f;
+ PC->GetViewportSize(W,H);
+ if(!PC->GetMousePosition(X,Y)||!FMath::IsFinite(X)||!FMath::IsFinite(Y))return false;
+ const float PanelWidth=FMath::Min(720.f,FMath::Max(280.f,FMath::Min(float(W)-24.f,float(W)*0.48f)));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,float(H)-24.f));
+ const float Left=float(W)-PanelWidth-12.f,Top=(float(H)-PanelHeight)*0.5f;
+ return X>=Left+PanelWidth-112.f&&X<=Left+PanelWidth-14.f&&Y>=Top+44.f&&Y<=Top+59.f;
 }
 
 bool AMoonfallHeroPawn::HitTestInventoryEquipButton() const
@@ -3095,6 +3200,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bTalentRespecArmed = false;
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  CloseInventorySearch();
   bCharacterStatsOpen = false;
   bCharacterRacePageOpen = false;
   bCharacterRepPageOpen = false;
@@ -3417,6 +3523,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   KeepInventorySelectionVisible();
  }
  bInventoryOpen = !bInventoryOpen;
+ if(!bInventoryOpen)CloseInventorySearch();
  bInventoryScrollbarDragging = false;
  ClearRingNavigationFocus();
  ClearRingPointerDrag();
@@ -3779,6 +3886,7 @@ void AMoonfallHeroPawn::UpdateRecoverySnapshot(double Now) {
  if (Files.FileExists(*Temp)) Files.Delete(*Temp,false,true,true);
 }
 void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason) {
+ CloseInventorySearch();
  ReleaseFishingPointer();
  // Normal teardown removes only this pawn's own recovery snapshot.
  // A leftover file is evidence of an incomplete lifecycle, NOT proof of crash.
@@ -7581,6 +7689,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
    }
    return;
   }
+  if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();

@@ -856,6 +856,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 
+    def test_inventory_text_search_is_transient_and_modal(self):
+        hero = self.hero_cpp
+        match = hero.split("bool AMoonfallHeroPawn::MatchesInventoryFilter(", 1)[1].split("\n}", 1)[0]
+        order = hero.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder()", 1)[1].split("\n}", 1)[0]
+        opening = hero.split("void AMoonfallHeroPawn::OpenInventorySearch()", 1)[1].split("\n}", 1)[0]
+        closing = hero.split("void AMoonfallHeroPawn::CloseInventorySearch()", 1)[1].split("\n}", 1)[0]
+        setter = hero.split("void AMoonfallHeroPawn::SetInventorySearchText(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("InventorySearchText.ParseIntoArrayWS(Terms)", match)
+        self.assertIn("ESearchCase::IgnoreCase", match)
+        self.assertIn("CachedInventorySearchText==InventorySearchText", order)
+        self.assertIn("CachedInventorySearchText=InventorySearchText;", order)
+        self.assertIn("FInputModeUIOnly Mode;", opening)
+        self.assertIn("Commit==ETextCommit::OnEnter", opening)
+        self.assertLess(closing.index("InventorySearchOverlay.Reset()"), closing.index("RemoveViewportWidgetContent"))
+        self.assertIn("FInputModeGameOnly()", closing)
+        self.assertIn("Text.Left(64).TrimStartAndEnd()", setter)
+        self.assertIn("KeepInventorySelectionVisible();", setter)
+        self.assertNotIn("SaveWorldProgress", setter)
+        self.assertIn("if (HitTestInventorySearchButton()) {OpenInventorySearch();return;}", hero)
+        self.assertIn("F9: SEARCH", self.hud)
+
     def test_worn_crafting_preserves_previous_tier_and_commits_before_notifications(self):
         hero = self.hero_cpp
         for method, event in (("UpgradeInventoryItem", "OnEquipmentCrafted"),
