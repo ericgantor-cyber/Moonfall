@@ -220,6 +220,11 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(100,0)==100);
+    assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins-1)==1);
+    assert(MoonfallMoney::BoundedRewardCredit(100,MoonfallMoney::MaxCoins)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(-1,0)==0);
+    assert(MoonfallMoney::BoundedRewardCredit(100,-1)==0);
     assert(MoonfallMoney::ContractReward(1,1)==100);
     assert(MoonfallMoney::ContractReward(30,100)==1175);
     assert(MoonfallMoney::ContractReward(0,1)==0&&MoonfallMoney::ContractReward(31,1)==0);
