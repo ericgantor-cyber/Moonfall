@@ -19,9 +19,14 @@ namespace MoonfallRegionalAtlas {
   if(Direction!=1&&Direction!=-1) return -1;
   if(Current<-1||Current>=MoonfallNorth::ZoneCount) Current=-1;
   for(int I=0;I<=MoonfallNorth::ZoneCount;++I) {
-   Current=(Current+1+Direction+10)%10-1;
+   constexpr int Slots=MoonfallNorth::ZoneCount+1;
+   Current=(Current+1+Direction+Slots)%Slots-1;
    if(Current<0||(Available&(1u<<Current))) return Current;
   }
   return -1;
  }
+ static_assert(Step(-1,1,1u)==0);
+ static_assert(Step(-1,-1,1u<<(MoonfallNorth::ZoneCount-1))==MoonfallNorth::ZoneCount-1);
+ static_assert(Step(0,1,0u)==-1);
+ static_assert(Step(MoonfallNorth::ZoneCount-1,1,~0u)==-1);
 }
