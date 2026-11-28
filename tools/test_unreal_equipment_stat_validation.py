@@ -7,6 +7,16 @@ class EquipmentStatSafety(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = SOURCE.read_text(encoding="utf-8")
+    def test_advisor_handles_filtered_or_missing_selection(self):
+        hud = SOURCE.with_name("MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        advisor = hud.split("const uint64 AdvisorLoadoutHash", 1)[1].split("DrawText(AdvisorLine,", 1)[0]
+        self.assertIn("bAdvisorHasSelection = Hero->InventoryItemCodes.IsValidIndex(Selected)", advisor)
+        self.assertIn("bAdvisorHasSelection ? Hero->InventoryItemCodes[Selected] : 0", advisor)
+        self.assertIn("bAdvisorHasSelection ? Hero->GetEquipmentUpgradeScore(Selected) : 0", advisor)
+        self.assertIn("GEAR ADVISOR: no matching gear", advisor)
+        self.assertIn("GEAR ADVISOR: select gear to compare", advisor)
+        self.assertNotIn("Count > 0 ? Hero->InventoryItemCodes[Selected]", advisor)
+
     def test_decoder_guards_corrupt_codes(self):
         body = self.source.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("ExpectedSlot >= MoonfallEquipmentLayout::ActiveSlotCount", body)
