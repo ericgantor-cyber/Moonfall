@@ -742,6 +742,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const bool bWasSwimming = bWaterSwimming;
  const bool bWasSubmerged = bWaterSubmerged;
  WaterCameraDepth = 0.f;
+ WaterBreathingDepth = 0.f;
  WaterStrokeSpeed = 0.f;
  WaterVerticalSpeed = 0.f;
  WaterCurrentStrength = 0.f;
@@ -787,7 +788,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     WaterEyeDepth = Bounds.Max.Z - Eye.Z;
     const FVector Center = Bounds.GetCenter();
     WaterRelativePosition = GetActorLocation()-FVector(Center.X,Center.Y,Bounds.Max.Z);
-    bWaterSubmerged = WaterEyeDepth > 0.f;
+    bWaterSubmerged = FMath::IsFinite(WaterEyeDepth) && WaterEyeDepth > 0.f;
+    WaterBreathingDepth=bWaterSubmerged?FMath::Max(0.f,WaterEyeDepth):0.f;
     if (IsValid(FollowCamera)) {
      const FVector CameraPosition = FollowCamera->GetComponentLocation();
      if (!CameraPosition.ContainsNaN() && Bounds.IsInsideOrOn(CameraPosition))
@@ -874,14 +876,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  }
  const bool bNeedsBreath = bWaterSubmerged && !bInsideAirPocket;
  // Swim through native collision, never teleport or bypass the movement component.
- if (!bWaterSwimming || !bValidWaterSurface || !IsLocallyControlled()
-     || !GetWorld() || GetWorld()->IsPaused() || bWorldProgressLoadInProgress
-     || bOptionsOpen || bInventoryOpen || bAtlasOpen || bTalentWebOpen
-     || bCharacterStatsOpen || bSpellBookOpen || bQuestLogOpen
-     || bResidentContextOpen || FocusedResident.IsValid()
-     || (WaterVerticalIntent > 0 && WaterEyeDepth <= 0.f)) {
-  WaterVerticalIntent = 0;
- }
+ const bool bCanSteerWater=bWaterSwimming && bValidWaterSurface && IsLocallyControlled()
+     && GetWorld() && !GetWorld()->IsPaused() && !bWorldProgressLoadInProgress
+     && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && !bTalentWebOpen
+     && !bCharacterStatsOpen && !bSpellBookOpen && !bQuestLogOpen
+     && !bResidentContextOpen && !FocusedResident.IsValid();
+ WaterVerticalIntent=MoonfallWaterRules::ResolveVerticalIntent(WaterVerticalIntent,bCanSteerWater,WaterEyeDepth);
  if (WaterVerticalIntent != 0)
   AddMovementInput(FVector::UpVector, float(WaterVerticalIntent));
  // Gentle horizontal flow only in the dedicated preview. Native movement
