@@ -310,7 +310,7 @@ class EnemyPathBudgetTests(unittest.TestCase):
         # Avoid immediate synchronous re-path after the sweep already escaped.
         # Failed or unavailable sidesteps still use the original cooldown.
         chase = self.source.split("// Collision can trap packs at tight doorways.", 1)[1].split(
-            "} else if (Distance <= AttackRange || bDivineRangedCastReady)", 1
+            "} else if (Distance <= EffectiveAttackRange || bDivineRangedCastReady)", 1
         )[0]
         self.assertIn("bool bSidestepClearedObstacle = false;", self.source)
         self.assertIn("const FVector EscapeStart = GetActorLocation();", chase)
@@ -361,6 +361,12 @@ class EnemyPathBudgetTests(unittest.TestCase):
         self.assertIn("AddActorWorldOffset(ChaseDirection * ChaseStep, true, &Hit)", self.source)
         self.assertIn("const bool bInCombatArea = Distance < 2200.f;", self.source)
         self.assertIn("bWithinAttackArc && Distance <= AttackRange * CurrentAttackRangeMultiplier", self.source)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>", self.source)
+        self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)", self.source)
+        self.assertIn("Distance > EffectiveAttackRange", self.source)
+        self.assertIn("RangedProjectileWindup(bCasterCombatRole)", self.source)
+        self.assertIn("RangedRepositionMode(Distance)", self.source)
+        self.assertEqual(self.source.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertNotIn("bWithinAttackArc && Difference.Size() <=", self.source)
         self.assertIn("if (!bBoss && !bCanSeeHero", self.source)
 

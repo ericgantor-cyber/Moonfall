@@ -114,6 +114,13 @@ constexpr EEvent EncounterFor(int region,int phase) {
  return slot==0?EEvent::Merchant:slot==1?EEvent::Patrol:
   slot==2?EEvent::Rescue:slot==3?EEvent::Dispute:EEvent::Monster;
 }
+// Each normal encounter repeats on a five-phase cycle. Rotate its dialogue
+// across three cycles without RNG, additional actors or persistent state.
+constexpr int EncounterDialogueVariant(int Region,int Phase){
+ return Region<0||Region>=RegionCount||Phase<0?0:((Phase/5)%3+Region%3)%3;
+}
+static_assert(EncounterDialogueVariant(0,0)==0&&EncounterDialogueVariant(0,5)==1&&EncounterDialogueVariant(0,10)==2&&EncounterDialogueVariant(0,15)==0,"Dialogue rotates on recurring encounters");
+static_assert(EncounterDialogueVariant(-1,5)==0&&EncounterDialogueVariant(6,5)==0&&EncounterDialogueVariant(0,-1)==0,"Invalid dialogue coordinates use default");
 // Weather influences which story can start; avoid unexpected hostile spawns
 // during severe, low-visibility conditions. Ordinary weather is unchanged.
 constexpr EEvent EncounterForWeather(int region,int phase,EWeather weather) {
@@ -141,15 +148,54 @@ constexpr const char* RegionalDangerName(int Danger){
 constexpr EEvent ReactiveEncounter(EEvent Planned,EWeather Weather,int Danger,int DefeatedBosses){
  if(Danger<0||Danger>100||DefeatedBosses<0||DefeatedBosses>5)return Planned;
  if(Severe(Weather))return Planned==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue;
- if(Danger>=65&&(Planned==EEvent::Merchant||Planned==EEvent::Dispute))return EEvent::Patrol;
+ // Watch-level security responds to disputes before restricting commerce.
+ if(Danger>=35&&Planned==EEvent::Dispute)return EEvent::Patrol;
+ if(Danger>=65&&Planned==EEvent::Merchant)return EEvent::Patrol;
  if(Danger<35&&DefeatedBosses==5&&Planned==EEvent::Monster)return EEvent::Merchant;
  return Planned;
 }
+// Regional concern is deliberately separate from firsthand danger memory.
+enum class ERegionalRoutine { Normal, CautiousWork, GuardWatch, ReturnHome };
+constexpr ERegionalRoutine RegionalRoutine(ERole Role,int Danger,bool Eligible){
+ if(!Eligible||Danger<65||Danger>100)return ERegionalRoutine::Normal;
+ switch(Role){
+ case ERole::Guard:return ERegionalRoutine::GuardWatch;
+ case ERole::Scout:case ERole::Merchant:return ERegionalRoutine::CautiousWork;
+ default:return ERegionalRoutine::ReturnHome;
+ }
+}
+constexpr float RegionalRoutineStepLimit(ERegionalRoutine Routine){
+ // Guards must be able to reach their assigned watch point before holding it.
+ return Routine==ERegionalRoutine::CautiousWork?16.f:32.f;
+}
+// Optional ambient rumor exchanges pause during regional emergencies.
+// Unknown danger preserves legacy behavior, including protected settlements.
+constexpr bool RegionalAllowsSocial(int Danger){return Danger<65||Danger>100;}
+constexpr bool RegionalRoutineAllowsGuide(ERegionalRoutine Routine){
+ return Routine==ERegionalRoutine::Normal;
+}
+static_assert(RegionalAllowsSocial(64)&&!RegionalAllowsSocial(65)&&!RegionalAllowsSocial(100),"Social recovery boundary");
+static_assert(RegionalAllowsSocial(-1)&&RegionalAllowsSocial(101),"Unknown danger preserves ordinary routines");
+static_assert(RegionalRoutine(ERole::Guard,65,true)==ERegionalRoutine::GuardWatch,"Guard watch");
+static_assert(RegionalRoutine(ERole::Merchant,90,true)==ERegionalRoutine::CautiousWork,"Merchant stays available");
+static_assert(RegionalRoutine(ERole::Citizen,90,true)==ERegionalRoutine::ReturnHome,"Civilian returns home");
+static_assert(RegionalRoutine(ERole::Citizen,90,false)==ERegionalRoutine::Normal,"Protected resident");
+static_assert(RegionalRoutine(ERole::Scout,101,true)==ERegionalRoutine::Normal,"Invalid danger fails closed");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::GuardWatch)==32.f,"Guard can return to watch post");
+static_assert(RegionalRoutine(ERole::Guard,64,true)==ERegionalRoutine::Normal,"Guard resumes routine as danger falls");
+static_assert(!PauseResidentMotion(false,true,false,true),"Nearby hero does not block return to post");
+static_assert(PauseResidentMotion(true,true,false,true),"Dialogue still pins guard");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::CautiousWork)==16.f,"Cautious work slows movement");
+static_assert(RegionalRoutineStepLimit(ERegionalRoutine::ReturnHome)==32.f,"Residents retain safe return speed");
 static_assert(StepRegionalPressure(58,true)==60,"Pressure cap");
 static_assert(StepRegionalPressure(1,false)==0,"Pressure decay");
 static_assert(RegionalDanger(60,0)==100&&RegionalDanger(0,5)==0,"Danger bounds");
 static_assert(RegionalDanger(0,6)==-1,"Invalid dungeon count");
 static_assert(ReactiveEncounter(EEvent::Merchant,EWeather::Clear,70,0)==EEvent::Patrol,"High pressure patrol");
+static_assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,34,0)==EEvent::Dispute,"Calm road keeps civilian variety");
+static_assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,35,0)==EEvent::Patrol,"Watch level patrol responds to disputes");
+static_assert(ReactiveEncounter(EEvent::Merchant,EWeather::Clear,64,0)==EEvent::Merchant,"Watch level trade remains available");
+static_assert(ReactiveEncounter(EEvent::Rescue,EWeather::Clear,100,0)==EEvent::Rescue,"Rescue remains available at high danger");
 static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Clear,10,5)==EEvent::Merchant,"Liberated region trade");
 static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue,"Weather priority");
 // Encounter expiry is deliberately paused while a player is actively

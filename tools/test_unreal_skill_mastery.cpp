@@ -150,5 +150,20 @@ int main(){
  Full.XP.fill(M::MaxXP-1);
  for(int I=0;I<4;++I)assert(M::TryCollectWithTrailReward(Full,6,I,I==3?M::Orb::Hidden:M::Orb::Agility,true,Full));
  for(int XP:Full.XP)assert(XP==M::MaxXP);
+ // Province completion is derived from the same persisted identities.
+ M::State Explorer{};
+ for(int Region=0;Region<M::RouteRegions;++Region){
+  for(int Index=0;Index<M::RouteOrbsPerRegion;++Index){
+   assert(M::TryCollectWithTrailReward(Explorer,Region,Index,
+       Index%M::OrbsPerTrail==3?M::Orb::Hidden:M::Orb::Agility,true,Explorer));
+   assert(M::ProvinceCompleted(Explorer,Region)==(Index==M::RouteOrbsPerRegion-1));
+  }
+  const auto CompletedProvince=Explorer;
+  assert(!M::TryCollectWithTrailReward(Explorer,Region,11,M::Orb::Hidden,true,Explorer));
+  assert(Explorer.XP==CompletedProvince.XP&&Explorer.Collected==CompletedProvince.Collected);
+ }
+ assert(M::RankFor(Explorer,M::Skill::Agility)==M::MaxRank);
+ assert(M::XPFor(Explorer,M::Skill::Arcane)==1365);
+ assert(!M::ProvinceCompleted(Explorer,-1)&&!M::ProvinceCompleted(Explorer,7));
  return 0;
 }

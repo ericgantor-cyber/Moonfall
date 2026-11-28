@@ -3646,17 +3646,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
+        self.assertIn('#include "MoonfallPackTactics.h"', self.enemy_cpp)
+        pack=(ROOT/"MoonfallPackTactics.h").read_text(encoding="utf-8")
+        self.assertIn("ShouldYieldAttackSlot", pack)
+        self.assertIn("AttackSlotDelay", pack)
+        self.assertIn("MaxScannedActors = 64", pack)
+        self.assertIn("MaxNearbyCandidates = 32", pack)
         self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {", tick)
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", tick)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
-        self.assertIn("ConsideredAllies < 32", tick)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", tick)
         self.assertIn("Other->WindupEndsAt > Now", tick)
         self.assertIn("FVector::DistSquared2D(", tick)
         self.assertIn("FMath::Square(550.f)", tick)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", tick)
         self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
-        self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
+        self.assertIn("MoonfallPackTactics::AttackSlotDelay(FMath::Max(NearbyWindingAllies,bParentWinding?1:0), GetUniqueID())", tick)
         self.assertLess(tick.index("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
@@ -3673,7 +3680,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(guard, scope)
         self.assertLess(scope.index("Other->GetOwner() != GetOwner()"),
                         scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))", scope)
         self.assertIn("(Other->bElite && !bDungeonRole)", scope)
         self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex", scope)
@@ -3694,7 +3702,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"))
         self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
                         scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
 
     def test_attack_coordination_ignores_destroying_and_nonfinite_allies(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3704,7 +3713,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       "!FMath::IsFinite(Other->Health)", "Other->Health <= 0.f"):
             self.assertIn(guard, scope)
             self.assertLess(scope.index(guard), scope.index("++ConsideredAllies;"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertLess(scope.index("++ScannedActors;"),
                         scope.index("Other->IsActorBeingDestroyed()"))
 
@@ -3714,10 +3724,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "// Alternate quick strikes", 1)[0]
         self.assertIn("FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now", scope)
         self.assertIn("FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin)", scope)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
         self.assertLess(scope.index("FMath::IsFinite(Other->WindupEndsAt)"),
-                        scope.index("if (++NearbyWindingAllies >= 2) break;"))
+                        scope.index("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;"))
 
     def test_attack_coordination_filters_distant_allies_before_budget(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3730,8 +3741,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         scope.index("++ConsideredAllies;"))
         self.assertLess(scope.index("Other->DungeonChamberIndex != DungeonChamberIndex"),
                         scope.index("AllyDistanceSquared >= FMath::Square(550.f)"))
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", scope)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", scope)
+        self.assertIn("ScannedActors < MoonfallPackTactics::MaxScannedActors", scope)
+        self.assertIn("ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates", scope)
+        self.assertIn("if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;", scope)
 
     def test_enemy_recovers_own_corrupt_windup_without_instant_hit(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
@@ -3774,11 +3786,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        self.assertIn("&& (bElite || (bBoss && BossPhase >= 2))", tick)
+        self.assertIn("&& (bRangedCombatRole || bElite || (bBoss && BossPhase >= 2))", tick)
         self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
-        self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
-        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);", tick)
+        self.assertIn("(bRangedCombatRole || Distance > AttackRange * 0.45f) && Distance > 1.f", tick)
+        self.assertIn("const float StrafeSpeed = bRangedCombatRole ? 45.f : (bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f));", tick)
         self.assertIn("StrafeSpeed * SafeAIDelta;", tick)
         self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
         self.assertLess(tick.index("AddActorWorldOffset(StrafeStep, true, &StrafeHit);"),
@@ -3807,7 +3819,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSidestepClearedObstacle = !EscapeHit.bBlockingHit && bEscapeMadeProgress;", tick)
         self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
         retry = tick.split("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", 1)[1].split(
-            "} else if (Distance <= AttackRange", 1)[0]
+            "} else if (Distance <= EffectiveAttackRange", 1)[0]
         self.assertIn("NextBlockedRepathAt = Now + 0.5f;", retry)
         self.assertIn("if (!bSidestepClearedObstacle) {", retry)
         self.assertLess(retry.index("if (!bSidestepClearedObstacle) {"),
@@ -3834,7 +3846,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("NextPathRefreshAt = 0.f;", tick)
         self.assertIn("FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)", tick)
         self.assertIn("LastSawHeroAt = -100.f;", tick)
-        self.assertLess(tick.index("LastSawHeroAt = -100.f;"), tick.index("if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))"))
+        self.assertLess(tick.index("LastSawHeroAt = -100.f;"), tick.index("if ((Distance > EffectiveAttackRange || (!bBoss && !bCanSeeHero) || bRangedNeedsReposition)"))
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
@@ -3954,7 +3966,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bDivineRangedCastCandidate = bDivineSignatureDue", tick)
         self.assertIn("Distance > AttackRange && Distance <= 750.f;", tick)
         self.assertIn("&& Distance < 2200.f && !bDivineRangedCastReady)", tick)
-        self.assertIn("} else if (Distance <= AttackRange || bDivineRangedCastReady) {", tick)
+        self.assertIn("} else if (Distance <= EffectiveAttackRange || bDivineRangedCastReady) {", tick)
         self.assertIn("if (!bDivineRangedCastReady", tick)
         self.assertIn("if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % DivineSignatureInterval == 0)", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
@@ -4113,9 +4125,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
             "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
-        self.assertIn("if (!bEliteEncounter && Spawned == 0 && Count > 1)", combat)
-        self.assertNotIn("if (!bEliteEncounter && Index == 0 && Count > 1)", combat)
-        self.assertLess(combat.index("if (!bEliteEncounter && Spawned == 0 && Count > 1)"),
+        self.assertIn("RoleForEncounterSlot(Spawned,bEliteEncounter)", combat)
+        self.assertNotIn("RoleForEncounterSlot(Index,bEliteEncounter)", combat)
+        self.assertLess(combat.index("RoleForEncounterSlot(Spawned,bEliteEncounter)"),
                         combat.index("++Spawned;"))
         self.assertIn('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));', combat)
         self.assertLess(combat.index('Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));'),
@@ -4128,10 +4140,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        self.assertIn("Distance > AttackRange * 2.f && Distance < 900.f", tick)
-        self.assertIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
-        self.assertIn("FlankSign = Lane % 2u == 0u ? -1.f : 1.f;", tick)
-        self.assertIn("FlankDistance = Lane >= 2u ? 105.f : 70.f;", tick)
+        self.assertIn("Distance > EffectiveAttackRange * 2.f && Distance < 900.f", tick)
+        self.assertIn("const uint32 LaneActorId = GetUniqueID();", tick)
+        self.assertIn("MoonfallPackTactics::ApproachLaneSign(LaneActorId)", tick)
+        self.assertIn("MoonfallPackTactics::ApproachLaneDistance(LaneActorId)", tick)
+        self.assertNotIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
         self.assertIn("if (BossPhase >= 2)", tick)
         self.assertIn("FlankDistance = 175.f;", tick)
         self.assertIn("FlankDistance = 125.f;", tick)
@@ -4145,7 +4158,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         movement = tick.split("// Give different ordinary enemies stable approach lanes", 1)[1].split(
             "// Solve paths only when the cache expires", 1)[0]
-        self.assertIn("if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f", movement)
+        self.assertIn("} else if ((bBoss || bCanSeeHero) && Distance > EffectiveAttackRange * 2.f", movement)
         self.assertIn("} else if (bDungeonScout) {", movement)
         self.assertIn("FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;", movement)
         self.assertIn("FlankDistance = 185.f;", movement)
@@ -5582,7 +5595,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         callback = boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", identity)
         successful_return = boss.index("return true;", callback)
         for fragment in (boss[identity:callback], boss[callback:successful_return]):
-            self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;", fragment)
+            self.assertIn("if (!IsValid(Boss) || Boss->IsActorBeingDestroyed())", fragment)
             self.assertIn("!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f", fragment)
             self.assertIn("Boss->Destroy();", fragment)
             self.assertIn("return false;", fragment)
@@ -6919,19 +6932,69 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel", 1)[0]
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("Enemy->bElite = Group > 0 && Member == GroupSize - 1;", spawn)
-        self.assertIn('if (Enemy->bElite) Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));', spawn)
+        self.assertIn("RoleForEncounterSlot(Member,Enemy->bElite)", spawn)
+        self.assertIn("CombatRole==MoonfallPackTactics::CombatRole::PackLeader", spawn)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))', spawn)
+        self.assertIn('FName(TEXT("DungeonPackLeader"))', spawn)
         self.assertLess(spawn.index('Tags.AddUnique(FName(TEXT("DungeonPackLeader")))'),
                         spawn.index("Enemy->FinishSpawning(SpawnTransform);"))
         self.assertIn('ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))', tick)
         self.assertIn('ActorHasTag(FName(TEXT("DungeonPackLeader")))', tick)
         self.assertIn("const bool bDungeonPackLeader = bElite", tick)
-        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);", tick)
+        self.assertIn("const float StrafeSpeed = bRangedCombatRole ? 45.f : (bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f));", tick)
         self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
         self.assertIn("if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero())", tick)
         self.assertIn("if (!bAllSpawned || GroupActors.Num() != GroupSize)", spawn)
         self.assertIn("SpawnedBonusGroupsMask |= GroupBit;", spawn)
         self.assertLess(spawn.index("if (!bAllSpawned || GroupActors.Num() != GroupSize)"),
                         spawn.index("SpawnedBonusGroupsMask |= GroupBit;"))
+
+
+    def test_ranked_dungeon_boss_minions_have_roles_and_yield_to_their_boss(self):
+        dungeon=(ROOT/"MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        enemy=(ROOT/"MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        policy=(ROOT/"MoonfallPackTactics.h").read_text(encoding="utf-8")
+        boss=dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(",1)[1]
+        coordination=enemy.split("// Small-pack coordination:",1)[1].split(
+            "// Alternate quick strikes",1)[0]
+        self.assertIn("if (Rank>=3)",boss)
+        self.assertIn("RoleForBossMinion(MinionIndex)",boss)
+        self.assertIn("Minion->DungeonChamberIndex=ChamberCount-1;",boss)
+        self.assertIn('FName(TEXT("MoonfallBossMinion"))',boss)
+        self.assertIn('FName(TEXT("MoonfallBossEncounter"))',boss)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Caster"))',boss)
+        self.assertIn("Boss->DungeonChamberIndex = ChamberCount-1;",boss)
+        self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));',boss)
+        self.assertIn("RollbackBossMinions",boss)
+        self.assertIn("Minion->EncounterBoss=Boss;",boss)
+        self.assertIn("bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot",coordination)
+        self.assertIn("Parent->Health<=0.f",enemy)
+        self.assertIn("ShouldMinionYieldToBoss(",coordination)
+        self.assertIn("Other->ActorHasTag(BossEncounterTag)",coordination)
+        self.assertIn("Other->GetOwner() != GetOwner()",coordination)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",coordination)
+        self.assertIn("RoleForEncounterSlot",policy)
+        self.assertIn("RangedRepositionMode",policy)
+        self.assertIn("RangedAttackRange",policy)
+        self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
+        projectile=(ROOT/"MoonfallEnemyProjectile.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "MoonfallEnemyProjectile.h"',enemy)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>",enemy)
+        self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
+        self.assertIn("OnRangedAttackTelegraphed(",enemy)
+        self.assertIn("OnRangedProjectileFired(",enemy)
+        self.assertIn("RangedProjectileWindup(bCasterCombatRole)",enemy)
+        self.assertIn("MoonfallEnemyRole_Caster",dungeon)
+        self.assertIn("UProjectileMovementComponent",projectile)
+        self.assertIn("bForceSubStepping=true",projectile)
+        self.assertIn("ECC_WorldStatic,ECR_Block",projectile)
+        self.assertIn("ECC_Pawn,ECR_Overlap",projectile)
+        self.assertIn("TryRewardPerfectDodge()",projectile)
+        self.assertIn("ApplyMoonfallDamageFrom(Damage,ImpactPoint)",projectile)
+        self.assertIn("NotifyRangedProjectileCountered",projectile)
+        self.assertIn("PrimaryActorTick.bCanEverTick=false",projectile)
+        self.assertNotIn("ApplyMoonfallDamage(",projectile)
+        self.assertEqual(enemy.count("TActorIterator<AMoonfallEnemy>"),1)
 
 
     def test_damage_feedback_measures_only_current_impact(self):
@@ -7256,13 +7319,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[0]
         after_encounter = boss.split("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);", 1)[1]
         invalid_health = "if (!FMath::IsFinite(Boss->Health) || Boss->Health <= 0.f)"
-        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;"
+        actor_invalid = "if (!IsValid(Boss) || Boss->IsActorBeingDestroyed())"
         for stage in (after_identity, after_encounter):
             self.assertIn(actor_invalid, stage)
             self.assertIn(invalid_health, stage)
             self.assertLess(stage.index(actor_invalid), stage.index(invalid_health))
             self.assertLess(stage.index(invalid_health), stage.index("Boss->Destroy();"))
-            self.assertLess(stage.index("Boss->Destroy();"), stage.index("return false;\n }"))
+            health_branch = stage.split(invalid_health, 1)[1]
+            self.assertIn("Boss->Destroy();", health_branch)
+            self.assertLess(health_branch.index("Boss->Destroy();"), health_branch.index("return false;"))
         self.assertLess(after_encounter.index(invalid_health), after_encounter.index("return true;"))
         self.assertIn("return false; // All collision-safe spawn positions were unavailable.", boss)
 

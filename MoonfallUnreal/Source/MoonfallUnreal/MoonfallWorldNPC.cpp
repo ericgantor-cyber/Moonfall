@@ -43,14 +43,18 @@ void AMoonfallWorldNPC::EndPlay(const EEndPlayReason::Type EndPlayReason) {
    Mode->UnregisterLivingResident(this);
  Super::EndPlay(EndPlayReason);
 }
-bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance){
+bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,float StopDistance,float MaxStep){
  if(!HasAuthority()||!GetWorld()||Goal.ContainsNaN()||GetActorLocation().ContainsNaN()
-     ||!FMath::IsFinite(Now)||!FMath::IsFinite(StopDistance)||StopDistance<0.f)return false;
+     ||!FMath::IsFinite(Now)||Now<0.f||!FMath::IsFinite(StopDistance)||StopDistance<0.f
+     ||!FMath::IsFinite(MaxStep)||MaxStep<=0.f||MaxStep>100.f)return false;
  const FVector Start=GetActorLocation();
  const double Distance=FVector::Dist2D(Start,Goal);
  const bool bSameFloor=FMath::Abs(Start.Z-Goal.Z)<=150.0;
  if(!FMath::IsFinite(Distance))return false;
- if(Distance<=StopDistance&&bSameFloor)return true;
+ if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;return true;}
+ // A moving goal can invalidate a cached waypoint without bypassing the query cooldown.
+ if(bFollowerWaypointValid&&(FollowerPathGoal.ContainsNaN()||
+     FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0))){bFollowerWaypointValid=false;FollowerBlockedSteps=0;}
  // At most one synchronous nav query per second for the active follower.
  if(Now>=NextFollowerPathAt){
   NextFollowerPathAt=Now+1.f;bFollowerWaypointValid=false;
@@ -59,28 +63,55 @@ bool AMoonfallWorldNPC::AdvanceFollowerToward(const FVector& Goal,float Now,floa
    if(Nav->ProjectPointToNavigation(Goal,Projected)){
     auto* Path=Nav->FindPathToLocationSynchronously(GetWorld(),Start,Projected.Location,this);
     if(IsValid(Path)&&Path->IsValid()&&Path->PathPoints.Num()>1&&!Path->PathPoints[1].ContainsNaN()){
-     FollowerWaypoint=Path->PathPoints[1];bFollowerWaypointValid=true;
+     FollowerWaypoint=Path->PathPoints[1];FollowerPathGoal=Goal;bFollowerWaypointValid=true;
     }
    }
   }
  }
  const FVector Target=bFollowerWaypointValid?FollowerWaypoint:Goal;
  FVector Step=Target-Start;Step.Z=0;
- if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;return false;}
- const double StepLimit=bSameFloor?FMath::Min(60.0,FMath::Max(0.0,Distance-StopDistance)):60.0;
+ if(Step.SizeSquared2D()<25.0){bFollowerWaypointValid=false;FollowerLastStep=0.0;return false;}
+ // Try one bounded diagonal detour on a later pulse, never an extra trace
+ // batch. Alternate sides after repeated obstructions; authored nav wins.
+ const bool bDetour=!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2;
+ if(bDetour){
+  const FVector Forward=Step.GetSafeNormal2D();
+  const FVector Side(-Forward.Y,Forward.X,0);
+  const double Sign=((FollowerBlockedSteps/2+static_cast<int32>(GetTypeHash(ResidentId)%2u))%2)?1.0:-1.0;
+  Step=(Forward*0.5+Side*Sign).GetSafeNormal2D()*Step.Size2D();
+ }
+ const auto MarkBlocked=[&](){
+  bFollowerWaypointValid=false;
+  FollowerBlockedSteps=FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1;
+  FollowerLastStep=0.0;
+ };
+ const double Remaining=bSameFloor?FMath::Max(0.0,Distance-StopDistance):120.0;
+ const double StepLimit=MoonfallWorldPolicy::FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt,MaxStep);
  const FVector End=Start+Step.GetClampedToMaxSize2D(StepLimit);
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallFollowerMove),false,this);
  FHitResult Obstacle;
  if(GetWorld()->LineTraceSingleByChannel(Obstacle,Start+FVector(0,0,55),End+FVector(0,0,55),ECC_Visibility,Params)){
-  bFollowerWaypointValid=false;return false;
+  MarkBlocked();return false;
  }
  FHitResult Ground,OldGround;
  if(!GetWorld()->LineTraceSingleByChannel(Ground,End+FVector(0,0,150),End-FVector(0,0,150),ECC_Visibility,Params)
      ||!GetWorld()->LineTraceSingleByChannel(OldGround,Start+FVector(0,0,150),Start-FVector(0,0,150),ECC_Visibility,Params)
-     ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0)return false;
+     ||Ground.ImpactNormal.Z<0.65||FMath::Abs(Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z)>35.0){
+  MarkBlocked();return false;
+ }
  FVector Move=End-Start;Move.Z=Ground.ImpactPoint.Z-OldGround.ImpactPoint.Z;
  AddActorWorldOffset(Move,true);
- if(!Move.IsNearlyZero())SetActorRotation(FRotator(0.f,Move.Rotation().Yaw,0.f));
+ const FVector ActualMove=GetActorLocation()-Start;
+ if(!ActualMove.ContainsNaN()&&ActualMove.SizeSquared2D()>1.0){
+  FollowerBlockedSteps=0;
+  FollowerLastStep=FMath::Min(static_cast<double>(MaxStep),ActualMove.Size2D());FollowerLastMoveAt=Now;
+  // Bound visible turns per existing 0.2-second follower pulse, including
+  // wraparound at +/-180 degrees. No animation tick or asset dependency.
+  const float CurrentYaw=static_cast<float>(GetActorRotation().Yaw);
+  const float DesiredYaw=static_cast<float>(ActualMove.Rotation().Yaw);
+  if(FMath::IsFinite(CurrentYaw)&&FMath::IsFinite(DesiredYaw))
+   SetActorRotation(FRotator(0.f,FMath::FixedTurn(CurrentYaw,DesiredYaw,45.f),0.f));
+ }else MarkBlocked();
  return FVector::Dist2D(GetActorLocation(),Goal)<=StopDistance&&FMath::Abs(GetActorLocation().Z-Goal.Z)<=150.0;
 }
 bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
@@ -118,10 +149,19 @@ bool AMoonfallWorldNPC::TrySafeFollowerCatchup(const AMoonfallHeroPawn* Hero){
   FHitResult Sight;
   if(GetWorld()->LineTraceSingleByChannel(Sight,Center,Player,ECC_Visibility,GroundParams))continue;
   if(!TeleportTo(Destination,GetActorRotation(),false,false))continue;
-  bFollowerWaypointValid=false;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
+  bFollowerWaypointValid=false;bFollowerTravelFormation=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;FollowerLastMoveAt=-1.f;NextFollowerPathAt=-1.f;LivingIntent=TEXT("Rejoining");
   return true;
  }
  return false;
+}
+int32 AMoonfallWorldNPC::GetLocalRegionalDanger() const
+{
+ if(bAmbientVisitor||!bUsePersonalityRoutines||!GetWorld()||
+    AuthoredHomeLocation.ContainsNaN()||AuthoredHomeLocation.Y>-1800.f||
+    SettlementId==FName(TEXT("Firstlight")))return -1;
+ const auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>();
+ return IsValid(Mode)?Mode->GetRegionalDanger(
+  MoonfallLivingSimulation::RegionFromWorldX(AuthoredHomeLocation.X)):-1;
 }
 void AMoonfallWorldNPC::WitnessNearbyDanger(float Now) {
  if (FMath::IsFinite(Now) && Now >= 0.f) LastDangerAt = Now;
@@ -147,13 +187,21 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  const bool bSheltering=(MoonfallLivingSimulation::Severe(Weather) && !bGuard)
       || Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter;
  const bool bHoldPost=Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost;
+ using RegionRoutine=MoonfallLivingSimulation::ERegionalRoutine;
+ using RegionRole=MoonfallLivingSimulation::ERole;
+ const RegionRole Role=bGuard?RegionRole::Guard:SocialRole==FName(TEXT("Merchant"))?RegionRole::Merchant:
+     SocialRole==FName(TEXT("Scout"))?RegionRole::Scout:RegionRole::Citizen;
+ const auto Regional=MoonfallLivingSimulation::RegionalRoutine(Role,GetLocalRegionalDanger(),
+     !bInConversation&&!bSheltering&&!bHoldPost);
+ const bool bRegionalHome=Regional==RegionRoutine::ReturnHome;
+ const bool bRegionalWatch=Regional==RegionRoutine::GuardWatch;
  const bool bNearHero=FVector::DistSquared2D(HeroLocation,GetActorLocation())
      < FMath::Square(420.f);
  bool bRoutineHome=false;
  LivingIntent.Reset();
  bReviewingCombatReport=false;
  FMoonfallWorldRumor GuardReport;
- if (bUsePersonalityRoutines && bGuard && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
+ if (bUsePersonalityRoutines && bGuard && !bRegionalWatch && !bInConversation && Alert==MoonfallLivingSimulation::EAlertReaction::Normal) {
   if (const auto* Society=GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>()) {
    bReviewingCombatReport=Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),GuardReport);
   }
@@ -183,7 +231,9 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
   if (bInConversation) LivingIntent=TEXT("Conversing");
   else if (bHoldPost) LivingIntent=TEXT("On Alert");
   else if (bSheltering) LivingIntent=TEXT("Seeking Shelter");
-  else if (bGuard) LivingIntent=bReviewingCombatReport?TEXT("Reviewing Reports"):TEXT("On Duty");
+  else if (bGuard) LivingIntent=bRegionalWatch?TEXT("Regional Watch"):bReviewingCombatReport?TEXT("Reviewing Reports"):TEXT("On Duty");
+  else if (bRegionalHome) { LivingIntent=TEXT("Staying Near Home"); bRoutineHome=true; }
+  else if (Regional==RegionRoutine::CautiousWork) LivingIntent=TEXT("Cautious Work");
   else switch(Intent) {
    case Action::Sleep: LivingIntent=TEXT("Resting"); bRoutineHome=true; break;
    case Action::Eat: LivingIntent=TEXT("Meal Break"); bRoutineHome=true; break;
@@ -204,14 +254,15 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
      FVector::DistSquared(HeroLocation,AuthoredHomeLocation),
      FVector::DistSquared(HeroLocation,GetActorLocation()),
      !bInConversation&&!bSheltering&&!bHoldPost&&Alert==MoonfallLivingSimulation::EAlertReaction::Normal,
-     bAllowLocalGuide&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
+     bAllowLocalGuide&&MoonfallLivingSimulation::RegionalRoutineAllowsGuide(Regional)&&bUsePersonalityRoutines&&bAllowLocalScoutGuidance&&SocialRole==FName(TEXT("Scout")));
  if (MoonfallLivingSimulation::PauseResidentMotion(
-      bInConversation,bNearHero,bSheltering,bHoldPost) && !bGuide) return;
+      bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost||bRegionalWatch) && !bGuide) return;
  float Side=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==0?-65.f:(Shift==1?65.f:0.f));
  float Front=(bSheltering || bHoldPost || bRoutineHome)?0.f:(Shift==2?45.f:(Shift==3?-45.f:0.f));
+ if(bRegionalWatch){Side=0.f;Front=0.f;}
  // Credible reports bias a guard toward one of the original four watch
  // offsets. This does not pathfind to the reported incident or accuse anyone.
- if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bHoldPost
+ if (bGuard && bUsePersonalityRoutines && bReviewingCombatReport && !bRegionalWatch && !bHoldPost
      && !bSheltering && !bInConversation && !bNearHero && !MoonfallLivingSimulation::Severe(Weather)) {
   const FVector Direction=GuardReport.Location-AuthoredHomeLocation;
   using MoonfallWorldPolicy::WatchPoint;
@@ -233,8 +284,8 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
  FVector Step=Target-GetActorLocation();
  Step.Z=0.f;
  if (Step.SizeSquared2D() > FMath::Square(1.f)){
-  if(bGuide){
-   // One small guarded step, never a teleport or navigation request.
+  if(bGuide||bRegionalHome||bRegionalWatch||bSheltering||bHoldPost){
+   // All urgent return steps must stay on clear, level ground.
    const FVector Start=GetActorLocation();
    const FVector End=Start+Step.GetClampedToMaxSize2D(32.f);
    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallLocalGuide),false,this);
@@ -246,7 +297,8 @@ void AMoonfallWorldNPC::AdvanceLivingRoutine(float Now, const FVector& HeroLocat
    if(!GetWorld()->LineTraceSingleByChannel(ExistingGround,Start+FVector(0,0,120),Start-FVector(0,0,120),ECC_Visibility,Params)
        ||FMath::Abs(Hit.ImpactPoint.Z-ExistingGround.ImpactPoint.Z)>10.0)return;
   }
-  AddActorWorldOffset(Step.GetClampedToMaxSize2D(32.f),true);
+  const float RoutineStep=MoonfallLivingSimulation::RegionalRoutineStepLimit(Regional);
+  AddActorWorldOffset(Step.GetClampedToMaxSize2D(RoutineStep),true);
  }
 }
 int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
@@ -306,9 +358,15 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if(Role==ERole::Scout&&(LivingIntent==TEXT("Following")||LivingIntent==TEXT("Holding Position")||LivingIntent==TEXT("Passive")||LivingIntent==TEXT("Returning Home")||LivingIntent==TEXT("Moving to order")||LivingIntent==TEXT("Intercepting")||LivingIntent==TEXT("Flanking")||LivingIntent==TEXT("Withdrawing")||LivingIntent==TEXT("Downed")))return LivingIntent;
  if(Alert==MoonfallLivingSimulation::EAlertReaction::HoldPost) return TEXT("On Alert");
  if(Alert==MoonfallLivingSimulation::EAlertReaction::SeekShelter) return TEXT("Seeking Shelter");
+ const bool bRegionalIntent=LivingIntent==TEXT("Regional Watch")||
+     LivingIntent==TEXT("Staying Near Home")||LivingIntent==TEXT("Cautious Work");
+ const auto Regional=MoonfallLivingSimulation::RegionalRoutine(Role,GetLocalRegionalDanger(),
+     !MoonfallLivingSimulation::Severe(Weather)||Role==ERole::Guard);
+ if(bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal)return LivingIntent;
  // Only ordinary residents expose the new activity in the existing HUD.
  // Fresh danger/weather and authored specialist roles take precedence.
- if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport) {
+ if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Guard && bReviewingCombatReport
+     && Regional!=MoonfallLivingSimulation::ERegionalRoutine::GuardWatch) {
   if (const auto* Society=GetWorld()?GetWorld()->GetSubsystem<UMoonfallLivingWorldSubsystem>():nullptr) {
    FMoonfallWorldRumor Report;
    if (Society->GetNearbyCombatReport(ResidentId,GetActorLocation(),Report)) return TEXT("Reviewing Reports");
@@ -317,7 +375,8 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Scout
      && !MoonfallLivingSimulation::Severe(Weather) && (LivingIntent==TEXT("Guiding Nearby")||LivingIntent==TEXT("Holding Position"))) return LivingIntent;
  if (!bAmbientVisitor && bUsePersonalityRoutines && Role==ERole::Citizen
-     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty())
+     && !MoonfallLivingSimulation::Severe(Weather) && !LivingIntent.IsEmpty() && !bRegionalIntent
+     && LivingIntent!=TEXT("Seeking Shelter"))
   return LivingIntent;
  switch(MoonfallLivingSimulation::ActivityFor(Role,Shift,Weather)) {
  case MoonfallLivingSimulation::EActivity::Patrol:return TEXT("Patrolling");
@@ -443,6 +502,16 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
   else if(LastConversationMood==EMoonfallNpcMood::Wary)
    Reaction=FText::FromString(TEXT("I would rather keep our distance for now."));
  }
+ // Friendly faction standing is meaningful even before the trusted tier.
+ // Preserve authored greetings, ancestry, strong bonds and contract priority.
+ if(!bAmbientVisitor&&bUsePersonalityRoutines&&Disposition==TEXT("Friendly")
+     &&Bond>-60&&Bond<60){
+  const TCHAR* Welcome=SocialRole==FName(TEXT("Merchant"))?TEXT(" Your good name is known among our traders."):
+      SocialRole==FName(TEXT("Guard"))?TEXT(" You have earned the goodwill of our watch."):
+      SocialRole==FName(TEXT("Scout"))?TEXT(" Our scouts speak well of you."):
+      TEXT(" You are welcome among our people.");
+  Reaction=FText::FromString(Reaction.ToString()+Welcome);
+ }
  // Accepted one-time contracts have useful, contextual status.
  if (!bAmbientVisitor && Disposition != TEXT("Hostile")
      && Hero->SupportsResidentContract(ResidentId)
@@ -476,6 +545,43 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     Reaction=FText::FromString(Reaction.ToString()+Warning);
    }
   }
+ }
+ // Only the actual recruited companion may speak about active party orders.
+ // This is read-only dialogue: it cannot change stance, bond or health.
+ const auto* Mode=GetWorld()?GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>():nullptr;
+ const bool bActiveCompanion=!bAmbientVisitor&&IsValid(Mode)&&Mode->GetLocalCompanionForHero(Hero)==this;
+ if(bActiveCompanion&&Disposition!=TEXT("Hostile")&&Bond>=60){
+  const TCHAR* PartyLine=nullptr;
+  if(bCompanionDowned)PartyLine=TEXT(" I need help before I can travel again.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold)PartyLine=TEXT(" I will hold this position until you give another order.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Passive)PartyLine=TEXT(" I will stay out of the fighting unless you change my orders.");
+  else if(Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow){
+   PartyLine=Mode->LocalCompanionRole==EMoonfallCompanionRole::Protector?TEXT(" I will watch your flank as we travel."):
+       Mode->LocalCompanionRole==EMoonfallCompanionRole::Striker?TEXT(" I am ready to support your next fight."):
+       TEXT(" I am ready to travel with you.");
+  }
+  if(PartyLine)Reaction=FText::FromString(Reaction.ToString()+PartyLine);
+  // A calm, following companion can comment on existing campaign progress.
+  // These records describe the hero's achievements, not shared eyewitness memory.
+  if(!bCompanionDowned&&Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow
+      &&!Hero->IsRecentlyInCombatForAmbientAI()){
+   const int32 Victories=Hero->GetTotalDefeatedDungeonBosses();
+   const int32 Discovered=Hero->GetTotalDiscoveredDungeons();
+   const TCHAR* ProgressLine=nullptr;
+   if(Victories==30)ProgressLine=TEXT(" You have defeated every mainland dungeon boss.");
+   else if(Victories>=5&&Victories<30)ProgressLine=TEXT(" Your victories are making a difference across the mainland.");
+   else if(Victories>0&&Victories<5)ProgressLine=TEXT(" You have already faced a dungeon boss and prevailed.");
+   else if(Victories==0&&Discovered>=5&&Discovered<=30)ProgressLine=TEXT(" You have found several dungeon entrances. There is much left to explore.");
+   if(ProgressLine)Reaction=FText::FromString(Reaction.ToString()+ProgressLine);
+  }
+ }
+ const int32 RegionalDanger=GetLocalRegionalDanger();
+ if(!bAmbientVisitor&&!bActiveCompanion&&Disposition!=TEXT("Hostile")&&RegionalDanger>=65&&RegionalDanger<=100){
+  const TCHAR* RegionalWarning=SocialRole==FName(TEXT("Guard"))?TEXT(" The province is on alert. We are keeping close to our posts."):
+      SocialRole==FName(TEXT("Merchant"))?TEXT(" Trade continues, but I am staying close to my stall."):
+      SocialRole==FName(TEXT("Scout"))?TEXT(" The roads are dangerous. I am staying near the settlement."):
+      TEXT(" The province is on alert. I am staying close to home.");
+  Reaction=FText::FromString(Reaction.ToString()+RegionalWarning);
  }
  LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);

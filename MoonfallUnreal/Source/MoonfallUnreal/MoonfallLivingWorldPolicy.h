@@ -123,10 +123,41 @@ inline float FollowerIncomingDamage(float damage,int armorTier,bool braced){
  const float Armor=1.f-0.01f*Clamp(armorTier,0,25);
  return std::fmin(damage,100.f)*Armor*(braced?0.5f:1.f);
 }
+// Keep offensive support and tactical withdrawal on the same health boundary.
+// Movement budget per existing follower pulse, not a new timer. Brake near
+// the destination and discard momentum after a pause or blocked move.
+inline double FollowerStepBudget(double remaining,double previousStep,double elapsed,double maxStep=60.0){
+ if(!std::isfinite(remaining)||remaining<=0||!std::isfinite(maxStep)||maxStep<=0||maxStep>100.0)return 0.0;
+ const double previous=std::isfinite(previousStep)&&previousStep>=0&&
+     std::isfinite(elapsed)&&elapsed>=0&&elapsed<=0.4?std::fmin(previousStep,maxStep):0.0;
+ const double braking=std::fmin(maxStep,std::fmax(12.0,remaining*0.5));
+ return std::fmin(remaining,std::fmin(braking,previous+24.0));
+}
+// Hysteresis keeps formation stable around the walk/idle threshold.
+inline bool CompanionTravelFormation(double speedSquared,double verticalSpeed,bool wasTraveling,bool inCombat){
+ if(inCombat||!std::isfinite(speedSquared)||speedSquared<0.0||!std::isfinite(verticalSpeed)||std::fabs(verticalSpeed)>=100.0)return false;
+ const double threshold=wasTraveling?80.0:120.0;
+ return speedSquared>threshold*threshold;
+}
+inline float CompanionTravelStepCap(double heroSpeed,double separationSquared){
+ if(!std::isfinite(heroSpeed)||heroSpeed<0.0||!std::isfinite(separationSquared)||separationSquared<0.0)return 60.f;
+ // Extra walking catch-up remains under the existing 100-unit safety ceiling.
+ if(separationSquared>=900.0*900.0)return 100.f;
+ if(separationSquared>=500.0*500.0)return 90.f;
+ return heroSpeed>=550.0?80.f:heroSpeed>=300.0?70.f:60.f;
+}
+inline bool CanCompanionSupportOffensively(float health){
+ return std::isfinite(health)&&health>25.f&&health<=100.f;
+}
+inline bool FreshCompanionThreat(double now,double observedAt,float health,double heroDistanceSquared){
+ return std::isfinite(now)&&std::isfinite(observedAt)&&now>=0&&observedAt>=0
+     &&now>=observedAt&&now-observedAt<=2.0&&std::isfinite(health)&&health>0.f
+     &&std::isfinite(heroDistanceSquared)&&heroDistanceSquared>=0&&heroDistanceSquared<=350.0*350.0;
+}
 enum class CompanionTactic { Follow, Intercept, Flank, Withdraw };
 inline CompanionTactic SelectCompanionTactic(float health,int rank,int role,bool threat){
  if(!threat||!std::isfinite(health)||health<=0.f||health>100.f||rank<1)return CompanionTactic::Follow;
- if(health<=25.f)return CompanionTactic::Withdraw;
+ if(!CanCompanionSupportOffensively(health))return CompanionTactic::Withdraw;
  const int Effective=EffectiveCompanionRole(rank,role);
  return Effective==1?CompanionTactic::Intercept:Effective==2?CompanionTactic::Flank:CompanionTactic::Follow;
 }

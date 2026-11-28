@@ -39,6 +39,8 @@ public:
  // Spawn-initialized only: isolates attack slots between chambers of one dungeon.
  // -1 means no known chamber and must not join dungeon coordination.
  int32 DungeonChamberIndex = -1;
+ // Runtime-only association; never owns the boss or changes save data.
+ TWeakObjectPtr<AMoonfallEnemy> EncounterBoss;
  // Generic dungeon-boss presentation only. Never replaces divine boss IDs.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
  FName DungeonBossFamily = NAME_None;
@@ -80,6 +82,13 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedAttackTelegraphed(FVector AimPoint,float WarningSeconds,bool bSpellcaster);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedProjectileFired(FVector MuzzlePoint,FVector AimPoint,bool bSpellcaster);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Ranged")
+ void OnRangedProjectileResolved(bool bParried,bool bPerfectDodge);
+ void NotifyRangedProjectileCountered(bool bPerfectDodge);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -156,6 +165,7 @@ private:
  // This prevents direct pursuit into walls when NavMesh cannot find a route.
  bool bNavigationRouteUnavailable = false;
  FVector LockedAttackDirection = FVector::ZeroVector;
+ FVector LockedRangedAimPoint = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  int32 AquaticCommittedMove = 0;
  int32 AquaticAttackSequence = 0;

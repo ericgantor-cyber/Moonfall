@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallEnemyProjectile.h"
 #include "MoonfallUnrealGameMode.h"
 #include "MoonfallNorthPreviewGameMode.h"
 #include "MoonfallAquaticProfiles.h"
@@ -8,6 +9,7 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallAttackTellVisual.h"
 #include "MoonfallEliteTactics.h"
+#include "MoonfallPackTactics.h"
 #include "MoonfallOmniattack.h"
 #include "MoonfallPracticeAI.h"
 #include "MoonfallGuardianFootprint.h"
@@ -96,6 +98,29 @@ float AMoonfallEnemy::GetAquaticWarningRemaining(float Now) const {
 int32 AMoonfallEnemy::GetAquaticPhase() const {
  return MoonfallAquatic::Phase(AquaticProfileId, MaxHealthAtSpawn > 0.f ? Health / MaxHealthAtSpawn : 1.f);
 }
+void AMoonfallEnemy::NotifyRangedProjectileCountered(bool bPerfectDodge)
+{
+ if(!GetWorld()||IsActorBeingDestroyed()||!FMath::IsFinite(Health)||Health<=0.f)return;
+ const float Now=GetWorld()->GetTimeSeconds();
+ if(!FMath::IsFinite(Now))return;
+ const float Recovery=bPerfectDodge
+   ?(FMath::IsFinite(PerfectDodgeRecoverySeconds)?FMath::Clamp(PerfectDodgeRecoverySeconds,0.f,2.f):0.5f)
+   :0.75f;
+ HitReactionEndsAt=FMath::Max(FMath::IsFinite(HitReactionEndsAt)?HitReactionEndsAt:Now,Now+Recovery);
+ NextAttackAt=FMath::Max(FMath::IsFinite(NextAttackAt)?NextAttackAt:Now,HitReactionEndsAt+0.35f);
+ WindupEndsAt=-1.f;
+ BossWarningEndTime=-1.f;
+ bComboSecondHitPending=false;
+ bComboSecondHitActive=false;
+ const float Pressure=bPerfectDodge
+   ?(FMath::IsFinite(PerfectDodgePostureDamage)?FMath::Clamp(PerfectDodgePostureDamage,0.f,100.f):0.f)
+   :(FMath::IsFinite(ParryPostureDamage)?FMath::Clamp(ParryPostureDamage,0.f,100.f):0.f);
+ if(Pressure>0.f)ApplyPostureDamage(Pressure);
+ if(!IsValid(this)||IsActorBeingDestroyed())return;
+ if(bPerfectDodge)OnPerfectDodged(Pressure);
+ else OnPerfectParried(Recovery);
+}
+
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  DungeonHomePosition = GetActorLocation();
@@ -624,6 +649,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
+ if (!bBoss && ActorHasTag(FName(TEXT("MoonfallBossMinion")))) {
+  const AMoonfallEnemy* Parent=EncounterBoss.Get();
+  if (!IsValid(Parent)||Parent->IsActorBeingDestroyed()||!Parent->bBoss
+      ||Parent->GetWorld()!=GetWorld()||Parent->GetOwner()!=GetOwner()
+      ||Parent->DungeonChamberIndex!=DungeonChamberIndex
+      ||!FMath::IsFinite(Parent->Health)||Parent->Health<=0.f) {
+   Destroy(); // No reward, attack or victory callback for encounter cleanup.
+   return;
+  }
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // Finite, capped simulation time prevents a hung frame from teleporting enemies.
  if (!FMath::IsFinite(Now)) return;
@@ -845,7 +880,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Sanctuary practice sentries never pursue players through the safe village.
  // Only deliberate close-range approaches activate their forgiving attacks.
  static const FName PracticeSimulationTag(TEXT("MoonfallSanctuaryPractice"));
+ static const FName RangedRoleTag(TEXT("MoonfallEnemyRole_Ranged"));
+ static const FName CasterRoleTag(TEXT("MoonfallEnemyRole_Caster"));
+ static const FName BossMinionTag(TEXT("MoonfallBossMinion"));
+ static const FName BossEncounterTag(TEXT("MoonfallBossEncounter"));
  const bool bSanctuaryPractice = ActorHasTag(PracticeSimulationTag);
+ const bool bCasterCombatRole = !bBoss && !bSanctuaryPractice && ActorHasTag(CasterRoleTag);
+ const bool bRangedCombatRole = !bBoss && !bSanctuaryPractice && (ActorHasTag(RangedRoleTag)||bCasterCombatRole);
+ const bool bBossMinion = !bBoss && ActorHasTag(BossMinionTag);
+ const float EffectiveAttackRange = bRangedCombatRole
+   ? MoonfallPackTactics::RangedAttackRange : AttackRange;
+ const int32 RangedPositionMode = bRangedCombatRole
+   ? MoonfallPackTactics::RangedRepositionMode(Distance) : 0;
  if (bSanctuaryPractice && Distance > 450.f) {
   // A trainee may freely retreat: no lingering aim, tells or instant strike.
   WindupEndsAt = -1.f;
@@ -995,6 +1041,38 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     Mode->ResolveCompanionCounterAttack(Hero,this,Target,LockedAttackDirection,
          AttackDamage*FMath::Min(2.3f,CurrentAttackMultiplier),AttackRange*CurrentAttackRangeMultiplier);
    bComboSecondHitPending=false;bComboSecondHitActive=false;
+   return;
+  }
+  if(bRangedCombatRole){
+   AMoonfallEnemyProjectile* SpawnedProjectile=nullptr;
+   FVector ProjectileMuzzle=FVector::ZeroVector;
+   // The bolt travels from a real muzzle point to the position locked when
+   // the tell began. A later dodge can leave the projectile behind.
+   if(IsValid(Hero)&&Hero->IsPlayerControlled()&&FMath::IsFinite(Hero->Health)
+      &&Hero->Health>0.f&&bCanSeeHero&&!LockedRangedAimPoint.ContainsNaN()){
+    ProjectileMuzzle=GetActorLocation()+GetActorForwardVector()*90.f+FVector(0.f,0.f,65.f);
+    const FVector Direction=(LockedRangedAimPoint-ProjectileMuzzle).GetSafeNormal();
+    const float DamageScale=MoonfallPackTactics::RangedProjectileDamageScale(bCasterCombatRole);
+    const float ProjectileDamage=AttackDamage*FMath::Clamp(CurrentAttackMultiplier,0.1f,2.3f)*DamageScale;
+    if(!ProjectileMuzzle.ContainsNaN()&&!Direction.ContainsNaN()&&!Direction.IsNearlyZero()
+       &&FMath::IsFinite(ProjectileDamage)&&ProjectileDamage>0.f){
+     const FTransform ProjectileTransform(Direction.Rotation(),ProjectileMuzzle);
+     SpawnedProjectile=GetWorld()->SpawnActorDeferred<AMoonfallEnemyProjectile>(
+       AMoonfallEnemyProjectile::StaticClass(),ProjectileTransform,this,nullptr,
+       ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+     if(IsValid(SpawnedProjectile)){
+      SpawnedProjectile->Initialize(this,ProjectileDamage,Direction,
+        MoonfallPackTactics::RangedProjectileSpeed(bCasterCombatRole),bCasterCombatRole);
+      if(IsValid(SpawnedProjectile)&&!SpawnedProjectile->IsActorBeingDestroyed())
+       SpawnedProjectile->FinishSpawning(ProjectileTransform);
+      if(!IsValid(SpawnedProjectile)||SpawnedProjectile->IsActorBeingDestroyed()) SpawnedProjectile=nullptr;
+     }
+    }
+   }
+   bComboSecondHitPending=false;
+   bComboSecondHitActive=false;
+   if(IsValid(SpawnedProjectile)&&!SpawnedProjectile->IsActorBeingDestroyed())
+    OnRangedProjectileFired(ProjectileMuzzle,LockedRangedAimPoint,bCasterCombatRole);
    return;
   }
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
@@ -1186,8 +1264,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       UTF8_TO_TCHAR(MoonfallGuardianFootprint::Name(Shape)), nullptr, FColor::White, 0.12f, false);
    return;
   }
-  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
+  DrawDebugSphere(GetWorld(), GetActorLocation(), EffectiveAttackRange * CurrentAttackRangeMultiplier,
     bBoss ? 24 : 16, TellColor, false, 0.12f, 0, bBoss ? 1.f + WarningScale : 1.f);
+  if(bRangedCombatRole&&!LockedRangedAimPoint.ContainsNaN()){
+   const FVector Muzzle=GetActorLocation()+GetActorForwardVector()*90.f+FVector(0.f,0.f,65.f);
+   const FColor RangedColor=bCasterCombatRole?FColor::Cyan:FColor::Orange;
+   DrawDebugLine(GetWorld(),Muzzle,LockedRangedAimPoint,RangedColor,false,0.12f,0,3.f);
+   DrawDebugSphere(GetWorld(),LockedRangedAimPoint,bCasterCombatRole?24.f:15.f,12,
+     RangedColor,false,0.12f,0,2.f);
+   DrawDebugString(GetWorld(),GetActorLocation()+FVector(0.f,0.f,190.f),
+     bCasterCombatRole?TEXT("ARCANE BOLT"):TEXT("PROJECTILE"),nullptr,RangedColor,0.12f,false);
+  }
   // Horizontal radius marker on the ground helps distinguish the dodge zone.
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
@@ -1316,14 +1403,23 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     || DivineSightHit.GetActor() == Hero;
  }
  const bool bDivineRangedCastReady = bDivineRangedCastCandidate && bDivineCastLineClear;
- if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))
+ const bool bRangedNeedsReposition = bRangedCombatRole && bCanSeeHero
+   && RangedPositionMode != 0;
+ if ((Distance > EffectiveAttackRange || (!bBoss && !bCanSeeHero) || bRangedNeedsReposition)
      && Distance < 2200.f && !bDivineRangedCastReady) {
   FHitResult Hit;
   FVector Target = (!bBoss && !bCanSeeHero) ? LastKnownHeroPosition : Hero->GetActorLocation();
   // Give different ordinary enemies stable approach lanes instead of all
-  // pursuing the same point. A fixed four-slot split avoids per-tick random
+  // pursuing the same point. Eight fixed approach lanes avoid per-tick random
   // jitter, extra neighbor searches, and new navigation queries.
-  if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f && Distance < 900.f) {
+  if (bRangedNeedsReposition) {
+   // Ranged enemies hold a readable 390-unit lane. They withdraw when rushed
+   // and advance when the hero escapes, using the same cached NavMesh route.
+   const FVector TowardHero=Difference.GetSafeNormal2D();
+   const FVector Side(-TowardHero.Y,TowardHero.X,0.f);
+   Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange
+     +Side*MoonfallPackTactics::ApproachLaneSign(GetUniqueID())*55.f;
+  } else if ((bBoss || bCanSeeHero) && Distance > EffectiveAttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
    float FlankSign = 1.f;
    float FlankDistance = 0.f;
@@ -1345,9 +1441,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    } else {
     // Deterministic actor-local lanes: left/right, near/wide. Collision
     // sweeps still protect against walls and occupied corridors.
-    const uint32 Lane = GetUniqueID() % 4u;
-    FlankSign = Lane % 2u == 0u ? -1.f : 1.f;
-    FlankDistance = Lane >= 2u ? 105.f : 70.f;
+    const uint32 LaneActorId = GetUniqueID();
+    FlankSign = MoonfallPackTactics::ApproachLaneSign(LaneActorId);
+    FlankDistance = MoonfallPackTactics::ApproachLaneDistance(LaneActorId);
    }
    Target += Side.GetSafeNormal() * FlankDistance * FlankSign;
   }
@@ -1520,15 +1616,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CachedWaypoint = FVector::ZeroVector;
    }
   }
- } else if (Distance <= AttackRange || bDivineRangedCastReady) {
+ } else if (Distance <= EffectiveAttackRange || bDivineRangedCastReady) {
   // Elites and advanced bosses reposition between strikes, not during
   // locked attack windups or posture breaks. A small sideways sweep keeps
   // combat mobile while preserving walls, hit arcs and dodge windows.
   if (!bDivineRangedCastReady
-      && (bElite || (bBoss && BossPhase >= 2))
+      && (bRangedCombatRole || bElite || (bBoss && BossPhase >= 2))
       && WindupEndsAt < 0.f && Now < NextAttackAt
       && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil
-      && Distance > AttackRange * 0.45f && Distance > 1.f) {
+      && (bRangedCombatRole || Distance > AttackRange * 0.45f) && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
    // Bonus-pack leaders can pressure a flank faster without changing
@@ -1536,7 +1632,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    const bool bDungeonPackLeader = bElite
      && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
      && ActorHasTag(FName(TEXT("DungeonPackLeader")));
-   const float StrafeSpeed = bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f);
+   const float StrafeSpeed = bRangedCombatRole ? 45.f : (bBoss ? 95.f : (bDungeonPackLeader ? 100.f : 70.f));
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
    if (!bSanctuaryPractice && !StrafeStep.IsNearlyZero()) {
@@ -1545,12 +1641,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
   }
   if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f && Now >= NextAttackAt) {
-   // Small-pack coordination: avoid three ordinary enemies delivering their
-   // tells at once. Scan only at attack decisions, not on every AI tick;
+   // Small-pack coordination: yield to active nearby attack tells.
+   // Leaders retry sooner, but never bypass another committed attack. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
    static const FName DungeonEncounterTag(TEXT("MoonfallDungeonEncounter"));
    const bool bDungeonRole = ActorHasTag(DungeonEncounterTag);
    if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole)) {
+    const AMoonfallEnemy* Parent=bBossMinion?EncounterBoss.Get():nullptr;
+    const bool bParentWinding=IsValid(Parent)&&!Parent->IsActorBeingDestroyed()
+      &&FMath::IsFinite(Parent->WindupEndsAt)&&Parent->WindupEndsAt>Now;
     int32 NearbyWindingAllies = 0;
     int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
@@ -1558,14 +1657,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Cap the iterator itself, not only eligible allies. Large worlds can
     // contain many bosses, defeated actors, and inactive enemies.
     for (TActorIterator<AMoonfallEnemy> It(GetWorld());
-         It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
+         It && ScannedActors < MoonfallPackTactics::MaxScannedActors
+             && ConsideredAllies < MoonfallPackTactics::MaxNearbyCandidates; ++It) {
      ++ScannedActors;
      const AMoonfallEnemy* Other = *It;
      // Ignore teardown and invalid-health actors before consuming the limited
      // candidate budget or delaying another enemy's attack.
      if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
          || !FMath::IsFinite(Other->Health) || Other->Health <= 0.f
-         || Other->bBoss || (Other->bElite && !bDungeonRole)) continue;
+         || (Other->bBoss && !(bBossMinion
+             && MoonfallPackTactics::ShouldMinionYieldToBoss(
+               bBossMinion,Other->ActorHasTag(BossEncounterTag))))
+         || (Other->bElite && !bDungeonRole)
+         || Other->ActorHasTag(PracticeSimulationTag)) continue;
      // A dungeon mob only coordinates with enemies from its own dungeon.
      // Never let an adjacent room/dungeon or open-world actor consume a slot.
      const bool bDungeonMember = bDungeonRole;
@@ -1580,17 +1684,33 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // positions too, while preserving the outer 64-actor scan limit.
      const float AllyDistanceSquared = FVector::DistSquared2D(Other->GetActorLocation(), PackOrigin);
      if (!FMath::IsFinite(AllyDistanceSquared)
-         || AllyDistanceSquared >= FMath::Square(550.f)) continue;
+         || AllyDistanceSquared >= FMath::Square(550.f)
+         || Other->GetActorLocation().ContainsNaN()
+         || FMath::Abs(Other->GetActorLocation().Z-PackOrigin.Z)>100.0) continue;
      ++ConsideredAllies;
      // A corrupt infinite windup must not reserve an attack slot forever.
      // Failed/NaN timers also cannot represent a real active warning.
      if (FMath::IsFinite(Other->WindupEndsAt) && Other->WindupEndsAt > Now) {
-      if (++NearbyWindingAllies >= 2) break;
+      if (++NearbyWindingAllies >= MoonfallPackTactics::MaxWindingAllies) break;
      }
     }
-    if (NearbyWindingAllies >= 2) {
-     const float SlotDelay = 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
+    if (bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)) {
+     const bool bLeader = bElite && bDungeonRole
+       && ActorHasTag(FName(TEXT("MoonfallDungeonBonus")))
+       && ActorHasTag(FName(TEXT("DungeonPackLeader")));
+     const float SlotDelay = MoonfallPackTactics::RoleAdjustedSlotDelay(
+       MoonfallPackTactics::AttackSlotDelay(FMath::Max(NearbyWindingAllies,bParentWinding?1:0), GetUniqueID()),bLeader);
      NextAttackAt = Now + SlotDelay;
+     const float YieldStep=MoonfallPackTactics::YieldRepositionStep(Distance,AttackRange,SafeAIDelta,
+       !bElite&&bCanSeeHero&&Now>=HitReactionEndsAt&&Now>=PostureBrokenUntil);
+     if(YieldStep>0.f){
+      const FVector Side(-Difference.Y,Difference.X,0.f);
+      const FVector Offset=Side.GetSafeNormal2D()*MoonfallPackTactics::ApproachLaneSign(GetUniqueID())*YieldStep;
+      if(!Offset.ContainsNaN()&&!Offset.IsNearlyZero()){
+       FHitResult YieldHit;
+       AddActorWorldOffset(Offset,true,&YieldHit);
+      }
+     }
      return;
     }
    }
@@ -1719,6 +1839,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     bComboSecondHitPending = false;
     BossSpecialMove = 0;
    }
+   if (bRangedCombatRole) {
+    // Physical arrows and arcane bolts have distinct, readable windups.
+    CurrentWindup=FMath::Max(CurrentWindup,
+      MoonfallPackTactics::RangedProjectileWindup(bCasterCombatRole));
+    CurrentAttackMultiplier=FMath::Min(CurrentAttackMultiplier,bCasterCombatRole?1.f:1.1f);
+    CurrentAttackRangeMultiplier=1.f;
+    bComboSecondHitPending=false;
+    BossSpecialMove=0;
+   }
    if (bSanctuaryPractice) {
     // Allow new players to read and react to the existing visual tell.
     CurrentWindup = MoonfallPracticeAI::ReadableWindup(CurrentWindup, AttackSequence);
@@ -1726,7 +1855,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackRangeMultiplier = FMath::Min(CurrentAttackRangeMultiplier, 1.f);
    }
    bCompanionAttackCommitted=false;LockedCompanionTarget.Reset();
-   if(!bBoss&&!bElite&&!bSanctuaryPractice){
+   if(!bBoss&&!bElite&&!bSanctuaryPractice&&!bRangedCombatRole){
     if(auto* Mode=GetWorld()->GetAuthGameMode<AMoonfallUnrealGameMode>()){
      if(auto* Target=Mode->SelectCompanionCounterTarget(Hero,this,Now,AttackRange*CurrentAttackRangeMultiplier)){
       LockedCompanionTarget=Target;bCompanionAttackCommitted=true;
@@ -1739,6 +1868,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CommittedSwordAngle = bElite && !bBoss && !bSanctuaryPractice && !bCompanionAttackCommitted
      ? MoonfallOmniattack::EnemyAngle(Pattern) : -1;
    WindupEndsAt = Now + CurrentWindup;
+   if(bRangedCombatRole){
+    LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f);
+    if(!LockedRangedAimPoint.ContainsNaN()){
+     OnRangedAttackTelegraphed(LockedRangedAimPoint,CurrentWindup,bCasterCombatRole);
+     if(!IsValid(this)||IsActorBeingDestroyed())return;
+    }
+   } else LockedRangedAimPoint=FVector::ZeroVector;
    // A real visible attack commitment is a defensive assist opportunity,
    // even before the player lands their first strike. Practice foes excluded.
    if(!bBoss&&!bElite&&!bSanctuaryPractice&&bCanSeeHero&&!bCompanionAttackCommitted)

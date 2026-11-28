@@ -9,10 +9,72 @@ class LivingWorldPolicyTests(unittest.TestCase):
         code=r'''
 #include "MoonfallLivingSimulation.h"
 #include "MoonfallRoadLandmarks.h"
+#include "MoonfallLivingWorldPolicy.h"
+#include "MoonfallPackTactics.h"
 #include <cassert>
 #include <limits>
+#include <initializer_list>
 using namespace MoonfallLivingSimulation;
 int main(){
+ for(unsigned int actorId=0;actorId<16u;++actorId){
+  const unsigned int lane=actorId%8u;
+  assert(MoonfallPackTactics::ApproachLaneIndex(actorId)==lane);
+  assert(MoonfallPackTactics::ApproachLaneSign(actorId)==(lane%2u==0u?-1.f:1.f));
+  assert(MoonfallPackTactics::ApproachLaneDistance(actorId)==70.f+25.f*static_cast<float>(lane/2u));
+ }
+ assert(MoonfallPackTactics::ApproachLaneIndex(8u)==0u);
+ assert(MoonfallPackTactics::ApproachLaneDistance(7u)==145.f);
+ using MoonfallPackTactics::RoleAdjustedSlotDelay;
+ using MoonfallPackTactics::YieldRepositionStep;
+ assert(RoleAdjustedSlotDelay(0.5f,true)==0.4f);
+ assert(RoleAdjustedSlotDelay(0.5f,false)==0.5f);
+ assert(RoleAdjustedSlotDelay(0.f,true)==0.f);
+ assert(YieldRepositionStep(140,145,0.1f,true)==18.f);
+ assert(YieldRepositionStep(140,145,0.5f,true)==18.f);
+ assert(YieldRepositionStep(140,145,0.1f,false)==0.f);
+ assert(YieldRepositionStep(50,145,0.1f,true)==0.f);
+ assert(YieldRepositionStep(146,145,0.1f,true)==0.f);
+ assert(YieldRepositionStep(140,145,-1.f,true)==0.f);
+ assert(YieldRepositionStep(std::numeric_limits<double>::infinity(),145,0.1f,true)==0.f);
+ assert(MoonfallPackTactics::ShouldYieldAttackSlot(1));
+ assert(MoonfallPackTactics::ShouldYieldAttackSlot(2));
+ assert(!MoonfallPackTactics::ShouldYieldAttackSlot(0));
+ assert(!MoonfallPackTactics::ShouldYieldAttackSlot(-1));
+ assert(MoonfallPackTactics::AttackSlotDelay(0,7u)==0.f);
+ assert(MoonfallPackTactics::AttackSlotDelay(-1,7u)==0.f);
+ assert(MoonfallPackTactics::AttackSlotDelay(1,0u)>=0.4f);
+ assert(MoonfallPackTactics::AttackSlotDelay(1,3u)<=0.506f);
+ assert(MoonfallPackTactics::AttackSlotDelay(2,3u)<=0.656f);
+ assert(MoonfallPackTactics::AttackSlotDelay(2,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
+ assert(MoonfallPackTactics::AttackSlotDelay(1,0u)!=MoonfallPackTactics::AttackSlotDelay(1,1u));
+ assert(MoonfallPackTactics::AttackSlotDelay(99,3u)==MoonfallPackTactics::AttackSlotDelay(2,3u));
+ assert(MoonfallPackTactics::MaxScannedActors==64);
+ assert(MoonfallPackTactics::MaxNearbyCandidates==32);
+ assert(MoonfallPackTactics::MaxWindingAllies==2);
+ using MoonfallPackTactics::CombatRole;
+ assert(MoonfallPackTactics::RoleForEncounterSlot(0,false)==CombatRole::Scout);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(1,false)==CombatRole::Ranged);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(2,false)==CombatRole::Vanguard);
+ assert(MoonfallPackTactics::RoleForEncounterSlot(0,true)==CombatRole::PackLeader);
+ assert(MoonfallPackTactics::RoleForBossMinion(0)==CombatRole::Vanguard);
+ assert(MoonfallPackTactics::RoleForBossMinion(1)==CombatRole::Caster);
+ assert(MoonfallPackTactics::IsCasterRole(MoonfallPackTactics::RoleForBossMinion(1)));
+ assert(MoonfallPackTactics::IsRangedRole(MoonfallPackTactics::RoleForBossMinion(1)));
+ assert(MoonfallPackTactics::RangedProjectileSpeed(false)==850.f);
+ assert(MoonfallPackTactics::RangedProjectileSpeed(true)==650.f);
+ assert(MoonfallPackTactics::RangedProjectileWindup(false)==0.95f);
+ assert(MoonfallPackTactics::RangedProjectileWindup(true)==1.2f);
+ assert(MoonfallPackTactics::RangedProjectileDamageScale(true)==0.95f);
+ assert(MoonfallPackTactics::RangedAttackRange==520.f);
+ assert(MoonfallPackTactics::RangedRepositionMode(200.0)==-1);
+ assert(MoonfallPackTactics::RangedRepositionMode(390.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(500.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(501.0)==0);
+ assert(MoonfallPackTactics::RangedRepositionMode(521.0)==1);
+ assert(MoonfallPackTactics::RangedRepositionMode(-1.0)==0);
+ assert(MoonfallPackTactics::ShouldMinionYieldToBoss(true,true));
+ assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(true,false));
+ assert(!MoonfallPackTactics::ShouldMinionYieldToBoss(false,true));
  assert(MoonfallRoadLandmarks::AllLandmarksSafe());
  assert(MoonfallRoadLandmarks::ArtProfilesSafe());
  static_assert(sizeof(MoonfallRoadLandmarks::ArtProfiles)/sizeof(MoonfallRoadLandmarks::ArtProfiles[0])==6);
@@ -37,6 +99,88 @@ int main(){
  assert(!PauseResidentMotion(false,true,true,false));
  assert(!PauseResidentMotion(false,true,false,true));
  assert(!PauseResidentMotion(false,false,false,false));
+ // Test the same health boundary in support and tactical withdrawal.
+ for(int health=1;health<=100;++health){
+  assert(MoonfallWorldPolicy::CanCompanionSupportOffensively(float(health))==(health>25));
+  for(int role=0;role<3;++role){
+   auto tactic=MoonfallWorldPolicy::SelectCompanionTactic(float(health),3,role,true);
+   assert((tactic==MoonfallWorldPolicy::CompanionTactic::Withdraw)==(health<=25));
+  }
+ }
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(0));
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(101));
+ assert(!MoonfallWorldPolicy::CanCompanionSupportOffensively(std::numeric_limits<float>::quiet_NaN()));
+ assert(MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,350.0*350.0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12.01,10,1,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(9,10,1,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,0,0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,350.0*350.0+1));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,-1));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,std::numeric_limits<float>::quiet_NaN(),0));
+ assert(!MoonfallWorldPolicy::FreshCompanionThreat(12,10,1,std::numeric_limits<double>::infinity()));
+ using MoonfallWorldPolicy::FollowerStepBudget;
+ assert(FollowerStepBudget(200,0,0.2)==24);
+ assert(FollowerStepBudget(200,24,0.2)==48);
+ assert(FollowerStepBudget(200,48,0.2)==60);
+ assert(FollowerStepBudget(200,48,0.2,80)==72);
+ using MoonfallWorldPolicy::CompanionTravelFormation;
+ using MoonfallWorldPolicy::CompanionTravelStepCap;
+ assert(!CompanionTravelFormation(100*100,0,false,false));
+ assert(CompanionTravelFormation(100*100,0,true,false));
+ assert(CompanionTravelFormation(121*121,0,false,false));
+ assert(!CompanionTravelFormation(80*80,0,true,false));
+ assert(!CompanionTravelFormation(500*500,100,true,false));
+ assert(!CompanionTravelFormation(500*500,0,true,true));
+ assert(!CompanionTravelFormation(std::numeric_limits<double>::infinity(),0,true,false));
+ assert(CompanionTravelStepCap(300,0)==70);
+ assert(CompanionTravelStepCap(550,0)==80);
+ assert(CompanionTravelStepCap(550,500*500)==90);
+ assert(CompanionTravelStepCap(550,900*900)==100);
+ assert(CompanionTravelStepCap(-1,900*900)==60);
+ assert(FollowerStepBudget(200,72,0.2,80)==80);
+ assert(FollowerStepBudget(40,80,0.2,80)==20);
+ assert(FollowerStepBudget(200,80,0.5,80)==24);
+ assert(FollowerStepBudget(200,0,0.2,101)==0);
+ assert(FollowerStepBudget(200,0,0.2,0)==0);
+ assert(FollowerStepBudget(200,60,0.5)==24);
+ assert(FollowerStepBudget(40,60,0.2)==20);
+ assert(FollowerStepBudget(5,60,0.2)==5);
+ assert(FollowerStepBudget(0,60,0.2)==0);
+ assert(FollowerStepBudget(200,60,-1)==24);
+ assert(FollowerStepBudget(std::numeric_limits<double>::quiet_NaN(),60,0.2)==0);
+ assert(FollowerStepBudget(200,std::numeric_limits<double>::infinity(),0.2)==24);
+ for(int remaining=0;remaining<=200;++remaining){
+  const double step=FollowerStepBudget(remaining,48,0.2);
+  assert(step>=0&&step<=remaining&&step<=60);
+ }
+ assert(RegionalAllowsSocial(-1));
+ for(int danger=0;danger<=100;++danger)assert(RegionalAllowsSocial(danger)==(danger<65));
+ assert(RegionalAllowsSocial(101));
+ for(int region=0;region<6;++region){
+  for(int phase=0;phase<60;++phase){
+   const int variant=EncounterDialogueVariant(region,phase);
+   assert(variant>=0&&variant<3);
+   assert(EncounterDialogueVariant(region,phase+5)==(variant+1)%3);
+   assert(EncounterDialogueVariant(region,phase+15)==variant);
+  }
+ }
+ assert(EncounterDialogueVariant(5,std::numeric_limits<int>::max())>=0);
+ // Exhaust every valid danger level and boss count for every encounter kind.
+ for(int danger=0;danger<=100;++danger){
+  for(int bosses=0;bosses<=5;++bosses){
+   for(auto event:{EEvent::Merchant,EEvent::Patrol,EEvent::Rescue,EEvent::Dispute,EEvent::Monster}){
+    auto expected=event;
+    if(danger>=35&&event==EEvent::Dispute)expected=EEvent::Patrol;
+    if(danger>=65&&event==EEvent::Merchant)expected=EEvent::Patrol;
+    if(danger<35&&bosses==5&&event==EEvent::Monster)expected=EEvent::Merchant;
+    assert(ReactiveEncounter(event,EWeather::Clear,danger,bosses)==expected);
+    assert(ReactiveEncounter(event,EWeather::Storm,danger,bosses)==(event==EEvent::Patrol?EEvent::Patrol:EEvent::Rescue));
+   }
+  }
+ }
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,-1,0)==EEvent::Dispute);
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,101,0)==EEvent::Dispute);
+ assert(ReactiveEncounter(EEvent::Dispute,EWeather::Clear,50,6)==EEvent::Dispute);
  assert(ResidentWindowCount(0)==0);
  assert(ResidentWindowCount(1)==1);
  assert(ResidentWindowCount(19)==19);
@@ -119,7 +263,8 @@ int main(){
         with tempfile.TemporaryDirectory() as d:
             source=Path(d)/"sim.cpp";exe=Path(d)/"sim"
             source.write_text(code)
-            subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True,check=True)
+            compile_result=subprocess.run([compiler,"-std=c++17","-Wall","-Wextra","-Werror","-I",str(SRC),str(source),"-o",str(exe)],capture_output=True,text=True)
+            self.assertEqual(compile_result.returncode,0,compile_result.stderr)
             subprocess.run([str(exe)],check=True)
     def test_regional_crowns_and_dungeon_wall_art_are_visual_only(self):
         arena=(SRC/"MoonfallArena.cpp").read_text()
@@ -172,7 +317,7 @@ int main(){
         self.assertIn("bool bInConversation=false",npc_h)
         self.assertIn("bool bInConversation, int32 HeroBond, bool bAllowLocalGuide, bool bHoldCompanion)",movement)
         self.assertIn("PauseResidentMotion(",movement)
-        self.assertIn("bInConversation,bNearHero,bSheltering,bHoldPost",movement)
+        self.assertIn("bInConversation,bNearHero,bSheltering||bRegionalHome,bHoldPost||bRegionalWatch",movement)
         self.assertIn("if (MoonfallLivingSimulation::PauseResidentMotion(",movement)
         self.assertIn("inConversation || (nearHero && !sheltering && !holdingPost)",policy)
         self.assertIn("NPC->AdvanceLivingRoutine(Now,HeroLocation,",mode)
@@ -635,6 +780,7 @@ int main(){
     def test_v27_follower_navigation_commands_and_recovery(self):
         mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        npc_header=(SRC/"MoonfallWorldNPC.h").read_text()
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
         hud=(SRC/"MoonfallCombatHUD.cpp").read_text()
         self.assertIn("PulseFollower,0.2f,true",mode)
@@ -644,6 +790,27 @@ int main(){
         self.assertIn("AdvanceFollowerToward(Returning->AuthoredHomeLocation,Now,40.f)",mode)
         self.assertIn("AdvanceFollowerToward(OrderedFollowerDestination,Now,45.f)",mode)
         self.assertIn("NextFollowerPathAt=Now+1.f",npc)
+        self.assertIn("FollowerPathGoal=Goal",npc)
+        self.assertIn("FVector::DistSquared(Goal,FollowerPathGoal)>FMath::Square(120.0)",npc)
+        self.assertIn("if(Distance<=StopDistance&&bSameFloor){bFollowerWaypointValid=false;FollowerBlockedSteps=0;FollowerLastStep=0.0;return true;}",npc)
+        self.assertIn("FollowerStepBudget(Remaining,FollowerLastStep,Now-FollowerLastMoveAt,MaxStep)",npc)
+        self.assertIn("float MaxStep",npc)
+        self.assertIn("float MaxStep=60.f",npc_header)
+        self.assertIn("FollowerLastStep=FMath::Min(static_cast<double>(MaxStep),ActualMove.Size2D())",npc)
+        self.assertIn("!bFollowerWaypointValid&&bSameFloor&&FollowerBlockedSteps>=2",npc)
+        self.assertIn("FollowerBlockedSteps>=7?2:FollowerBlockedSteps+1",npc)
+        self.assertIn("else MarkBlocked();",npc)
+        move=npc.split("bool AMoonfallWorldNPC::AdvanceFollowerToward(",1)[1].split("bool AMoonfallWorldNPC::TrySafeFollowerCatchup(",1)[0]
+        self.assertEqual(move.count("LineTraceSingleByChannel("),3)
+        self.assertEqual(move.count("FindPathToLocationSynchronously("),1)
+        self.assertLess(move.index("if(bDetour)"),move.index("LineTraceSingleByChannel("))
+        self.assertIn("ActualMove=GetActorLocation()-Start",npc)
+        self.assertIn("FMath::FixedTurn(CurrentYaw,DesiredYaw,45.f)",npc)
+        self.assertIn("FMath::IsFinite(CurrentYaw)&&FMath::IsFinite(DesiredYaw)",npc)
+        self.assertIn("CompanionTravelFormation(Velocity.SizeSquared2D(),Velocity.Z",mode)
+        self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep",mode)
+        self.assertIn("Scout->bFollowerTravelFormation,bFreshThreat||Hero->IsRecentlyInCombatForAmbientAI()",mode)
+        self.assertIn("if(bTraveling!=Scout->bFollowerTravelFormation)",mode)
         self.assertIn("FindPathToLocationSynchronously",npc)
         self.assertIn("Ground.ImpactNormal.Z<0.65",npc)
         self.assertIn("AddActorWorldOffset(Move,true)",npc)
@@ -654,6 +821,78 @@ int main(){
         self.assertIn("Mode->ReviveLocalCompanion(this)",hero)
         self.assertIn('TEXT("Move ahead")',hud)
         self.assertIn('TEXT("Revive companion")',hud)
+
+    def test_v27_enemy_pack_attacks_use_bounded_deterministic_slots(self):
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        block=enemy.split("// Small-pack coordination:",1)[1].split(
+            "// Alternate quick strikes",1)[0]
+        self.assertIn('#include "MoonfallPackTactics.h"',enemy)
+        self.assertIn("MaxScannedActors",block)
+        self.assertIn("MaxNearbyCandidates",block)
+        self.assertIn("MaxWindingAllies",block)
+        self.assertIn("MoonfallPackTactics::ShouldYieldAttackSlot(NearbyWindingAllies)",block)
+        self.assertIn("MoonfallPackTactics::AttackSlotDelay(FMath::Max(NearbyWindingAllies,bParentWinding?1:0), GetUniqueID())",block)
+        self.assertIn("MoonfallPackTactics::ApproachLaneSign(LaneActorId)",enemy)
+        self.assertIn("MoonfallPackTactics::ApproachLaneDistance(LaneActorId)",enemy)
+        self.assertNotIn("NearbyWindingAllies >= 2",block)
+        self.assertIn("if (!bBoss && !bSanctuaryPractice && (!bElite || bDungeonRole))",block)
+        self.assertIn("Other->GetOwner() != GetOwner()",block)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",block)
+        self.assertEqual(block.count("TActorIterator<AMoonfallEnemy>"),1)
+        self.assertIn("Other->ActorHasTag(PracticeSimulationTag)",block)
+        self.assertIn("FMath::Abs(Other->GetActorLocation().Z-PackOrigin.Z)>100.0",block)
+        self.assertIn("RoleAdjustedSlotDelay(",block)
+        self.assertIn("YieldRepositionStep(Distance,AttackRange,SafeAIDelta",block)
+        self.assertIn("!bElite&&bCanSeeHero&&Now>=HitReactionEndsAt&&Now>=PostureBrokenUntil",block)
+        self.assertEqual(block.count("AddActorWorldOffset(Offset,true,&YieldHit)"),1)
+        self.assertLess(block.index("NextAttackAt = Now + SlotDelay"),block.index("YieldRepositionStep("))
+        self.assertNotIn("FindPathToLocationSynchronously",block)
+
+    def test_v27_dungeon_combat_roles_ranged_spacing_and_boss_minions(self):
+        dungeon=(SRC/"MoonfallDungeonLayout.cpp").read_text()
+        enemy=(SRC/"MoonfallEnemy.cpp").read_text()
+        policy=(SRC/"MoonfallPackTactics.h").read_text()
+        regular=dungeon.split("bool AMoonfallDungeonLayout::StartCombatChamber(",1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber",1)[0]
+        bonus=dungeon.split("bool AMoonfallDungeonLayout::TrySpawnBonusGroup(",1)[1].split(
+            "int32 AMoonfallDungeonLayout::GetOrLockEncounterLevel",1)[0]
+        boss=dungeon.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(",1)[1]
+        self.assertIn("RoleForEncounterSlot(Spawned,bEliteEncounter)",regular)
+        self.assertIn('FName(TEXT("DungeonScout"))',regular)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Ranged"))',regular)
+        self.assertIn("RoleForEncounterSlot(Member,Enemy->bElite)",bonus)
+        self.assertIn("RangedAttackRange=520.f",policy)
+        self.assertIn("RangedPreferredRange=390.0",policy)
+        self.assertIn("RangedMinimumRange=280.0",policy)
+        self.assertIn("RangedMaximumRange=520.0",policy)
+        self.assertIn("RangedRepositionMode(Distance)",enemy)
+        self.assertIn("Target=HeroPosition-TowardHero*MoonfallPackTactics::RangedPreferredRange",enemy)
+        self.assertIn("Distance > EffectiveAttackRange",enemy)
+        self.assertIn("RangedProjectileWindup(bCasterCombatRole)",enemy)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemyProjectile>",enemy)
+        self.assertIn("LockedRangedAimPoint=HeroPosition+FVector(0.f,0.f,55.f)",enemy)
+        self.assertIn("OnRangedAttackTelegraphed(",enemy)
+        projectile=(SRC/"MoonfallEnemyProjectile.cpp").read_text()
+        self.assertIn("UProjectileMovementComponent",projectile)
+        self.assertIn("ECC_Pawn,ECR_Overlap",projectile)
+        self.assertIn("TryRewardPerfectDodge()",projectile)
+        self.assertIn("ApplyMoonfallDamageFrom(Damage,ImpactPoint)",projectile)
+        self.assertIn("Boss->DungeonChamberIndex = ChamberCount-1;",boss)
+        self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallBossEncounter")));',boss)
+        self.assertIn("if (Rank>=3)",boss)
+        self.assertIn("RoleForBossMinion(MinionIndex)",boss)
+        self.assertIn('FName(TEXT("MoonfallBossMinion"))',boss)
+        self.assertIn('FName(TEXT("MoonfallEnemyRole_Caster"))',boss)
+        self.assertIn("Minion->DungeonChamberIndex=ChamberCount-1;",boss)
+        self.assertIn("if (!bAllMinionsSpawned || BossMinions.Num()!=2) RollbackBossMinions();",boss)
+        self.assertIn("ShouldMinionYieldToBoss(",enemy)
+        self.assertIn("Minion->EncounterBoss=Boss;",boss)
+        self.assertIn("bParentWinding || MoonfallPackTactics::ShouldYieldAttackSlot",enemy)
+        self.assertIn("Parent->Health<=0.f",enemy)
+        self.assertIn("Other->ActorHasTag(BossEncounterTag)",enemy)
+        self.assertIn("Other->GetOwner() != GetOwner()",enemy)
+        self.assertIn("Other->DungeonChamberIndex != DungeonChamberIndex",enemy)
+        self.assertEqual(enemy.count("TActorIterator<AMoonfallEnemy>"),1)
 
     def test_v27_companion_equipment_transfer_is_owned_and_transactional(self):
         hero=(SRC/"MoonfallHeroPawn.cpp").read_text()
@@ -698,8 +937,24 @@ int main(){
             "bool AMoonfallUnrealGameMode::SetLocalCompanionStance(",1)[0]
         self.assertLess(strike.index("GetRecentCompanionAssistTarget(Age)"),strike.index("Enemy=CompanionThreat.Get()"))
         self.assertIn("Age<0.f||Age>2.f",strike)
+        self.assertIn("if(!CanAssist(Enemy,Age))",strike)
+        self.assertIn("Age>2.f||!CanAssist(Enemy,Age)",strike)
+        self.assertIn("!FMath::IsFinite(Enemy->Health)",strike)
+        self.assertIn("Enemy->bPostureFinisherAvailable||Now<Enemy->PostureBrokenUntil",strike)
+        self.assertLess(strike.index("CanCompanionStrike(Age"),strike.index("Enemy=CompanionThreat.Get()"))
+        self.assertEqual(strike.count("LineTraceSingleByChannel("),1)
         self.assertIn("Enemy->TryCompanionSupportStrike(StrikeDamage)",strike)
-        self.assertIn("Now-CompanionThreatAt<=2.f)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("&&bFreshThreat)TryLocalCompanionStrike(Hero,Now)",mode)
+        self.assertIn("FreshCompanionThreat(Now,CompanionThreatAt,Existing->Health",report)
+        self.assertIn("CanCompanionSupportOffensively(Scout->CompanionHealth)",strike)
+        self.assertIn("const bool bFreshThreat=IsFreshThreat(CompanionThreat.Get())",mode)
+        self.assertIn("if(!bFreshThreat){CompanionThreat.Reset();CompanionThreatAt=-1000.f;}",mode)
+        self.assertIn("FMath::Abs(Player.Z-Threat->GetActorLocation().Z)<=100.0",mode)
+        self.assertIn("PreviousIntent!=Scout->LivingIntent)ResetFollowerMomentum()",mode)
+        self.assertIn("CompanionTravelStepCap(HeroSpeed,Separation)",mode)
+        self.assertIn("Player-Forward*200.0+Side*90.0*Sign,Now,85.f,AdaptiveMaxStep",mode)
+        self.assertIn("Scout->FollowerLastMoveAt=-1.f",mode)
+        self.assertIn("LocalCompanion.Get()!=Scout||!IsLocalCompanionOwner(Hero)",mode)
         self.assertIn("CompanionThreat.Reset();CompanionThreatAt=-1000.f",mode)
 
     def test_v27_companion_counterattack_is_committed_and_has_no_hero_fallback(self):
@@ -850,7 +1105,7 @@ int main(){
         movement=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split(
             "int32 AMoonfallWorldNPC::GetBondWithHero",1)[0]
         self.assertIn("bReviewingCombatReport=false;",movement)
-        self.assertIn("bGuard && !bInConversation",movement)
+        self.assertIn("bGuard && !bRegionalWatch && !bInConversation",movement)
         self.assertIn("bReviewingCombatReport=Society->GetNearbyCombatReport",movement)
         self.assertIn('TEXT("Reviewing Reports")',movement)
         self.assertNotIn("WitnessNearbyDanger(",movement)
@@ -861,6 +1116,28 @@ int main(){
         self.assertLess(talk.index("Now-LastDangerAt<85.f"),talk.index("GetNearbyCombatReport"))
         self.assertNotIn("ChangeResidentBond(",talk)
         self.assertNotIn("ReportWitnessToGuard(",talk)
+        self.assertIn('Disposition==TEXT("Friendly")',talk)
+        self.assertIn("&&Bond>-60&&Bond<60",talk)
+        self.assertLess(talk.index('Disposition==TEXT("Friendly")'),talk.index("SupportsResidentContract"))
+        self.assertIn("RegionalDanger>=65&&RegionalDanger<=100",talk)
+        self.assertIn("Reaction.ToString()+RegionalWarning",talk)
+        for role in ("Merchant","Guard","Scout"):
+            self.assertIn('SocialRole==FName(TEXT("'+role+'"))',talk)
+        self.assertNotIn("ChangeFactionReputation(",talk)
+        self.assertIn("Mode->GetLocalCompanionForHero(Hero)==this",talk)
+        self.assertIn("bActiveCompanion&&Disposition",talk)
+        self.assertIn("!bAmbientVisitor&&!bActiveCompanion&&Disposition",talk)
+        self.assertLess(talk.index("if(bCompanionDowned)PartyLine"),talk.index("Mode->LocalCompanionStance==EMoonfallCompanionStance::Hold"))
+        self.assertLess(talk.index("SupportsResidentContract"),talk.index("Reaction.ToString()+PartyLine"))
+        self.assertNotIn("SetLocalCompanionStance(",talk)
+        self.assertNotIn("SetLocalCompanionRole(",talk)
+        self.assertIn("!Hero->IsRecentlyInCombatForAmbientAI()",talk)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()",talk)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()",talk)
+        self.assertIn("if(!bCompanionDowned&&Mode->LocalCompanionStance==EMoonfallCompanionStance::Follow",talk)
+        self.assertLess(talk.index("if(bActiveCompanion&&Disposition"),talk.index("Hero->GetTotalDefeatedDungeonBosses()"))
+        self.assertNotIn("MarkDungeonBossDefeated(",talk)
+        self.assertNotIn("DiscoverDungeonEntrance(",talk)
 
     def test_v27_guard_watch_points_stay_inside_authored_patrol(self):
         npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
@@ -1019,6 +1296,10 @@ int main(){
             self.assertIn(region,rumor)
         self.assertEqual(rumor.count("TEXT("),6)
         self.assertIn("Visitor->Greeting=FText::FromString(Story);",mode)
+        self.assertIn("EncounterDialogueVariant(Region,Phase)",mode)
+        for group in ("MerchantGreetings","PatrolGreetings","WayfarerGreetings","DisputeGreetings"):
+            self.assertIn(group+"[3]",mode)
+            self.assertIn("FText::FromString("+group+"[DialogueVariant])",mode)
         self.assertIn("MoonfallLivingSimulation::Severe(CurrentWeather)",mode)
         self.assertIn("if (Region>=0 && Region<6)",mode)
         self.assertNotIn("SaveWorldProgress",rumor)
@@ -1281,5 +1562,37 @@ int main(){
         self.assertNotIn("SetTimer(",pulse)
         self.assertIn('static_assert(StepRegionalPressure(58,true)==60',policy)
         self.assertIn('static_assert(ReactiveEncounter(EEvent::Monster,EWeather::Storm,10,5)==EEvent::Rescue',policy)
+
+    def test_regional_concern_is_not_witness_memory(self):
+        npc=(SRC/"MoonfallWorldNPC.cpp").read_text()
+        query=npc.split("int32 AMoonfallWorldNPC::GetLocalRegionalDanger()",1)[1].split("\n}",1)[0]
+        self.assertIn('SettlementId==FName(TEXT("Firstlight"))',query)
+        self.assertIn("AuthoredHomeLocation.Y>-1800.f",query)
+        self.assertIn("bAmbientVisitor||!bUsePersonalityRoutines",query)
+        routine=npc.split("void AMoonfallWorldNPC::AdvanceLivingRoutine(",1)[1].split("\n}",1)[0]
+        self.assertIn("RegionalRoutine(Role,GetLocalRegionalDanger()",routine)
+        self.assertIn("!bInConversation&&!bSheltering&&!bHoldPost",routine)
+        self.assertIn("RegionalRoutineAllowsGuide(Regional)",routine)
+        self.assertNotIn("WitnessNearbyDanger(",routine)
+        self.assertNotIn("PublishObservation(",routine)
+        self.assertIn("RegionalRoutineStepLimit(Regional)",routine)
+        self.assertIn("bSheltering||bRegionalHome,bHoldPost||bRegionalWatch",routine)
+        self.assertIn("if(bRegionalWatch){Side=0.f;Front=0.f;}",routine)
+        self.assertIn("GetClampedToMaxSize2D(RoutineStep)",routine)
+        self.assertIn("if(bGuide||bRegionalHome||bRegionalWatch||bSheltering||bHoldPost)",routine)
+        self.assertLess(routine.index("if(bGuide||bRegionalHome||bRegionalWatch||bSheltering||bHoldPost)"),routine.index("LineTraceSingleByChannel"))
+        self.assertIn("bReviewingCombatReport && !bRegionalWatch && !bHoldPost",routine)
+        self.assertIn("bGuard && !bRegionalWatch && !bInConversation",routine)
+        self.assertLess(routine.index("LineTraceSingleByChannel"),routine.index("AddActorWorldOffset"))
+        activity=npc.split("FString AMoonfallWorldNPC::GetCurrentActivity() const",1)[1].split("\n}",1)[0]
+        self.assertIn("RegionalRoutine(Role,GetLocalRegionalDanger()",activity)
+        self.assertIn("bRegionalIntent&&Regional!=MoonfallLivingSimulation::ERegionalRoutine::Normal",activity)
+        self.assertIn("Regional!=MoonfallLivingSimulation::ERegionalRoutine::GuardWatch",activity)
+        self.assertIn("!LivingIntent.IsEmpty() && !bRegionalIntent",activity)
+        self.assertIn('LivingIntent!=TEXT("Seeking Shelter")',activity)
+        mode=(SRC/"MoonfallUnrealGameMode.cpp").read_text()
+        pulse=mode.split("void AMoonfallUnrealGameMode::PulseLivingWorld()",1)[1]
+        self.assertLess(pulse.index("RegionalAllowsSocial(NPC->GetLocalRegionalDanger())"),pulse.index("SocialCandidates.Add(NPC)"))
+        self.assertIn('NPC->LivingIntent!=TEXT("Meal Break")',pulse)
 
 if __name__=="__main__":unittest.main()
