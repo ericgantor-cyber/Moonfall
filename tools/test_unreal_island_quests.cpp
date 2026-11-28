@@ -220,6 +220,18 @@ int main() {
     assert(MoonfallMoney::GearSalePrice(26,5,3)==0);
     assert(MoonfallMoney::GearSalePrice(1,0,1)==0);
     assert(MoonfallMoney::GearSalePrice(1,6,0)==0);
+    assert(MoonfallMoney::ContractReward(1,1)==100);
+    assert(MoonfallMoney::ContractReward(30,100)==1175);
+    assert(MoonfallMoney::ContractReward(0,1)==0&&MoonfallMoney::ContractReward(31,1)==0);
+    assert(MoonfallMoney::ContractReward(1,0)==0&&MoonfallMoney::ContractReward(1,101)==0);
+    for(int Cost=1;Cost<=30;++Cost)for(int L=1;L<=100;++L){
+      const auto Reward=MoonfallMoney::ContractReward(Cost,L);
+      assert(Reward>=100&&Reward<=1175);
+      assert(MoonfallMoney::ContractCredit(Cost,L,0)==Reward);
+      assert(MoonfallMoney::ContractCredit(Cost,L,MoonfallMoney::MaxCoins-1)==1);
+      assert(MoonfallMoney::ContractCredit(Cost,L,MoonfallMoney::MaxCoins)==0);
+      assert(MoonfallMoney::ContractCredit(Cost,L,-1)==0);
+    }
     assert(MoonfallMoney::HistoricalSalePrice(1,1,0,0)==40);
     assert(MoonfallMoney::ValidHistoricalSale(1,25,5,3,2430));
     assert(!MoonfallMoney::ValidHistoricalSale(1,25,5,3,2431));

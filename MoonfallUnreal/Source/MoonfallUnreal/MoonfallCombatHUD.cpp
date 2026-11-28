@@ -937,7 +937,8 @@ void AMoonfallCombatHUD::DrawHUD()
     FString RewardLabel=FString::Printf(TEXT("%d salvage | +%d XP"),ContractCost,QuestReward.RewardXP);
     if (Hero->Level==100) RewardLabel=FString::Printf(TEXT("%d salvage | MAX LEVEL"),ContractCost);
     else if (QuestReward.LevelsGained>0) RewardLabel+=FString::Printf(TEXT(" | Lv %d"),QuestReward.FinalLevel);
-    if (W>=390.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
+    RewardLabel+=FString::Printf(TEXT(" | +%lldc"),static_cast<long long>(MoonfallMoney::ContractCredit(ContractCost,Hero->Level,Hero->WalletCopper)));
+    if (W>=480.f) RewardLabel+=FString::Printf(TEXT(" | %s"),UTF8_TO_TCHAR(MoonfallQuestXP::RankName(ContractCost)));
     DrawText(RewardLabel, FLinearColor(0.85f,0.78f,0.98f),L+18.f,T+99.f,nullptr,W<390.f?0.65f:0.76f);
    }
    if(H>=337.f+53.f*(Hero->GetResidentContextRowCount()-3)) DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
