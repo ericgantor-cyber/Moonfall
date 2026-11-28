@@ -12,6 +12,7 @@
 #include "MoonfallQuestJournal.h"
 #include "MoonfallGearAdvisorPolicy.h"
 #include "MoonfallFishing.h"
+#include "MoonfallSkillMastery.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -449,6 +450,9 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
+ // Read-only session preview; no Blueprint reward entry point.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetSkillMasteryXP(int32 SkillIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Mastery") int32 GetSkillMasteryRank(int32 SkillIndex) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
@@ -596,6 +600,9 @@ public:
  void OnSpellImpact(int32 School, bool bLeftHand, FVector ImpactPoint,
    float AppliedDamage, bool bCritical, bool bKillingBlow);
 private:
+ MoonfallSkillMastery::State SessionMastery{};
+ bool IsSkillMasteryPreviewEnabled() const;
+ void AwardConfirmedSkillMastery(MoonfallSkillMastery::Action Action);
  // Raw worn references are for validation and ownership protection only.
  int32 GetRawEquipmentSlotCode(int32 Slot) const;
  int32 GetCraftEquipmentSlot(int32 Code) const;
