@@ -192,6 +192,9 @@ public:
  int32 MerchantTradeMode=0,MerchantStockIndex=0,MerchantStockLevel=1,MerchantBuybackCode=0;
  int64 MerchantBuybackPrice=0;
  int32 MerchantStockFaction=0,MerchantStockStanding=0;
+ TArray<int64> MerchantRestockUtc={0,0,0,0};
+ bool IsMerchantSpecialtySelected() const;
+ int64 GetMerchantSpecialtyWait() const;
  int32 GetMerchantStockCount() const;
  FString GetMerchantStandingText() const;
  int32 GetMerchantStockCode() const;
