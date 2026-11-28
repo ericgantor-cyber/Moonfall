@@ -7,6 +7,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMoonfallWaterRulesTest, "Moonfall.Traversal.Ox
 bool FMoonfallWaterRulesTest::RunTest(const FString& Parameters)
 {
     using namespace MoonfallWaterRules;
+    TestTrue(TEXT("Retain nearly equivalent previous guide"),GuidePriority(350.0,true)<GuidePriority(300.0,false));
+    TestTrue(TEXT("Switch to much nearer source"),GuidePriority(500.0,true)>GuidePriority(300.0,false));
+    TestTrue(TEXT("Insufficient breath estimate"),GuideBreathWarning(8.f,200.f,5.f));
+    TestFalse(TEXT("Ample breath estimate"),GuideBreathWarning(8.f,200.f,20.f));
+    TestFalse(TEXT("Invalid speed has no estimate"),GuideBreathWarning(8.f,0.f,5.f));
     TestEqual(TEXT("Guide distance to edge"),GuideEdgeDistance(500.0,160.0),340.0);
     TestEqual(TEXT("Already breathing"),GuideEdgeDistance(150.0,160.0),-1.0);
     TestEqual(TEXT("Out of guide range"),GuideEdgeDistance(1201.0,160.0),-1.0);
